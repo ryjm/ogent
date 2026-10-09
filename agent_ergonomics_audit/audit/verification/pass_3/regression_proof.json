@@ -1,0 +1,3916 @@
+{
+  "recorded_at": "2026-10-08T23:47:59.674342+00:00",
+  "status": "complete",
+  "verifier": {
+    "path": "agent_ergonomics_audit/tools/verify_pass3_regressions.py",
+    "sha256": "e98e7dbb6bcc9c5f772f1f9fac261035518e8d893a4a4bb08fd4bd0b08762e3d"
+  },
+  "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "current_revision": "5d07d807bc85a093725db24e33996b4af690ec0f",
+  "container": "ogent-fixes",
+  "timeout_seconds": 90,
+  "large_baseline_timeout_seconds": 150,
+  "count_note": "ERT tests and R023 real-runner shell cases are separate count units.",
+  "attribution_note": "Selectors overlap; wrapper proofs do not assign unique causal uplift to individual recommendations.",
+  "records": [
+    {
+      "recommendation_id": "R013",
+      "test_path": "agent_ergonomics_audit/audit/regression_tests/R013__named_calls.test.sh",
+      "test_inputs_sha256": {
+        "agent_ergonomics_audit/audit/regression_tests/R013__named_calls.test.sh": "c3080e92f799ca9729a8198100b723f480f621225876857a32d8336bb4866dff",
+        "agent_ergonomics_audit/tools/run-ert.sh": "a9e618a585ad6496b8f3947e0ca14b0a90e8c5be1e7bdcfcf19e1387437bc4af",
+        "test/ogent-test-helper.el": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+        "test/ogent-agent-execution-tests.el": "8399fef34556907c982300bd374982eedb8171a010357d761d0bc067ca5a28b1"
+      },
+      "contract": {
+        "kind": "ert",
+        "runs": [
+          {
+            "selector": "ogent-agent-execution-",
+            "test_file": "test/ogent-agent-execution-tests.el",
+            "expected_count": 58,
+            "expected_names": [
+              "ogent-agent-execution-aliases-exact-and-ambiguous",
+              "ogent-agent-execution-aliases-share-policy",
+              "ogent-agent-execution-async-and-sync-failures-in-ledger",
+              "ogent-agent-execution-async-custom-once-and-sync-rejection",
+              "ogent-agent-execution-async-denial-and-cancel",
+              "ogent-agent-execution-async-immediate-result-returns-nil",
+              "ogent-agent-execution-async-ledger-context-survives-project-switch",
+              "ogent-agent-execution-async-ledger-failure-preserves-tool-error",
+              "ogent-agent-execution-async-ledger-records-success",
+              "ogent-agent-execution-async-ledger-write-failure-retains-terminal",
+              "ogent-agent-execution-async-malformed-result-delivers-once",
+              "ogent-agent-execution-async-real-process-and-ledger",
+              "ogent-agent-execution-batch-composes-read-tools",
+              "ogent-agent-execution-batch-continues-or-stops",
+              "ogent-agent-execution-batch-freezes-calls-and-argument-strings",
+              "ogent-agent-execution-batch-freezes-canonical-alias-target",
+              "ogent-agent-execution-batch-freezes-nested-object-values",
+              "ogent-agent-execution-batch-inplace-effects-change",
+              "ogent-agent-execution-batch-preflight-prevents-unsafe-prefix",
+              "ogent-agent-execution-denial-and-approval-required",
+              "ogent-agent-execution-discovery-example-executes",
+              "ogent-agent-execution-discovery-exposes-real-call-shapes",
+              "ogent-agent-execution-discovery-schema-and-purity",
+              "ogent-agent-execution-failures-recorded",
+              "ogent-agent-execution-glob-complete-pagination",
+              "ogent-agent-execution-glob-json-empty-and-weird-paths",
+              "ogent-agent-execution-glob-raw-filenames-error-before-filtering",
+              "ogent-agent-execution-glob-raw-root-contract",
+              "ogent-agent-execution-glob-star-stays-in-component",
+              "ogent-agent-execution-json-unsupported-extension-callback-once",
+              "ogent-agent-execution-json-unsupported-path-delivers-error",
+              "ogent-agent-execution-ledger-start-failure-prevents-effects",
+              "ogent-agent-execution-legacy-async-ledger-failure-visible-once",
+              "ogent-agent-execution-model-detects-object-schema-mutation",
+              "ogent-agent-execution-model-freezes-argument-strings",
+              "ogent-agent-execution-model-freezes-metadata-strings",
+              "ogent-agent-execution-model-freezes-object-arguments",
+              "ogent-agent-execution-model-inplace-change-during-approval",
+              "ogent-agent-execution-model-json-async-callback",
+              "ogent-agent-execution-model-json-pages-and-cache-refresh",
+              "ogent-agent-execution-model-json-unicode-transport",
+              "ogent-agent-execution-model-refreshes-object-schema-cache",
+              "ogent-agent-execution-model-stale-after-approval",
+              "ogent-agent-execution-named-call-and-json",
+              "ogent-agent-execution-next-freezes-path-and-follows-json",
+              "ogent-agent-execution-next-refuses-changed-snapshot",
+              "ogent-agent-execution-next-retains-long-line-characters",
+              "ogent-agent-execution-process-grep-integration",
+              "ogent-agent-execution-process-raw-query-contract",
+              "ogent-agent-execution-process-raw-root-contract",
+              "ogent-agent-execution-process-shell-failures-retain-data",
+              "ogent-agent-execution-read-empty-and-invalid",
+              "ogent-agent-execution-read-long-line-continuation",
+              "ogent-agent-execution-read-respects-configured-default",
+              "ogent-agent-execution-read-structured-pages",
+              "ogent-agent-execution-sync-ledger-context-survives-tool-context-change",
+              "ogent-agent-execution-sync-ledger-failure-retains-completed-data",
+              "ogent-agent-execution-validates-before-policy"
+            ]
+          }
+        ],
+        "expected_count": 58,
+        "count_unit": "ERT tests"
+      },
+      "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "baseline": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "150",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R013__named_calls.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:42:42.947642+00:00",
+        "duration_seconds": 128.548,
+        "exit_code": 1,
+        "timed_out": false,
+        "timeout_seconds": 150,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R013-baseline.log",
+        "log_sha256": "3a471d9077e41d4cde4604435bc3eed9f6d1af9f1dea4d60a67370d94fd74cf5",
+        "source": {
+          "revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+          "source_root": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "source_root_in_container": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "tracked_source_clean": true,
+          "verified_git_archive": true,
+          "source_fingerprint_sha256": "307043b8873701e3bc746b75a7c1c5235001dc9517fbb9c15f9cf5ca32baf22c",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/baseline-source.json",
+          "manifest_sha256": "35ed30d194153dd7833a63a4e3c160d6b6c5510b35fa98053bacc31542922fe5"
+        },
+        "selected_count": 58,
+        "completed_count": 58,
+        "executed_count": 58,
+        "skipped_count": 0,
+        "unexpected_count": 57,
+        "runs": [
+          {
+            "selected": 58,
+            "completed": 58,
+            "expected": 1,
+            "unexpected": 57,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "passed",
+                "index": 1,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-aliases-exact-and-ambiguous"
+              },
+              {
+                "status": "FAILED",
+                "index": 2,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-aliases-share-policy"
+              },
+              {
+                "status": "FAILED",
+                "index": 3,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-and-sync-failures-in-ledger"
+              },
+              {
+                "status": "FAILED",
+                "index": 4,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-custom-once-and-sync-rejection"
+              },
+              {
+                "status": "FAILED",
+                "index": 5,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-denial-and-cancel"
+              },
+              {
+                "status": "FAILED",
+                "index": 6,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-immediate-result-returns-nil"
+              },
+              {
+                "status": "FAILED",
+                "index": 7,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-ledger-context-survives-project-switch"
+              },
+              {
+                "status": "FAILED",
+                "index": 8,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-ledger-failure-preserves-tool-error"
+              },
+              {
+                "status": "FAILED",
+                "index": 9,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-ledger-records-success"
+              },
+              {
+                "status": "FAILED",
+                "index": 10,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-ledger-write-failure-retains-terminal"
+              },
+              {
+                "status": "FAILED",
+                "index": 11,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-malformed-result-delivers-once"
+              },
+              {
+                "status": "FAILED",
+                "index": 12,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-real-process-and-ledger"
+              },
+              {
+                "status": "FAILED",
+                "index": 13,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-batch-composes-read-tools"
+              },
+              {
+                "status": "FAILED",
+                "index": 14,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-batch-continues-or-stops"
+              },
+              {
+                "status": "FAILED",
+                "index": 15,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-batch-freezes-calls-and-argument-strings"
+              },
+              {
+                "status": "FAILED",
+                "index": 16,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-batch-freezes-canonical-alias-target"
+              },
+              {
+                "status": "FAILED",
+                "index": 17,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-batch-freezes-nested-object-values"
+              },
+              {
+                "status": "FAILED",
+                "index": 18,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-batch-inplace-effects-change"
+              },
+              {
+                "status": "FAILED",
+                "index": 19,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-batch-preflight-prevents-unsafe-prefix"
+              },
+              {
+                "status": "FAILED",
+                "index": 20,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-denial-and-approval-required"
+              },
+              {
+                "status": "FAILED",
+                "index": 21,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-discovery-example-executes"
+              },
+              {
+                "status": "FAILED",
+                "index": 22,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-discovery-exposes-real-call-shapes"
+              },
+              {
+                "status": "FAILED",
+                "index": 23,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-discovery-schema-and-purity"
+              },
+              {
+                "status": "FAILED",
+                "index": 24,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-failures-recorded"
+              },
+              {
+                "status": "FAILED",
+                "index": 25,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-glob-complete-pagination"
+              },
+              {
+                "status": "FAILED",
+                "index": 26,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-glob-json-empty-and-weird-paths"
+              },
+              {
+                "status": "FAILED",
+                "index": 27,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-glob-raw-filenames-error-before-filtering"
+              },
+              {
+                "status": "FAILED",
+                "index": 28,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-glob-raw-root-contract"
+              },
+              {
+                "status": "FAILED",
+                "index": 29,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-glob-star-stays-in-component"
+              },
+              {
+                "status": "FAILED",
+                "index": 30,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-json-unsupported-extension-callback-once"
+              },
+              {
+                "status": "FAILED",
+                "index": 31,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-json-unsupported-path-delivers-error"
+              },
+              {
+                "status": "FAILED",
+                "index": 32,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-ledger-start-failure-prevents-effects"
+              },
+              {
+                "status": "FAILED",
+                "index": 33,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-legacy-async-ledger-failure-visible-once"
+              },
+              {
+                "status": "FAILED",
+                "index": 34,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-detects-object-schema-mutation"
+              },
+              {
+                "status": "FAILED",
+                "index": 35,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-freezes-argument-strings"
+              },
+              {
+                "status": "FAILED",
+                "index": 36,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-freezes-metadata-strings"
+              },
+              {
+                "status": "FAILED",
+                "index": 37,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-freezes-object-arguments"
+              },
+              {
+                "status": "FAILED",
+                "index": 38,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-inplace-change-during-approval"
+              },
+              {
+                "status": "FAILED",
+                "index": 39,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-json-async-callback"
+              },
+              {
+                "status": "FAILED",
+                "index": 40,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-json-pages-and-cache-refresh"
+              },
+              {
+                "status": "FAILED",
+                "index": 41,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-json-unicode-transport"
+              },
+              {
+                "status": "FAILED",
+                "index": 42,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-refreshes-object-schema-cache"
+              },
+              {
+                "status": "FAILED",
+                "index": 43,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-stale-after-approval"
+              },
+              {
+                "status": "FAILED",
+                "index": 44,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-named-call-and-json"
+              },
+              {
+                "status": "FAILED",
+                "index": 45,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-next-freezes-path-and-follows-json"
+              },
+              {
+                "status": "FAILED",
+                "index": 46,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-next-refuses-changed-snapshot"
+              },
+              {
+                "status": "FAILED",
+                "index": 47,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-next-retains-long-line-characters"
+              },
+              {
+                "status": "FAILED",
+                "index": 48,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-process-grep-integration"
+              },
+              {
+                "status": "FAILED",
+                "index": 49,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-process-raw-query-contract"
+              },
+              {
+                "status": "FAILED",
+                "index": 50,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-process-raw-root-contract"
+              },
+              {
+                "status": "FAILED",
+                "index": 51,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-process-shell-failures-retain-data"
+              },
+              {
+                "status": "FAILED",
+                "index": 52,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-read-empty-and-invalid"
+              },
+              {
+                "status": "FAILED",
+                "index": 53,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-read-long-line-continuation"
+              },
+              {
+                "status": "FAILED",
+                "index": 54,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-read-respects-configured-default"
+              },
+              {
+                "status": "FAILED",
+                "index": 55,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-read-structured-pages"
+              },
+              {
+                "status": "FAILED",
+                "index": 56,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-sync-ledger-context-survives-tool-context-change"
+              },
+              {
+                "status": "FAILED",
+                "index": 57,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-sync-ledger-failure-retains-completed-data"
+              },
+              {
+                "status": "FAILED",
+                "index": 58,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-validates-before-policy"
+              }
+            ],
+            "summary": "Ran 58 tests, 1 results as expected, 57 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      },
+      "proven": true,
+      "coverage_note": "Broad execution selector overlaps R014-R022. It proves wrapper coverage, not causal unique per-change scoring.",
+      "current": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R013__named_calls.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:47:32.345201+00:00",
+        "duration_seconds": 3.624,
+        "exit_code": 0,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R013-current.log",
+        "log_sha256": "7e44d8f70b26f3cba140a87d23c5054b22c894428e41c6b0cd4a9c84c529ae07",
+        "source": {
+          "revision": "5d07d807bc85a093725db24e33996b4af690ec0f",
+          "source_root": "/workspace/ogent",
+          "source_root_in_container": "/work",
+          "tracked_source_clean": true,
+          "verified_git_archive": false,
+          "source_fingerprint_sha256": "afb5e9e59919436113b496c20601962ad37bf0e1ce7308624ed5b9c3051fe72a",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/current-source.json",
+          "manifest_sha256": "b514f47573a16e0324fe769c8482ea1270bb218e22247816d0fd9d5a7a4069da"
+        },
+        "selected_count": 58,
+        "completed_count": 58,
+        "executed_count": 58,
+        "skipped_count": 0,
+        "unexpected_count": 0,
+        "runs": [
+          {
+            "selected": 58,
+            "completed": 58,
+            "expected": 58,
+            "unexpected": 0,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "passed",
+                "index": 1,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-aliases-exact-and-ambiguous"
+              },
+              {
+                "status": "passed",
+                "index": 2,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-aliases-share-policy"
+              },
+              {
+                "status": "passed",
+                "index": 3,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-and-sync-failures-in-ledger"
+              },
+              {
+                "status": "passed",
+                "index": 4,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-custom-once-and-sync-rejection"
+              },
+              {
+                "status": "passed",
+                "index": 5,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-denial-and-cancel"
+              },
+              {
+                "status": "passed",
+                "index": 6,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-immediate-result-returns-nil"
+              },
+              {
+                "status": "passed",
+                "index": 7,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-ledger-context-survives-project-switch"
+              },
+              {
+                "status": "passed",
+                "index": 8,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-ledger-failure-preserves-tool-error"
+              },
+              {
+                "status": "passed",
+                "index": 9,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-ledger-records-success"
+              },
+              {
+                "status": "passed",
+                "index": 10,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-ledger-write-failure-retains-terminal"
+              },
+              {
+                "status": "passed",
+                "index": 11,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-malformed-result-delivers-once"
+              },
+              {
+                "status": "passed",
+                "index": 12,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-async-real-process-and-ledger"
+              },
+              {
+                "status": "passed",
+                "index": 13,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-batch-composes-read-tools"
+              },
+              {
+                "status": "passed",
+                "index": 14,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-batch-continues-or-stops"
+              },
+              {
+                "status": "passed",
+                "index": 15,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-batch-freezes-calls-and-argument-strings"
+              },
+              {
+                "status": "passed",
+                "index": 16,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-batch-freezes-canonical-alias-target"
+              },
+              {
+                "status": "passed",
+                "index": 17,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-batch-freezes-nested-object-values"
+              },
+              {
+                "status": "passed",
+                "index": 18,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-batch-inplace-effects-change"
+              },
+              {
+                "status": "passed",
+                "index": 19,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-batch-preflight-prevents-unsafe-prefix"
+              },
+              {
+                "status": "passed",
+                "index": 20,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-denial-and-approval-required"
+              },
+              {
+                "status": "passed",
+                "index": 21,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-discovery-example-executes"
+              },
+              {
+                "status": "passed",
+                "index": 22,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-discovery-exposes-real-call-shapes"
+              },
+              {
+                "status": "passed",
+                "index": 23,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-discovery-schema-and-purity"
+              },
+              {
+                "status": "passed",
+                "index": 24,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-failures-recorded"
+              },
+              {
+                "status": "passed",
+                "index": 25,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-glob-complete-pagination"
+              },
+              {
+                "status": "passed",
+                "index": 26,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-glob-json-empty-and-weird-paths"
+              },
+              {
+                "status": "passed",
+                "index": 27,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-glob-raw-filenames-error-before-filtering"
+              },
+              {
+                "status": "passed",
+                "index": 28,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-glob-raw-root-contract"
+              },
+              {
+                "status": "passed",
+                "index": 29,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-glob-star-stays-in-component"
+              },
+              {
+                "status": "passed",
+                "index": 30,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-json-unsupported-extension-callback-once"
+              },
+              {
+                "status": "passed",
+                "index": 31,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-json-unsupported-path-delivers-error"
+              },
+              {
+                "status": "passed",
+                "index": 32,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-ledger-start-failure-prevents-effects"
+              },
+              {
+                "status": "passed",
+                "index": 33,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-legacy-async-ledger-failure-visible-once"
+              },
+              {
+                "status": "passed",
+                "index": 34,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-detects-object-schema-mutation"
+              },
+              {
+                "status": "passed",
+                "index": 35,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-freezes-argument-strings"
+              },
+              {
+                "status": "passed",
+                "index": 36,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-freezes-metadata-strings"
+              },
+              {
+                "status": "passed",
+                "index": 37,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-freezes-object-arguments"
+              },
+              {
+                "status": "passed",
+                "index": 38,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-inplace-change-during-approval"
+              },
+              {
+                "status": "passed",
+                "index": 39,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-json-async-callback"
+              },
+              {
+                "status": "passed",
+                "index": 40,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-json-pages-and-cache-refresh"
+              },
+              {
+                "status": "passed",
+                "index": 41,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-json-unicode-transport"
+              },
+              {
+                "status": "passed",
+                "index": 42,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-refreshes-object-schema-cache"
+              },
+              {
+                "status": "passed",
+                "index": 43,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-model-stale-after-approval"
+              },
+              {
+                "status": "passed",
+                "index": 44,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-named-call-and-json"
+              },
+              {
+                "status": "passed",
+                "index": 45,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-next-freezes-path-and-follows-json"
+              },
+              {
+                "status": "passed",
+                "index": 46,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-next-refuses-changed-snapshot"
+              },
+              {
+                "status": "passed",
+                "index": 47,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-next-retains-long-line-characters"
+              },
+              {
+                "status": "passed",
+                "index": 48,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-process-grep-integration"
+              },
+              {
+                "status": "passed",
+                "index": 49,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-process-raw-query-contract"
+              },
+              {
+                "status": "passed",
+                "index": 50,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-process-raw-root-contract"
+              },
+              {
+                "status": "passed",
+                "index": 51,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-process-shell-failures-retain-data"
+              },
+              {
+                "status": "passed",
+                "index": 52,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-read-empty-and-invalid"
+              },
+              {
+                "status": "passed",
+                "index": 53,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-read-long-line-continuation"
+              },
+              {
+                "status": "passed",
+                "index": 54,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-read-respects-configured-default"
+              },
+              {
+                "status": "passed",
+                "index": 55,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-read-structured-pages"
+              },
+              {
+                "status": "passed",
+                "index": 56,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-sync-ledger-context-survives-tool-context-change"
+              },
+              {
+                "status": "passed",
+                "index": 57,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-sync-ledger-failure-retains-completed-data"
+              },
+              {
+                "status": "passed",
+                "index": 58,
+                "selected_total": 58,
+                "name": "ogent-agent-execution-validates-before-policy"
+              }
+            ],
+            "summary": "Ran 58 tests, 58 results as expected, 0 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      }
+    },
+    {
+      "recommendation_id": "R014",
+      "test_path": "agent_ergonomics_audit/audit/regression_tests/R014__structured_reads.test.sh",
+      "test_inputs_sha256": {
+        "agent_ergonomics_audit/audit/regression_tests/R014__structured_reads.test.sh": "3798b4c2f7ab14f65dab447efae8120871ab7127bad05b7d5a59054512e13d15",
+        "agent_ergonomics_audit/tools/run-ert.sh": "a9e618a585ad6496b8f3947e0ca14b0a90e8c5be1e7bdcfcf19e1387437bc4af",
+        "test/ogent-test-helper.el": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+        "test/ogent-agent-execution-tests.el": "8399fef34556907c982300bd374982eedb8171a010357d761d0bc067ca5a28b1"
+      },
+      "contract": {
+        "kind": "ert",
+        "runs": [
+          {
+            "selector": "ogent-agent-execution-read-",
+            "test_file": "test/ogent-agent-execution-tests.el",
+            "expected_count": 4,
+            "expected_names": [
+              "ogent-agent-execution-read-empty-and-invalid",
+              "ogent-agent-execution-read-long-line-continuation",
+              "ogent-agent-execution-read-respects-configured-default",
+              "ogent-agent-execution-read-structured-pages"
+            ]
+          }
+        ],
+        "expected_count": 4,
+        "count_unit": "ERT tests"
+      },
+      "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "baseline": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R014__structured_reads.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:44:51.497289+00:00",
+        "duration_seconds": 3.981,
+        "exit_code": 1,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R014-baseline.log",
+        "log_sha256": "0d19bbb9aecb2417361ca1bdcc9c2c3410160ab35b38739d638d8b9f96d2804a",
+        "source": {
+          "revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+          "source_root": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "source_root_in_container": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "tracked_source_clean": true,
+          "verified_git_archive": true,
+          "source_fingerprint_sha256": "307043b8873701e3bc746b75a7c1c5235001dc9517fbb9c15f9cf5ca32baf22c",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/baseline-source.json",
+          "manifest_sha256": "35ed30d194153dd7833a63a4e3c160d6b6c5510b35fa98053bacc31542922fe5"
+        },
+        "selected_count": 4,
+        "completed_count": 4,
+        "executed_count": 4,
+        "skipped_count": 0,
+        "unexpected_count": 4,
+        "runs": [
+          {
+            "selected": 4,
+            "completed": 4,
+            "expected": 0,
+            "unexpected": 4,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "FAILED",
+                "index": 1,
+                "selected_total": 4,
+                "name": "ogent-agent-execution-read-empty-and-invalid"
+              },
+              {
+                "status": "FAILED",
+                "index": 2,
+                "selected_total": 4,
+                "name": "ogent-agent-execution-read-long-line-continuation"
+              },
+              {
+                "status": "FAILED",
+                "index": 3,
+                "selected_total": 4,
+                "name": "ogent-agent-execution-read-respects-configured-default"
+              },
+              {
+                "status": "FAILED",
+                "index": 4,
+                "selected_total": 4,
+                "name": "ogent-agent-execution-read-structured-pages"
+              }
+            ],
+            "summary": "Ran 4 tests, 0 results as expected, 4 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      },
+      "proven": true,
+      "current": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R014__structured_reads.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:47:35.971750+00:00",
+        "duration_seconds": 0.416,
+        "exit_code": 0,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R014-current.log",
+        "log_sha256": "94643c16986b28189a43f8eb701ac946a3f759a869f5fc873576790b2ed34a57",
+        "source": {
+          "revision": "5d07d807bc85a093725db24e33996b4af690ec0f",
+          "source_root": "/workspace/ogent",
+          "source_root_in_container": "/work",
+          "tracked_source_clean": true,
+          "verified_git_archive": false,
+          "source_fingerprint_sha256": "afb5e9e59919436113b496c20601962ad37bf0e1ce7308624ed5b9c3051fe72a",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/current-source.json",
+          "manifest_sha256": "b514f47573a16e0324fe769c8482ea1270bb218e22247816d0fd9d5a7a4069da"
+        },
+        "selected_count": 4,
+        "completed_count": 4,
+        "executed_count": 4,
+        "skipped_count": 0,
+        "unexpected_count": 0,
+        "runs": [
+          {
+            "selected": 4,
+            "completed": 4,
+            "expected": 4,
+            "unexpected": 0,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "passed",
+                "index": 1,
+                "selected_total": 4,
+                "name": "ogent-agent-execution-read-empty-and-invalid"
+              },
+              {
+                "status": "passed",
+                "index": 2,
+                "selected_total": 4,
+                "name": "ogent-agent-execution-read-long-line-continuation"
+              },
+              {
+                "status": "passed",
+                "index": 3,
+                "selected_total": 4,
+                "name": "ogent-agent-execution-read-respects-configured-default"
+              },
+              {
+                "status": "passed",
+                "index": 4,
+                "selected_total": 4,
+                "name": "ogent-agent-execution-read-structured-pages"
+              }
+            ],
+            "summary": "Ran 4 tests, 4 results as expected, 0 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      }
+    },
+    {
+      "recommendation_id": "R015",
+      "test_path": "agent_ergonomics_audit/audit/regression_tests/R015__complete_glob_pages.test.sh",
+      "test_inputs_sha256": {
+        "agent_ergonomics_audit/audit/regression_tests/R015__complete_glob_pages.test.sh": "b660963d8dfa68710b45daf2233497a842987a51a624405f8329845e599a09a3",
+        "agent_ergonomics_audit/tools/run-ert.sh": "a9e618a585ad6496b8f3947e0ca14b0a90e8c5be1e7bdcfcf19e1387437bc4af",
+        "test/ogent-test-helper.el": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+        "test/ogent-agent-execution-tests.el": "8399fef34556907c982300bd374982eedb8171a010357d761d0bc067ca5a28b1"
+      },
+      "contract": {
+        "kind": "ert",
+        "runs": [
+          {
+            "selector": "ogent-agent-execution-glob-",
+            "test_file": "test/ogent-agent-execution-tests.el",
+            "expected_count": 5,
+            "expected_names": [
+              "ogent-agent-execution-glob-complete-pagination",
+              "ogent-agent-execution-glob-json-empty-and-weird-paths",
+              "ogent-agent-execution-glob-raw-filenames-error-before-filtering",
+              "ogent-agent-execution-glob-raw-root-contract",
+              "ogent-agent-execution-glob-star-stays-in-component"
+            ]
+          }
+        ],
+        "expected_count": 5,
+        "count_unit": "ERT tests"
+      },
+      "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "baseline": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R015__complete_glob_pages.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:44:55.482930+00:00",
+        "duration_seconds": 5.835,
+        "exit_code": 1,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R015-baseline.log",
+        "log_sha256": "9e0fe9f80caef499d7e417355b515d1480d7183fa8cdd10941531f73c5ca6664",
+        "source": {
+          "revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+          "source_root": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "source_root_in_container": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "tracked_source_clean": true,
+          "verified_git_archive": true,
+          "source_fingerprint_sha256": "307043b8873701e3bc746b75a7c1c5235001dc9517fbb9c15f9cf5ca32baf22c",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/baseline-source.json",
+          "manifest_sha256": "35ed30d194153dd7833a63a4e3c160d6b6c5510b35fa98053bacc31542922fe5"
+        },
+        "selected_count": 5,
+        "completed_count": 5,
+        "executed_count": 5,
+        "skipped_count": 0,
+        "unexpected_count": 5,
+        "runs": [
+          {
+            "selected": 5,
+            "completed": 5,
+            "expected": 0,
+            "unexpected": 5,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "FAILED",
+                "index": 1,
+                "selected_total": 5,
+                "name": "ogent-agent-execution-glob-complete-pagination"
+              },
+              {
+                "status": "FAILED",
+                "index": 2,
+                "selected_total": 5,
+                "name": "ogent-agent-execution-glob-json-empty-and-weird-paths"
+              },
+              {
+                "status": "FAILED",
+                "index": 3,
+                "selected_total": 5,
+                "name": "ogent-agent-execution-glob-raw-filenames-error-before-filtering"
+              },
+              {
+                "status": "FAILED",
+                "index": 4,
+                "selected_total": 5,
+                "name": "ogent-agent-execution-glob-raw-root-contract"
+              },
+              {
+                "status": "FAILED",
+                "index": 5,
+                "selected_total": 5,
+                "name": "ogent-agent-execution-glob-star-stays-in-component"
+              }
+            ],
+            "summary": "Ran 5 tests, 0 results as expected, 5 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      },
+      "proven": true,
+      "current": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R015__complete_glob_pages.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:47:36.389156+00:00",
+        "duration_seconds": 0.465,
+        "exit_code": 0,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R015-current.log",
+        "log_sha256": "6fcf8903b01628dbd87289ec4bb887368ef73768d033d274b5ee0eb28830207a",
+        "source": {
+          "revision": "5d07d807bc85a093725db24e33996b4af690ec0f",
+          "source_root": "/workspace/ogent",
+          "source_root_in_container": "/work",
+          "tracked_source_clean": true,
+          "verified_git_archive": false,
+          "source_fingerprint_sha256": "afb5e9e59919436113b496c20601962ad37bf0e1ce7308624ed5b9c3051fe72a",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/current-source.json",
+          "manifest_sha256": "b514f47573a16e0324fe769c8482ea1270bb218e22247816d0fd9d5a7a4069da"
+        },
+        "selected_count": 5,
+        "completed_count": 5,
+        "executed_count": 5,
+        "skipped_count": 0,
+        "unexpected_count": 0,
+        "runs": [
+          {
+            "selected": 5,
+            "completed": 5,
+            "expected": 5,
+            "unexpected": 0,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "passed",
+                "index": 1,
+                "selected_total": 5,
+                "name": "ogent-agent-execution-glob-complete-pagination"
+              },
+              {
+                "status": "passed",
+                "index": 2,
+                "selected_total": 5,
+                "name": "ogent-agent-execution-glob-json-empty-and-weird-paths"
+              },
+              {
+                "status": "passed",
+                "index": 3,
+                "selected_total": 5,
+                "name": "ogent-agent-execution-glob-raw-filenames-error-before-filtering"
+              },
+              {
+                "status": "passed",
+                "index": 4,
+                "selected_total": 5,
+                "name": "ogent-agent-execution-glob-raw-root-contract"
+              },
+              {
+                "status": "passed",
+                "index": 5,
+                "selected_total": 5,
+                "name": "ogent-agent-execution-glob-star-stays-in-component"
+              }
+            ],
+            "summary": "Ran 5 tests, 5 results as expected, 0 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      }
+    },
+    {
+      "recommendation_id": "R016",
+      "test_path": "agent_ergonomics_audit/audit/regression_tests/R016__continuation_calls.test.sh",
+      "test_inputs_sha256": {
+        "agent_ergonomics_audit/audit/regression_tests/R016__continuation_calls.test.sh": "43a34a532936db8b7816c6ba990c5fa6a6c4ed36addd282a8ca5022e53d79594",
+        "agent_ergonomics_audit/tools/run-ert.sh": "a9e618a585ad6496b8f3947e0ca14b0a90e8c5be1e7bdcfcf19e1387437bc4af",
+        "test/ogent-test-helper.el": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+        "test/ogent-agent-execution-tests.el": "8399fef34556907c982300bd374982eedb8171a010357d761d0bc067ca5a28b1"
+      },
+      "contract": {
+        "kind": "ert",
+        "runs": [
+          {
+            "selector": "ogent-agent-execution-next-",
+            "test_file": "test/ogent-agent-execution-tests.el",
+            "expected_count": 3,
+            "expected_names": [
+              "ogent-agent-execution-next-freezes-path-and-follows-json",
+              "ogent-agent-execution-next-refuses-changed-snapshot",
+              "ogent-agent-execution-next-retains-long-line-characters"
+            ]
+          }
+        ],
+        "expected_count": 3,
+        "count_unit": "ERT tests"
+      },
+      "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "baseline": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R016__continuation_calls.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:45:01.320077+00:00",
+        "duration_seconds": 2.827,
+        "exit_code": 1,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R016-baseline.log",
+        "log_sha256": "58ab0f17ba791984f6c869cb9c2ab44d3cd2a37257a182f67dee4f898f76cbed",
+        "source": {
+          "revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+          "source_root": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "source_root_in_container": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "tracked_source_clean": true,
+          "verified_git_archive": true,
+          "source_fingerprint_sha256": "307043b8873701e3bc746b75a7c1c5235001dc9517fbb9c15f9cf5ca32baf22c",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/baseline-source.json",
+          "manifest_sha256": "35ed30d194153dd7833a63a4e3c160d6b6c5510b35fa98053bacc31542922fe5"
+        },
+        "selected_count": 3,
+        "completed_count": 3,
+        "executed_count": 3,
+        "skipped_count": 0,
+        "unexpected_count": 3,
+        "runs": [
+          {
+            "selected": 3,
+            "completed": 3,
+            "expected": 0,
+            "unexpected": 3,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "FAILED",
+                "index": 1,
+                "selected_total": 3,
+                "name": "ogent-agent-execution-next-freezes-path-and-follows-json"
+              },
+              {
+                "status": "FAILED",
+                "index": 2,
+                "selected_total": 3,
+                "name": "ogent-agent-execution-next-refuses-changed-snapshot"
+              },
+              {
+                "status": "FAILED",
+                "index": 3,
+                "selected_total": 3,
+                "name": "ogent-agent-execution-next-retains-long-line-characters"
+              }
+            ],
+            "summary": "Ran 3 tests, 0 results as expected, 3 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      },
+      "proven": true,
+      "current": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R016__continuation_calls.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:47:36.856065+00:00",
+        "duration_seconds": 0.415,
+        "exit_code": 0,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R016-current.log",
+        "log_sha256": "966e459ca26d38ef39fda9c7b9366fe65065fe34929a2a873001b90d6b757e37",
+        "source": {
+          "revision": "5d07d807bc85a093725db24e33996b4af690ec0f",
+          "source_root": "/workspace/ogent",
+          "source_root_in_container": "/work",
+          "tracked_source_clean": true,
+          "verified_git_archive": false,
+          "source_fingerprint_sha256": "afb5e9e59919436113b496c20601962ad37bf0e1ce7308624ed5b9c3051fe72a",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/current-source.json",
+          "manifest_sha256": "b514f47573a16e0324fe769c8482ea1270bb218e22247816d0fd9d5a7a4069da"
+        },
+        "selected_count": 3,
+        "completed_count": 3,
+        "executed_count": 3,
+        "skipped_count": 0,
+        "unexpected_count": 0,
+        "runs": [
+          {
+            "selected": 3,
+            "completed": 3,
+            "expected": 3,
+            "unexpected": 0,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "passed",
+                "index": 1,
+                "selected_total": 3,
+                "name": "ogent-agent-execution-next-freezes-path-and-follows-json"
+              },
+              {
+                "status": "passed",
+                "index": 2,
+                "selected_total": 3,
+                "name": "ogent-agent-execution-next-refuses-changed-snapshot"
+              },
+              {
+                "status": "passed",
+                "index": 3,
+                "selected_total": 3,
+                "name": "ogent-agent-execution-next-retains-long-line-characters"
+              }
+            ],
+            "summary": "Ran 3 tests, 3 results as expected, 0 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      }
+    },
+    {
+      "recommendation_id": "R017",
+      "test_path": "agent_ergonomics_audit/audit/regression_tests/R017__common_verbs.test.sh",
+      "test_inputs_sha256": {
+        "agent_ergonomics_audit/audit/regression_tests/R017__common_verbs.test.sh": "5b09138b2959a9e5e340f7559d16e4c18055ae16a34da9ddc3c14a2600ef8ada",
+        "agent_ergonomics_audit/tools/run-ert.sh": "a9e618a585ad6496b8f3947e0ca14b0a90e8c5be1e7bdcfcf19e1387437bc4af",
+        "test/ogent-test-helper.el": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+        "test/ogent-agent-execution-tests.el": "8399fef34556907c982300bd374982eedb8171a010357d761d0bc067ca5a28b1"
+      },
+      "contract": {
+        "kind": "ert",
+        "runs": [
+          {
+            "selector": "ogent-agent-execution-aliases-",
+            "test_file": "test/ogent-agent-execution-tests.el",
+            "expected_count": 2,
+            "expected_names": [
+              "ogent-agent-execution-aliases-exact-and-ambiguous",
+              "ogent-agent-execution-aliases-share-policy"
+            ]
+          }
+        ],
+        "expected_count": 2,
+        "count_unit": "ERT tests"
+      },
+      "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "baseline": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R017__common_verbs.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:45:04.148951+00:00",
+        "duration_seconds": 1.521,
+        "exit_code": 1,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R017-baseline.log",
+        "log_sha256": "1cde7e730942702ffa3264f11f1845088816fc6e1702363ae96e05f1aaa43cbf",
+        "source": {
+          "revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+          "source_root": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "source_root_in_container": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "tracked_source_clean": true,
+          "verified_git_archive": true,
+          "source_fingerprint_sha256": "307043b8873701e3bc746b75a7c1c5235001dc9517fbb9c15f9cf5ca32baf22c",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/baseline-source.json",
+          "manifest_sha256": "35ed30d194153dd7833a63a4e3c160d6b6c5510b35fa98053bacc31542922fe5"
+        },
+        "selected_count": 2,
+        "completed_count": 2,
+        "executed_count": 2,
+        "skipped_count": 0,
+        "unexpected_count": 1,
+        "runs": [
+          {
+            "selected": 2,
+            "completed": 2,
+            "expected": 1,
+            "unexpected": 1,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "passed",
+                "index": 1,
+                "selected_total": 2,
+                "name": "ogent-agent-execution-aliases-exact-and-ambiguous"
+              },
+              {
+                "status": "FAILED",
+                "index": 2,
+                "selected_total": 2,
+                "name": "ogent-agent-execution-aliases-share-policy"
+              }
+            ],
+            "summary": "Ran 2 tests, 1 results as expected, 1 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      },
+      "proven": true,
+      "current": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R017__common_verbs.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:47:37.272958+00:00",
+        "duration_seconds": 0.415,
+        "exit_code": 0,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R017-current.log",
+        "log_sha256": "b67b55fc91fc8b000212db5f78246fe1041b3aa20522db8c252124cd483b051d",
+        "source": {
+          "revision": "5d07d807bc85a093725db24e33996b4af690ec0f",
+          "source_root": "/workspace/ogent",
+          "source_root_in_container": "/work",
+          "tracked_source_clean": true,
+          "verified_git_archive": false,
+          "source_fingerprint_sha256": "afb5e9e59919436113b496c20601962ad37bf0e1ce7308624ed5b9c3051fe72a",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/current-source.json",
+          "manifest_sha256": "b514f47573a16e0324fe769c8482ea1270bb218e22247816d0fd9d5a7a4069da"
+        },
+        "selected_count": 2,
+        "completed_count": 2,
+        "executed_count": 2,
+        "skipped_count": 0,
+        "unexpected_count": 0,
+        "runs": [
+          {
+            "selected": 2,
+            "completed": 2,
+            "expected": 2,
+            "unexpected": 0,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "passed",
+                "index": 1,
+                "selected_total": 2,
+                "name": "ogent-agent-execution-aliases-exact-and-ambiguous"
+              },
+              {
+                "status": "passed",
+                "index": 2,
+                "selected_total": 2,
+                "name": "ogent-agent-execution-aliases-share-policy"
+              }
+            ],
+            "summary": "Ran 2 tests, 2 results as expected, 0 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      }
+    },
+    {
+      "recommendation_id": "R018",
+      "test_path": "agent_ergonomics_audit/audit/regression_tests/R018__structured_processes.test.sh",
+      "test_inputs_sha256": {
+        "agent_ergonomics_audit/audit/regression_tests/R018__structured_processes.test.sh": "6d42c680a49f343dc5015ecb4927c9e55ef96bee263e2465854865c874bf6b3b",
+        "agent_ergonomics_audit/tools/run-ert.sh": "a9e618a585ad6496b8f3947e0ca14b0a90e8c5be1e7bdcfcf19e1387437bc4af",
+        "test/ogent-test-helper.el": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+        "test/ogent-tool-process-tests.el": "972bddab9cc2427c2457022fba3d27810baca473858d45b6f7e959efce417b1d",
+        "test/ogent-agent-execution-tests.el": "8399fef34556907c982300bd374982eedb8171a010357d761d0bc067ca5a28b1"
+      },
+      "contract": {
+        "kind": "ert",
+        "runs": [
+          {
+            "selector": "ogent-tool-process-",
+            "test_file": "test/ogent-tool-process-tests.el",
+            "expected_count": 51,
+            "expected_names": [
+              "ogent-tool-process-bash-async-is-asynchronous",
+              "ogent-tool-process-bash-bounds-combined-channels",
+              "ogent-tool-process-bash-callback-error-cleans-up",
+              "ogent-tool-process-bash-cancel-keeps-partial-output",
+              "ogent-tool-process-bash-cancel-kills-grandchild",
+              "ogent-tool-process-bash-invalid-utf8-remains-json-safe",
+              "ogent-tool-process-bash-separates-channels-and-exit",
+              "ogent-tool-process-bash-signal-is-distinct-from-cancel",
+              "ogent-tool-process-bash-startup-error-is-terminal",
+              "ogent-tool-process-bash-terminal-exit-bounds-descendant-drain",
+              "ogent-tool-process-bash-timeout-keeps-partial-output",
+              "ogent-tool-process-bash-validation-does-not-spawn",
+              "ogent-tool-process-bash-zero-output-budget",
+              "ogent-tool-process-grep-async-once",
+              "ogent-tool-process-grep-cancel-has-typed-error",
+              "ogent-tool-process-grep-context-includes-nearby-matches",
+              "ogent-tool-process-grep-deterministic-order",
+              "ogent-tool-process-grep-directory-spans-argument-batches",
+              "ogent-tool-process-grep-empty-gnu-candidates-validate-regex",
+              "ogent-tool-process-grep-empty-is-success",
+              "ogent-tool-process-grep-finds-hidden-and-ignored-files",
+              "ogent-tool-process-grep-glob-filter",
+              "ogent-tool-process-grep-gnu-binary-scope",
+              "ogent-tool-process-grep-gnu-component-filters",
+              "ogent-tool-process-grep-gnu-explicit-file-filter",
+              "ogent-tool-process-grep-gnu-symlink-scope",
+              "ogent-tool-process-grep-gnu-unicode-filters",
+              "ogent-tool-process-grep-gnu-unsupported-filenames",
+              "ogent-tool-process-grep-invalid-regex-error",
+              "ogent-tool-process-grep-oversized-wire-line-is-explicit",
+              "ogent-tool-process-grep-pages-all-matches",
+              "ogent-tool-process-grep-pattern-is-literal-process-argument",
+              "ogent-tool-process-grep-preserves-unusual-filenames",
+              "ogent-tool-process-grep-ripgrep-binary-scope",
+              "ogent-tool-process-grep-ripgrep-cancel-cleans-selected-script",
+              "ogent-tool-process-grep-ripgrep-component-filters",
+              "ogent-tool-process-grep-ripgrep-explicit-file-filter",
+              "ogent-tool-process-grep-ripgrep-selected-groups-preserve-pages",
+              "ogent-tool-process-grep-ripgrep-selected-parent-order",
+              "ogent-tool-process-grep-ripgrep-symlink-scope",
+              "ogent-tool-process-grep-ripgrep-unicode-filters",
+              "ogent-tool-process-grep-ripgrep-unsupported-filenames",
+              "ogent-tool-process-grep-snapshot-changes-with-source",
+              "ogent-tool-process-grep-timeout-has-typed-error",
+              "ogent-tool-process-grep-truncation-keeps-count-and-page",
+              "ogent-tool-process-grep-validates-page-and-context",
+              "ogent-tool-process-grep-zero-budget-does-not-skip-matches",
+              "ogent-tool-process-results-serialize-as-json",
+              "ogent-tool-process-ripgrep-base64-text",
+              "ogent-tool-process-ripgrep-real-json-protocol",
+              "ogent-tool-process-ripgrep-searches-hidden-files"
+            ]
+          },
+          {
+            "selector": "ogent-agent-execution-process-",
+            "test_file": "test/ogent-agent-execution-tests.el",
+            "expected_count": 4,
+            "expected_names": [
+              "ogent-agent-execution-process-grep-integration",
+              "ogent-agent-execution-process-raw-query-contract",
+              "ogent-agent-execution-process-raw-root-contract",
+              "ogent-agent-execution-process-shell-failures-retain-data"
+            ]
+          }
+        ],
+        "expected_count": 55,
+        "count_unit": "ERT tests"
+      },
+      "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "baseline": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "150",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R018__structured_processes.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:45:05.671927+00:00",
+        "duration_seconds": 112.341,
+        "exit_code": 1,
+        "timed_out": false,
+        "timeout_seconds": 150,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R018-baseline.log",
+        "log_sha256": "3930f5708b6380540dde05f759c8b0f9a0076e52051d394d85cd5b0d0fbf215d",
+        "source": {
+          "revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+          "source_root": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "source_root_in_container": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "tracked_source_clean": true,
+          "verified_git_archive": true,
+          "source_fingerprint_sha256": "307043b8873701e3bc746b75a7c1c5235001dc9517fbb9c15f9cf5ca32baf22c",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/baseline-source.json",
+          "manifest_sha256": "35ed30d194153dd7833a63a4e3c160d6b6c5510b35fa98053bacc31542922fe5"
+        },
+        "selected_count": 51,
+        "completed_count": 51,
+        "executed_count": 51,
+        "skipped_count": 0,
+        "unexpected_count": 51,
+        "runs": [
+          {
+            "selected": 51,
+            "completed": 51,
+            "expected": 0,
+            "unexpected": 51,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "FAILED",
+                "index": 1,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-async-is-asynchronous"
+              },
+              {
+                "status": "FAILED",
+                "index": 2,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-bounds-combined-channels"
+              },
+              {
+                "status": "FAILED",
+                "index": 3,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-callback-error-cleans-up"
+              },
+              {
+                "status": "FAILED",
+                "index": 4,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-cancel-keeps-partial-output"
+              },
+              {
+                "status": "FAILED",
+                "index": 5,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-cancel-kills-grandchild"
+              },
+              {
+                "status": "FAILED",
+                "index": 6,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-invalid-utf8-remains-json-safe"
+              },
+              {
+                "status": "FAILED",
+                "index": 7,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-separates-channels-and-exit"
+              },
+              {
+                "status": "FAILED",
+                "index": 8,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-signal-is-distinct-from-cancel"
+              },
+              {
+                "status": "FAILED",
+                "index": 9,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-startup-error-is-terminal"
+              },
+              {
+                "status": "FAILED",
+                "index": 10,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-terminal-exit-bounds-descendant-drain"
+              },
+              {
+                "status": "FAILED",
+                "index": 11,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-timeout-keeps-partial-output"
+              },
+              {
+                "status": "FAILED",
+                "index": 12,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-validation-does-not-spawn"
+              },
+              {
+                "status": "FAILED",
+                "index": 13,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-zero-output-budget"
+              },
+              {
+                "status": "FAILED",
+                "index": 14,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-async-once"
+              },
+              {
+                "status": "FAILED",
+                "index": 15,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-cancel-has-typed-error"
+              },
+              {
+                "status": "FAILED",
+                "index": 16,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-context-includes-nearby-matches"
+              },
+              {
+                "status": "FAILED",
+                "index": 17,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-deterministic-order"
+              },
+              {
+                "status": "FAILED",
+                "index": 18,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-directory-spans-argument-batches"
+              },
+              {
+                "status": "FAILED",
+                "index": 19,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-empty-gnu-candidates-validate-regex"
+              },
+              {
+                "status": "FAILED",
+                "index": 20,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-empty-is-success"
+              },
+              {
+                "status": "FAILED",
+                "index": 21,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-finds-hidden-and-ignored-files"
+              },
+              {
+                "status": "FAILED",
+                "index": 22,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-glob-filter"
+              },
+              {
+                "status": "FAILED",
+                "index": 23,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-gnu-binary-scope"
+              },
+              {
+                "status": "FAILED",
+                "index": 24,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-gnu-component-filters"
+              },
+              {
+                "status": "FAILED",
+                "index": 25,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-gnu-explicit-file-filter"
+              },
+              {
+                "status": "FAILED",
+                "index": 26,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-gnu-symlink-scope"
+              },
+              {
+                "status": "FAILED",
+                "index": 27,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-gnu-unicode-filters"
+              },
+              {
+                "status": "FAILED",
+                "index": 28,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-gnu-unsupported-filenames"
+              },
+              {
+                "status": "FAILED",
+                "index": 29,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-invalid-regex-error"
+              },
+              {
+                "status": "FAILED",
+                "index": 30,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-oversized-wire-line-is-explicit"
+              },
+              {
+                "status": "FAILED",
+                "index": 31,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-pages-all-matches"
+              },
+              {
+                "status": "FAILED",
+                "index": 32,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-pattern-is-literal-process-argument"
+              },
+              {
+                "status": "FAILED",
+                "index": 33,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-preserves-unusual-filenames"
+              },
+              {
+                "status": "FAILED",
+                "index": 34,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-binary-scope"
+              },
+              {
+                "status": "FAILED",
+                "index": 35,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-cancel-cleans-selected-script"
+              },
+              {
+                "status": "FAILED",
+                "index": 36,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-component-filters"
+              },
+              {
+                "status": "FAILED",
+                "index": 37,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-explicit-file-filter"
+              },
+              {
+                "status": "FAILED",
+                "index": 38,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-selected-groups-preserve-pages"
+              },
+              {
+                "status": "FAILED",
+                "index": 39,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-selected-parent-order"
+              },
+              {
+                "status": "FAILED",
+                "index": 40,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-symlink-scope"
+              },
+              {
+                "status": "FAILED",
+                "index": 41,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-unicode-filters"
+              },
+              {
+                "status": "FAILED",
+                "index": 42,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-unsupported-filenames"
+              },
+              {
+                "status": "FAILED",
+                "index": 43,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-snapshot-changes-with-source"
+              },
+              {
+                "status": "FAILED",
+                "index": 44,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-timeout-has-typed-error"
+              },
+              {
+                "status": "FAILED",
+                "index": 45,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-truncation-keeps-count-and-page"
+              },
+              {
+                "status": "FAILED",
+                "index": 46,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-validates-page-and-context"
+              },
+              {
+                "status": "FAILED",
+                "index": 47,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-zero-budget-does-not-skip-matches"
+              },
+              {
+                "status": "FAILED",
+                "index": 48,
+                "selected_total": 51,
+                "name": "ogent-tool-process-results-serialize-as-json"
+              },
+              {
+                "status": "FAILED",
+                "index": 49,
+                "selected_total": 51,
+                "name": "ogent-tool-process-ripgrep-base64-text"
+              },
+              {
+                "status": "FAILED",
+                "index": 50,
+                "selected_total": 51,
+                "name": "ogent-tool-process-ripgrep-real-json-protocol"
+              },
+              {
+                "status": "FAILED",
+                "index": 51,
+                "selected_total": 51,
+                "name": "ogent-tool-process-ripgrep-searches-hidden-files"
+              }
+            ],
+            "summary": "Ran 51 tests, 0 results as expected, 51 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [
+          {
+            "selector": "ogent-agent-execution-process-",
+            "test_file": "test/ogent-agent-execution-tests.el",
+            "expected_count": 4,
+            "expected_names": [
+              "ogent-agent-execution-process-grep-integration",
+              "ogent-agent-execution-process-raw-query-contract",
+              "ogent-agent-execution-process-raw-root-contract",
+              "ogent-agent-execution-process-shell-failures-retain-data"
+            ]
+          }
+        ],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      },
+      "proven": true,
+      "coverage_note": "Wrapper runs process suite then execution integration suite under set -e. Baseline failure of the first suite short-circuits the second; current must execute both.",
+      "current": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R018__structured_processes.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:47:37.690396+00:00",
+        "duration_seconds": 8.989,
+        "exit_code": 0,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R018-current.log",
+        "log_sha256": "e78643f1d1718b7f0c5c1d5ceae9f8e1ccfae0b7ad1047600b92308e1db853ff",
+        "source": {
+          "revision": "5d07d807bc85a093725db24e33996b4af690ec0f",
+          "source_root": "/workspace/ogent",
+          "source_root_in_container": "/work",
+          "tracked_source_clean": true,
+          "verified_git_archive": false,
+          "source_fingerprint_sha256": "afb5e9e59919436113b496c20601962ad37bf0e1ce7308624ed5b9c3051fe72a",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/current-source.json",
+          "manifest_sha256": "b514f47573a16e0324fe769c8482ea1270bb218e22247816d0fd9d5a7a4069da"
+        },
+        "selected_count": 55,
+        "completed_count": 55,
+        "executed_count": 55,
+        "skipped_count": 0,
+        "unexpected_count": 0,
+        "runs": [
+          {
+            "selected": 51,
+            "completed": 51,
+            "expected": 51,
+            "unexpected": 0,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "passed",
+                "index": 1,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-async-is-asynchronous"
+              },
+              {
+                "status": "passed",
+                "index": 2,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-bounds-combined-channels"
+              },
+              {
+                "status": "passed",
+                "index": 3,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-callback-error-cleans-up"
+              },
+              {
+                "status": "passed",
+                "index": 4,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-cancel-keeps-partial-output"
+              },
+              {
+                "status": "passed",
+                "index": 5,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-cancel-kills-grandchild"
+              },
+              {
+                "status": "passed",
+                "index": 6,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-invalid-utf8-remains-json-safe"
+              },
+              {
+                "status": "passed",
+                "index": 7,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-separates-channels-and-exit"
+              },
+              {
+                "status": "passed",
+                "index": 8,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-signal-is-distinct-from-cancel"
+              },
+              {
+                "status": "passed",
+                "index": 9,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-startup-error-is-terminal"
+              },
+              {
+                "status": "passed",
+                "index": 10,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-terminal-exit-bounds-descendant-drain"
+              },
+              {
+                "status": "passed",
+                "index": 11,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-timeout-keeps-partial-output"
+              },
+              {
+                "status": "passed",
+                "index": 12,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-validation-does-not-spawn"
+              },
+              {
+                "status": "passed",
+                "index": 13,
+                "selected_total": 51,
+                "name": "ogent-tool-process-bash-zero-output-budget"
+              },
+              {
+                "status": "passed",
+                "index": 14,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-async-once"
+              },
+              {
+                "status": "passed",
+                "index": 15,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-cancel-has-typed-error"
+              },
+              {
+                "status": "passed",
+                "index": 16,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-context-includes-nearby-matches"
+              },
+              {
+                "status": "passed",
+                "index": 17,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-deterministic-order"
+              },
+              {
+                "status": "passed",
+                "index": 18,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-directory-spans-argument-batches"
+              },
+              {
+                "status": "passed",
+                "index": 19,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-empty-gnu-candidates-validate-regex"
+              },
+              {
+                "status": "passed",
+                "index": 20,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-empty-is-success"
+              },
+              {
+                "status": "passed",
+                "index": 21,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-finds-hidden-and-ignored-files"
+              },
+              {
+                "status": "passed",
+                "index": 22,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-glob-filter"
+              },
+              {
+                "status": "passed",
+                "index": 23,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-gnu-binary-scope"
+              },
+              {
+                "status": "passed",
+                "index": 24,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-gnu-component-filters"
+              },
+              {
+                "status": "passed",
+                "index": 25,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-gnu-explicit-file-filter"
+              },
+              {
+                "status": "passed",
+                "index": 26,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-gnu-symlink-scope"
+              },
+              {
+                "status": "passed",
+                "index": 27,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-gnu-unicode-filters"
+              },
+              {
+                "status": "passed",
+                "index": 28,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-gnu-unsupported-filenames"
+              },
+              {
+                "status": "passed",
+                "index": 29,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-invalid-regex-error"
+              },
+              {
+                "status": "passed",
+                "index": 30,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-oversized-wire-line-is-explicit"
+              },
+              {
+                "status": "passed",
+                "index": 31,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-pages-all-matches"
+              },
+              {
+                "status": "passed",
+                "index": 32,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-pattern-is-literal-process-argument"
+              },
+              {
+                "status": "passed",
+                "index": 33,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-preserves-unusual-filenames"
+              },
+              {
+                "status": "passed",
+                "index": 34,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-binary-scope"
+              },
+              {
+                "status": "passed",
+                "index": 35,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-cancel-cleans-selected-script"
+              },
+              {
+                "status": "passed",
+                "index": 36,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-component-filters"
+              },
+              {
+                "status": "passed",
+                "index": 37,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-explicit-file-filter"
+              },
+              {
+                "status": "passed",
+                "index": 38,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-selected-groups-preserve-pages"
+              },
+              {
+                "status": "passed",
+                "index": 39,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-selected-parent-order"
+              },
+              {
+                "status": "passed",
+                "index": 40,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-symlink-scope"
+              },
+              {
+                "status": "passed",
+                "index": 41,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-unicode-filters"
+              },
+              {
+                "status": "passed",
+                "index": 42,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-ripgrep-unsupported-filenames"
+              },
+              {
+                "status": "passed",
+                "index": 43,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-snapshot-changes-with-source"
+              },
+              {
+                "status": "passed",
+                "index": 44,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-timeout-has-typed-error"
+              },
+              {
+                "status": "passed",
+                "index": 45,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-truncation-keeps-count-and-page"
+              },
+              {
+                "status": "passed",
+                "index": 46,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-validates-page-and-context"
+              },
+              {
+                "status": "passed",
+                "index": 47,
+                "selected_total": 51,
+                "name": "ogent-tool-process-grep-zero-budget-does-not-skip-matches"
+              },
+              {
+                "status": "passed",
+                "index": 48,
+                "selected_total": 51,
+                "name": "ogent-tool-process-results-serialize-as-json"
+              },
+              {
+                "status": "passed",
+                "index": 49,
+                "selected_total": 51,
+                "name": "ogent-tool-process-ripgrep-base64-text"
+              },
+              {
+                "status": "passed",
+                "index": 50,
+                "selected_total": 51,
+                "name": "ogent-tool-process-ripgrep-real-json-protocol"
+              },
+              {
+                "status": "passed",
+                "index": 51,
+                "selected_total": 51,
+                "name": "ogent-tool-process-ripgrep-searches-hidden-files"
+              }
+            ],
+            "summary": "Ran 51 tests, 51 results as expected, 0 unexpected"
+          },
+          {
+            "selected": 4,
+            "completed": 4,
+            "expected": 4,
+            "unexpected": 0,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "passed",
+                "index": 1,
+                "selected_total": 4,
+                "name": "ogent-agent-execution-process-grep-integration"
+              },
+              {
+                "status": "passed",
+                "index": 2,
+                "selected_total": 4,
+                "name": "ogent-agent-execution-process-raw-query-contract"
+              },
+              {
+                "status": "passed",
+                "index": 3,
+                "selected_total": 4,
+                "name": "ogent-agent-execution-process-raw-root-contract"
+              },
+              {
+                "status": "passed",
+                "index": 4,
+                "selected_total": 4,
+                "name": "ogent-agent-execution-process-shell-failures-retain-data"
+              }
+            ],
+            "summary": "Ran 4 tests, 4 results as expected, 0 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      }
+    },
+    {
+      "recommendation_id": "R019",
+      "test_path": "agent_ergonomics_audit/audit/regression_tests/R019__async_sdk.test.sh",
+      "test_inputs_sha256": {
+        "agent_ergonomics_audit/audit/regression_tests/R019__async_sdk.test.sh": "73e016b597df4289034822f3ec93be83dec6e0256077bed563ee6499c8f14937",
+        "agent_ergonomics_audit/tools/run-ert.sh": "a9e618a585ad6496b8f3947e0ca14b0a90e8c5be1e7bdcfcf19e1387437bc4af",
+        "test/ogent-test-helper.el": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+        "test/ogent-agent-execution-tests.el": "8399fef34556907c982300bd374982eedb8171a010357d761d0bc067ca5a28b1"
+      },
+      "contract": {
+        "kind": "ert",
+        "runs": [
+          {
+            "selector": "ogent-agent-execution-async-",
+            "test_file": "test/ogent-agent-execution-tests.el",
+            "expected_count": 10,
+            "expected_names": [
+              "ogent-agent-execution-async-and-sync-failures-in-ledger",
+              "ogent-agent-execution-async-custom-once-and-sync-rejection",
+              "ogent-agent-execution-async-denial-and-cancel",
+              "ogent-agent-execution-async-immediate-result-returns-nil",
+              "ogent-agent-execution-async-ledger-context-survives-project-switch",
+              "ogent-agent-execution-async-ledger-failure-preserves-tool-error",
+              "ogent-agent-execution-async-ledger-records-success",
+              "ogent-agent-execution-async-ledger-write-failure-retains-terminal",
+              "ogent-agent-execution-async-malformed-result-delivers-once",
+              "ogent-agent-execution-async-real-process-and-ledger"
+            ]
+          }
+        ],
+        "expected_count": 10,
+        "count_unit": "ERT tests"
+      },
+      "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "baseline": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R019__async_sdk.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:46:58.015403+00:00",
+        "duration_seconds": 12.652,
+        "exit_code": 1,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R019-baseline.log",
+        "log_sha256": "8a44ebd15b95c1ce88aa78c409a049acd17510f9f955e8f8b2abb9c12359c4ed",
+        "source": {
+          "revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+          "source_root": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "source_root_in_container": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "tracked_source_clean": true,
+          "verified_git_archive": true,
+          "source_fingerprint_sha256": "307043b8873701e3bc746b75a7c1c5235001dc9517fbb9c15f9cf5ca32baf22c",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/baseline-source.json",
+          "manifest_sha256": "35ed30d194153dd7833a63a4e3c160d6b6c5510b35fa98053bacc31542922fe5"
+        },
+        "selected_count": 10,
+        "completed_count": 10,
+        "executed_count": 10,
+        "skipped_count": 0,
+        "unexpected_count": 10,
+        "runs": [
+          {
+            "selected": 10,
+            "completed": 10,
+            "expected": 0,
+            "unexpected": 10,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "FAILED",
+                "index": 1,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-and-sync-failures-in-ledger"
+              },
+              {
+                "status": "FAILED",
+                "index": 2,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-custom-once-and-sync-rejection"
+              },
+              {
+                "status": "FAILED",
+                "index": 3,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-denial-and-cancel"
+              },
+              {
+                "status": "FAILED",
+                "index": 4,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-immediate-result-returns-nil"
+              },
+              {
+                "status": "FAILED",
+                "index": 5,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-ledger-context-survives-project-switch"
+              },
+              {
+                "status": "FAILED",
+                "index": 6,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-ledger-failure-preserves-tool-error"
+              },
+              {
+                "status": "FAILED",
+                "index": 7,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-ledger-records-success"
+              },
+              {
+                "status": "FAILED",
+                "index": 8,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-ledger-write-failure-retains-terminal"
+              },
+              {
+                "status": "FAILED",
+                "index": 9,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-malformed-result-delivers-once"
+              },
+              {
+                "status": "FAILED",
+                "index": 10,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-real-process-and-ledger"
+              }
+            ],
+            "summary": "Ran 10 tests, 0 results as expected, 10 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      },
+      "proven": true,
+      "current": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R019__async_sdk.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:47:46.682220+00:00",
+        "duration_seconds": 2.872,
+        "exit_code": 0,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R019-current.log",
+        "log_sha256": "765f1eaf81e04c7144cae9197275f35eaf4d1b2ad53b62162a430a9be030c9e0",
+        "source": {
+          "revision": "5d07d807bc85a093725db24e33996b4af690ec0f",
+          "source_root": "/workspace/ogent",
+          "source_root_in_container": "/work",
+          "tracked_source_clean": true,
+          "verified_git_archive": false,
+          "source_fingerprint_sha256": "afb5e9e59919436113b496c20601962ad37bf0e1ce7308624ed5b9c3051fe72a",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/current-source.json",
+          "manifest_sha256": "b514f47573a16e0324fe769c8482ea1270bb218e22247816d0fd9d5a7a4069da"
+        },
+        "selected_count": 10,
+        "completed_count": 10,
+        "executed_count": 10,
+        "skipped_count": 0,
+        "unexpected_count": 0,
+        "runs": [
+          {
+            "selected": 10,
+            "completed": 10,
+            "expected": 10,
+            "unexpected": 0,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "passed",
+                "index": 1,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-and-sync-failures-in-ledger"
+              },
+              {
+                "status": "passed",
+                "index": 2,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-custom-once-and-sync-rejection"
+              },
+              {
+                "status": "passed",
+                "index": 3,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-denial-and-cancel"
+              },
+              {
+                "status": "passed",
+                "index": 4,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-immediate-result-returns-nil"
+              },
+              {
+                "status": "passed",
+                "index": 5,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-ledger-context-survives-project-switch"
+              },
+              {
+                "status": "passed",
+                "index": 6,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-ledger-failure-preserves-tool-error"
+              },
+              {
+                "status": "passed",
+                "index": 7,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-ledger-records-success"
+              },
+              {
+                "status": "passed",
+                "index": 8,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-ledger-write-failure-retains-terminal"
+              },
+              {
+                "status": "passed",
+                "index": 9,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-malformed-result-delivers-once"
+              },
+              {
+                "status": "passed",
+                "index": 10,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-async-real-process-and-ledger"
+              }
+            ],
+            "summary": "Ran 10 tests, 10 results as expected, 0 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      }
+    },
+    {
+      "recommendation_id": "R020",
+      "test_path": "agent_ergonomics_audit/audit/regression_tests/R020__read_only_batches.test.sh",
+      "test_inputs_sha256": {
+        "agent_ergonomics_audit/audit/regression_tests/R020__read_only_batches.test.sh": "5f3eb7af02b253f69bc7887a7ef4026db2d7c96bfaad3ce009f7730ad5c306fe",
+        "agent_ergonomics_audit/tools/run-ert.sh": "a9e618a585ad6496b8f3947e0ca14b0a90e8c5be1e7bdcfcf19e1387437bc4af",
+        "test/ogent-test-helper.el": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+        "test/ogent-agent-execution-tests.el": "8399fef34556907c982300bd374982eedb8171a010357d761d0bc067ca5a28b1"
+      },
+      "contract": {
+        "kind": "ert",
+        "runs": [
+          {
+            "selector": "ogent-agent-execution-batch-",
+            "test_file": "test/ogent-agent-execution-tests.el",
+            "expected_count": 7,
+            "expected_names": [
+              "ogent-agent-execution-batch-composes-read-tools",
+              "ogent-agent-execution-batch-continues-or-stops",
+              "ogent-agent-execution-batch-freezes-calls-and-argument-strings",
+              "ogent-agent-execution-batch-freezes-canonical-alias-target",
+              "ogent-agent-execution-batch-freezes-nested-object-values",
+              "ogent-agent-execution-batch-inplace-effects-change",
+              "ogent-agent-execution-batch-preflight-prevents-unsafe-prefix"
+            ]
+          }
+        ],
+        "expected_count": 7,
+        "count_unit": "ERT tests"
+      },
+      "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "baseline": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R020__read_only_batches.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:47:10.669213+00:00",
+        "duration_seconds": 7.144,
+        "exit_code": 1,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R020-baseline.log",
+        "log_sha256": "b3e13925a326781c726c596078acad68c45442de7c6157ad9539cc84f01ba2c6",
+        "source": {
+          "revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+          "source_root": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "source_root_in_container": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "tracked_source_clean": true,
+          "verified_git_archive": true,
+          "source_fingerprint_sha256": "307043b8873701e3bc746b75a7c1c5235001dc9517fbb9c15f9cf5ca32baf22c",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/baseline-source.json",
+          "manifest_sha256": "35ed30d194153dd7833a63a4e3c160d6b6c5510b35fa98053bacc31542922fe5"
+        },
+        "selected_count": 7,
+        "completed_count": 7,
+        "executed_count": 7,
+        "skipped_count": 0,
+        "unexpected_count": 7,
+        "runs": [
+          {
+            "selected": 7,
+            "completed": 7,
+            "expected": 0,
+            "unexpected": 7,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "FAILED",
+                "index": 1,
+                "selected_total": 7,
+                "name": "ogent-agent-execution-batch-composes-read-tools"
+              },
+              {
+                "status": "FAILED",
+                "index": 2,
+                "selected_total": 7,
+                "name": "ogent-agent-execution-batch-continues-or-stops"
+              },
+              {
+                "status": "FAILED",
+                "index": 3,
+                "selected_total": 7,
+                "name": "ogent-agent-execution-batch-freezes-calls-and-argument-strings"
+              },
+              {
+                "status": "FAILED",
+                "index": 4,
+                "selected_total": 7,
+                "name": "ogent-agent-execution-batch-freezes-canonical-alias-target"
+              },
+              {
+                "status": "FAILED",
+                "index": 5,
+                "selected_total": 7,
+                "name": "ogent-agent-execution-batch-freezes-nested-object-values"
+              },
+              {
+                "status": "FAILED",
+                "index": 6,
+                "selected_total": 7,
+                "name": "ogent-agent-execution-batch-inplace-effects-change"
+              },
+              {
+                "status": "FAILED",
+                "index": 7,
+                "selected_total": 7,
+                "name": "ogent-agent-execution-batch-preflight-prevents-unsafe-prefix"
+              }
+            ],
+            "summary": "Ran 7 tests, 0 results as expected, 7 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      },
+      "proven": true,
+      "current": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R020__read_only_batches.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:47:49.555566+00:00",
+        "duration_seconds": 0.471,
+        "exit_code": 0,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R020-current.log",
+        "log_sha256": "7161c0bee9da287dedd1cc8992409cb4ed142e0f3a868007b74700eaa2160a0a",
+        "source": {
+          "revision": "5d07d807bc85a093725db24e33996b4af690ec0f",
+          "source_root": "/workspace/ogent",
+          "source_root_in_container": "/work",
+          "tracked_source_clean": true,
+          "verified_git_archive": false,
+          "source_fingerprint_sha256": "afb5e9e59919436113b496c20601962ad37bf0e1ce7308624ed5b9c3051fe72a",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/current-source.json",
+          "manifest_sha256": "b514f47573a16e0324fe769c8482ea1270bb218e22247816d0fd9d5a7a4069da"
+        },
+        "selected_count": 7,
+        "completed_count": 7,
+        "executed_count": 7,
+        "skipped_count": 0,
+        "unexpected_count": 0,
+        "runs": [
+          {
+            "selected": 7,
+            "completed": 7,
+            "expected": 7,
+            "unexpected": 0,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "passed",
+                "index": 1,
+                "selected_total": 7,
+                "name": "ogent-agent-execution-batch-composes-read-tools"
+              },
+              {
+                "status": "passed",
+                "index": 2,
+                "selected_total": 7,
+                "name": "ogent-agent-execution-batch-continues-or-stops"
+              },
+              {
+                "status": "passed",
+                "index": 3,
+                "selected_total": 7,
+                "name": "ogent-agent-execution-batch-freezes-calls-and-argument-strings"
+              },
+              {
+                "status": "passed",
+                "index": 4,
+                "selected_total": 7,
+                "name": "ogent-agent-execution-batch-freezes-canonical-alias-target"
+              },
+              {
+                "status": "passed",
+                "index": 5,
+                "selected_total": 7,
+                "name": "ogent-agent-execution-batch-freezes-nested-object-values"
+              },
+              {
+                "status": "passed",
+                "index": 6,
+                "selected_total": 7,
+                "name": "ogent-agent-execution-batch-inplace-effects-change"
+              },
+              {
+                "status": "passed",
+                "index": 7,
+                "selected_total": 7,
+                "name": "ogent-agent-execution-batch-preflight-prevents-unsafe-prefix"
+              }
+            ],
+            "summary": "Ran 7 tests, 7 results as expected, 0 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      }
+    },
+    {
+      "recommendation_id": "R021",
+      "test_path": "agent_ergonomics_audit/audit/regression_tests/R021__live_contracts.test.sh",
+      "test_inputs_sha256": {
+        "agent_ergonomics_audit/audit/regression_tests/R021__live_contracts.test.sh": "db909e8aed7b91ed96798ed6b9dc6d3a276765c7966ff88066928997b952fd63",
+        "agent_ergonomics_audit/tools/run-ert.sh": "a9e618a585ad6496b8f3947e0ca14b0a90e8c5be1e7bdcfcf19e1387437bc4af",
+        "test/ogent-test-helper.el": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+        "test/ogent-agent-execution-tests.el": "8399fef34556907c982300bd374982eedb8171a010357d761d0bc067ca5a28b1"
+      },
+      "contract": {
+        "kind": "ert",
+        "runs": [
+          {
+            "selector": "ogent-agent-execution-discovery-",
+            "test_file": "test/ogent-agent-execution-tests.el",
+            "expected_count": 3,
+            "expected_names": [
+              "ogent-agent-execution-discovery-example-executes",
+              "ogent-agent-execution-discovery-exposes-real-call-shapes",
+              "ogent-agent-execution-discovery-schema-and-purity"
+            ]
+          }
+        ],
+        "expected_count": 3,
+        "count_unit": "ERT tests"
+      },
+      "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "baseline": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R021__live_contracts.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:47:17.814839+00:00",
+        "duration_seconds": 3.126,
+        "exit_code": 1,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R021-baseline.log",
+        "log_sha256": "18feed5a1c5e18e86a81882c6ef252f84c29dd2c47942ca9d158be5bbab0ee4f",
+        "source": {
+          "revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+          "source_root": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "source_root_in_container": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "tracked_source_clean": true,
+          "verified_git_archive": true,
+          "source_fingerprint_sha256": "307043b8873701e3bc746b75a7c1c5235001dc9517fbb9c15f9cf5ca32baf22c",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/baseline-source.json",
+          "manifest_sha256": "35ed30d194153dd7833a63a4e3c160d6b6c5510b35fa98053bacc31542922fe5"
+        },
+        "selected_count": 3,
+        "completed_count": 3,
+        "executed_count": 3,
+        "skipped_count": 0,
+        "unexpected_count": 3,
+        "runs": [
+          {
+            "selected": 3,
+            "completed": 3,
+            "expected": 0,
+            "unexpected": 3,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "FAILED",
+                "index": 1,
+                "selected_total": 3,
+                "name": "ogent-agent-execution-discovery-example-executes"
+              },
+              {
+                "status": "FAILED",
+                "index": 2,
+                "selected_total": 3,
+                "name": "ogent-agent-execution-discovery-exposes-real-call-shapes"
+              },
+              {
+                "status": "FAILED",
+                "index": 3,
+                "selected_total": 3,
+                "name": "ogent-agent-execution-discovery-schema-and-purity"
+              }
+            ],
+            "summary": "Ran 3 tests, 0 results as expected, 3 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      },
+      "proven": true,
+      "current": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R021__live_contracts.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:47:50.028545+00:00",
+        "duration_seconds": 0.416,
+        "exit_code": 0,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R021-current.log",
+        "log_sha256": "e6b9cede961221c8173839177fcdeec2c9c118c9a74759b9a472120984dd862d",
+        "source": {
+          "revision": "5d07d807bc85a093725db24e33996b4af690ec0f",
+          "source_root": "/workspace/ogent",
+          "source_root_in_container": "/work",
+          "tracked_source_clean": true,
+          "verified_git_archive": false,
+          "source_fingerprint_sha256": "afb5e9e59919436113b496c20601962ad37bf0e1ce7308624ed5b9c3051fe72a",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/current-source.json",
+          "manifest_sha256": "b514f47573a16e0324fe769c8482ea1270bb218e22247816d0fd9d5a7a4069da"
+        },
+        "selected_count": 3,
+        "completed_count": 3,
+        "executed_count": 3,
+        "skipped_count": 0,
+        "unexpected_count": 0,
+        "runs": [
+          {
+            "selected": 3,
+            "completed": 3,
+            "expected": 3,
+            "unexpected": 0,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "passed",
+                "index": 1,
+                "selected_total": 3,
+                "name": "ogent-agent-execution-discovery-example-executes"
+              },
+              {
+                "status": "passed",
+                "index": 2,
+                "selected_total": 3,
+                "name": "ogent-agent-execution-discovery-exposes-real-call-shapes"
+              },
+              {
+                "status": "passed",
+                "index": 3,
+                "selected_total": 3,
+                "name": "ogent-agent-execution-discovery-schema-and-purity"
+              }
+            ],
+            "summary": "Ran 3 tests, 3 results as expected, 0 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      }
+    },
+    {
+      "recommendation_id": "R022",
+      "test_path": "agent_ergonomics_audit/audit/regression_tests/R022__model_json_contract.test.sh",
+      "test_inputs_sha256": {
+        "agent_ergonomics_audit/audit/regression_tests/R022__model_json_contract.test.sh": "58cc584a899d630198806bdb4fffd19e9ed878e3a1e99b6290f96a8e6bc36fe3",
+        "agent_ergonomics_audit/tools/run-ert.sh": "a9e618a585ad6496b8f3947e0ca14b0a90e8c5be1e7bdcfcf19e1387437bc4af",
+        "test/ogent-test-helper.el": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+        "test/ogent-agent-execution-tests.el": "8399fef34556907c982300bd374982eedb8171a010357d761d0bc067ca5a28b1"
+      },
+      "contract": {
+        "kind": "ert",
+        "runs": [
+          {
+            "selector": "ogent-agent-execution-model-",
+            "test_file": "test/ogent-agent-execution-tests.el",
+            "expected_count": 10,
+            "expected_names": [
+              "ogent-agent-execution-model-detects-object-schema-mutation",
+              "ogent-agent-execution-model-freezes-argument-strings",
+              "ogent-agent-execution-model-freezes-metadata-strings",
+              "ogent-agent-execution-model-freezes-object-arguments",
+              "ogent-agent-execution-model-inplace-change-during-approval",
+              "ogent-agent-execution-model-json-async-callback",
+              "ogent-agent-execution-model-json-pages-and-cache-refresh",
+              "ogent-agent-execution-model-json-unicode-transport",
+              "ogent-agent-execution-model-refreshes-object-schema-cache",
+              "ogent-agent-execution-model-stale-after-approval"
+            ]
+          }
+        ],
+        "expected_count": 10,
+        "count_unit": "ERT tests"
+      },
+      "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "baseline": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R022__model_json_contract.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:47:20.942888+00:00",
+        "duration_seconds": 11.248,
+        "exit_code": 1,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R022-baseline.log",
+        "log_sha256": "3c8ab1453de241a8b94587e264c1f41c6cc67a5732f5d6e05332858ba37d5c40",
+        "source": {
+          "revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+          "source_root": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "source_root_in_container": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "tracked_source_clean": true,
+          "verified_git_archive": true,
+          "source_fingerprint_sha256": "307043b8873701e3bc746b75a7c1c5235001dc9517fbb9c15f9cf5ca32baf22c",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/baseline-source.json",
+          "manifest_sha256": "35ed30d194153dd7833a63a4e3c160d6b6c5510b35fa98053bacc31542922fe5"
+        },
+        "selected_count": 10,
+        "completed_count": 10,
+        "executed_count": 10,
+        "skipped_count": 0,
+        "unexpected_count": 10,
+        "runs": [
+          {
+            "selected": 10,
+            "completed": 10,
+            "expected": 0,
+            "unexpected": 10,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "FAILED",
+                "index": 1,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-detects-object-schema-mutation"
+              },
+              {
+                "status": "FAILED",
+                "index": 2,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-freezes-argument-strings"
+              },
+              {
+                "status": "FAILED",
+                "index": 3,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-freezes-metadata-strings"
+              },
+              {
+                "status": "FAILED",
+                "index": 4,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-freezes-object-arguments"
+              },
+              {
+                "status": "FAILED",
+                "index": 5,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-inplace-change-during-approval"
+              },
+              {
+                "status": "FAILED",
+                "index": 6,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-json-async-callback"
+              },
+              {
+                "status": "FAILED",
+                "index": 7,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-json-pages-and-cache-refresh"
+              },
+              {
+                "status": "FAILED",
+                "index": 8,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-json-unicode-transport"
+              },
+              {
+                "status": "FAILED",
+                "index": 9,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-refreshes-object-schema-cache"
+              },
+              {
+                "status": "FAILED",
+                "index": 10,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-stale-after-approval"
+              }
+            ],
+            "summary": "Ran 10 tests, 0 results as expected, 10 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      },
+      "proven": true,
+      "current": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R022__model_json_contract.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+        },
+        "started_at": "2026-10-08T23:47:50.446773+00:00",
+        "duration_seconds": 0.465,
+        "exit_code": 0,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R022-current.log",
+        "log_sha256": "45668942784b35d6feecfff03351a4726195f1f851daf87eeee7028e5e32577a",
+        "source": {
+          "revision": "5d07d807bc85a093725db24e33996b4af690ec0f",
+          "source_root": "/workspace/ogent",
+          "source_root_in_container": "/work",
+          "tracked_source_clean": true,
+          "verified_git_archive": false,
+          "source_fingerprint_sha256": "afb5e9e59919436113b496c20601962ad37bf0e1ce7308624ed5b9c3051fe72a",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/current-source.json",
+          "manifest_sha256": "b514f47573a16e0324fe769c8482ea1270bb218e22247816d0fd9d5a7a4069da"
+        },
+        "selected_count": 10,
+        "completed_count": 10,
+        "executed_count": 10,
+        "skipped_count": 0,
+        "unexpected_count": 0,
+        "runs": [
+          {
+            "selected": 10,
+            "completed": 10,
+            "expected": 10,
+            "unexpected": 0,
+            "skipped": 0,
+            "results": [
+              {
+                "status": "passed",
+                "index": 1,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-detects-object-schema-mutation"
+              },
+              {
+                "status": "passed",
+                "index": 2,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-freezes-argument-strings"
+              },
+              {
+                "status": "passed",
+                "index": 3,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-freezes-metadata-strings"
+              },
+              {
+                "status": "passed",
+                "index": 4,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-freezes-object-arguments"
+              },
+              {
+                "status": "passed",
+                "index": 5,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-inplace-change-during-approval"
+              },
+              {
+                "status": "passed",
+                "index": 6,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-json-async-callback"
+              },
+              {
+                "status": "passed",
+                "index": 7,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-json-pages-and-cache-refresh"
+              },
+              {
+                "status": "passed",
+                "index": 8,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-json-unicode-transport"
+              },
+              {
+                "status": "passed",
+                "index": 9,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-refreshes-object-schema-cache"
+              },
+              {
+                "status": "passed",
+                "index": 10,
+                "selected_total": 10,
+                "name": "ogent-agent-execution-model-stale-after-approval"
+              }
+            ],
+            "summary": "Ran 10 tests, 10 results as expected, 0 unexpected"
+          }
+        ],
+        "unexecuted_selectors": [],
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      }
+    },
+    {
+      "recommendation_id": "R023",
+      "test_path": "agent_ergonomics_audit/audit/regression_tests/R023__actual_build_reports.test.sh",
+      "test_inputs_sha256": {
+        "agent_ergonomics_audit/audit/regression_tests/R023__actual_build_reports.test.sh": "23d45c5344f7ce460adbb67cad6d3ecba7b7199109d2266954da1d3d9e1dbd90",
+        "agent_ergonomics_audit/tools/run-ert.sh": "a9e618a585ad6496b8f3947e0ca14b0a90e8c5be1e7bdcfcf19e1387437bc4af",
+        "test/ogent-test-helper.el": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+        "test/makem-report-tests.sh": "825bb69913a14c308c02b9e50621431988efec42dee858d7ebfd14cb426578ab",
+        "Makefile": "bc702483fd3d2639143abf65db30b942a07f2dc3317409cbba31c768f89c7cbe",
+        "agent_ergonomics_audit/audit/verification/pass_3/regressions/fixture_trace.sh": "8bead3975489b49ca673ec5da1f9f02683aaadea0ffa3ce11eba40aa99949310"
+      },
+      "contract": {
+        "kind": "shell_fixture",
+        "test_file": "test/makem-report-tests.sh",
+        "expected_report_invocations": 21,
+        "expected_count": 23,
+        "count_unit": "real-runner cases (report calls, human failure, cancellation)"
+      },
+      "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "baseline": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "BASH_ENV=/work/agent_ergonomics_audit/audit/verification/pass_3/regressions/fixture_trace.sh",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R023__actual_build_reports.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+          "OGENT_AUDIT_SOURCE": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg",
+          "BASH_ENV": "/work/agent_ergonomics_audit/audit/verification/pass_3/regressions/fixture_trace.sh"
+        },
+        "started_at": "2026-10-08T23:47:32.192245+00:00",
+        "duration_seconds": 0.115,
+        "exit_code": 1,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R023-baseline.log",
+        "log_sha256": "2a10a7d40a88701c35bf11e12f86db949b5163168af98bdd4dad34413e92da61",
+        "source": {
+          "revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+          "source_root": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "source_root_in_container": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+          "tracked_source_clean": true,
+          "verified_git_archive": true,
+          "source_fingerprint_sha256": "307043b8873701e3bc746b75a7c1c5235001dc9517fbb9c15f9cf5ca32baf22c",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/baseline-source.json",
+          "manifest_sha256": "35ed30d194153dd7833a63a4e3c160d6b6c5510b35fa98053bacc31542922fe5"
+        },
+        "selected_count": 1,
+        "executed_count": 1,
+        "report_invocations": [
+          "0 ./makem.sh --json --capabilities"
+        ],
+        "human_failure_case_executed": false,
+        "cancellation_case_executed": false,
+        "fixture_success_marker": false,
+        "first_failing_assertion": "Expected exit 0, got 1: ./makem.sh --json --capabilities",
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      },
+      "proven": true,
+      "current": {
+        "argv": [
+          "docker",
+          "exec",
+          "ogent-fixes",
+          "env",
+          "-u",
+          "OGENT_AUDIT_SOURCE",
+          "-u",
+          "MAKEM_UNDER_TEST",
+          "-u",
+          "BASH_ENV",
+          "MAKEM_UNDER_TEST=/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+          "BASH_ENV=/work/agent_ergonomics_audit/audit/verification/pass_3/regressions/fixture_trace.sh",
+          "timeout",
+          "--kill-after=5",
+          "90",
+          "bash",
+          "/work/agent_ergonomics_audit/audit/regression_tests/R023__actual_build_reports.test.sh"
+        ],
+        "environment_overrides": {
+          "MAKEM_UNDER_TEST": "/work/makem.sh",
+          "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg",
+          "BASH_ENV": "/work/agent_ergonomics_audit/audit/verification/pass_3/regressions/fixture_trace.sh"
+        },
+        "started_at": "2026-10-08T23:47:50.913215+00:00",
+        "duration_seconds": 8.75,
+        "exit_code": 0,
+        "timed_out": false,
+        "timeout_seconds": 90,
+        "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R023-current.log",
+        "log_sha256": "f8e805cbc32a127c23bd2e334e45ba1887b7c210c35803e425d57cc9b1c43275",
+        "source": {
+          "revision": "5d07d807bc85a093725db24e33996b4af690ec0f",
+          "source_root": "/workspace/ogent",
+          "source_root_in_container": "/work",
+          "tracked_source_clean": true,
+          "verified_git_archive": false,
+          "source_fingerprint_sha256": "afb5e9e59919436113b496c20601962ad37bf0e1ce7308624ed5b9c3051fe72a",
+          "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/current-source.json",
+          "manifest_sha256": "b514f47573a16e0324fe769c8482ea1270bb218e22247816d0fd9d5a7a4069da"
+        },
+        "selected_count": 23,
+        "executed_count": 23,
+        "report_invocations": [
+          "0 ./makem.sh --json --capabilities",
+          "2 ./makem.sh --json --emacs=/unavailable/emacs tset",
+          "2 ./makem.sh --json --emaxx=emacs compile",
+          "2 ./makem.sh --json",
+          "2 ./makem.sh --json interactive",
+          "3 ./makem.sh --json --emacs=/unavailable/emacs compile",
+          "0 ./makem.sh --json --help",
+          "3 env PATH=/tmp/ogent-makem-report-tests.upkMRl/bootstrap-bin ./makem.sh --json --capabilities",
+          "0 ./makem.sh --json --emacs=emacs compile",
+          "0 ./makem.sh --json --emacs=emacs --no-compile test",
+          "1 ./makem.sh --json --emacs=emacs --no-compile test-buttercup",
+          "0 ./makem.sh --json --emacs=emacs --no-compile --exclude=test/report-fixture-tests.el test",
+          "0 make --no-print-directory test format=json EMACS=emacs",
+          "0 make --no-print-directory recompile format=json EMACS=emacs",
+          "0 ./makem.sh --json --emacs=emacs --no-compile batch -- --eval '(progn (princ \"quote\\\" newline\\n\") (princ (decode-coding-string (unibyte-string 233 155 170) (quote utf-8))))' --eval '(ignore \"\u96ea\")'",
+          "1 ./makem.sh --json --emacs=emacs lint-compile",
+          "1 ./makem.sh --json --emacs=emacs compile",
+          "1 ./makem.sh --json --emacs=emacs compile",
+          "1 ./makem.sh --json --emacs=emacs --no-compile batch",
+          "1 ./makem.sh --json --emacs=emacs --no-compile batch",
+          "1 ./makem.sh --json --emacs=emacs --no-compile test-ert"
+        ],
+        "human_failure_case_executed": true,
+        "cancellation_case_executed": true,
+        "fixture_success_marker": true,
+        "first_failing_assertion": null,
+        "evidence_errors": [],
+        "proven": true,
+        "runtime": {
+          "emacs_version": "GNU Emacs 30.2",
+          "process_test_rg": {
+            "path": "/tmp/ogent-test-rg",
+            "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+            "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+          }
+        }
+      }
+    }
+  ],
+  "all_proven": true
+}

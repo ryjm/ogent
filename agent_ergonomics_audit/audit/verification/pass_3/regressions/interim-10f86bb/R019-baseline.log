@@ -1,0 +1,344 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 9 tests (2026-10-08 22:20:44+0000, selector `"ogent-agent-execution-async-"')
+Test ogent-agent-execution-async-and-sync-failures-in-ledger backtrace:
+uncompressing cl-print.el.gz...
+uncompressing cl-print.el.gz...done
+uncompressing help-fns.el.gz...
+uncompressing help-fns.el.gz...done
+uncompressing radix-tree.el.gz...
+uncompressing radix-tree.el.gz...done
+uncompressing derived.el.gz...
+uncompressing derived.el.gz...done
+  (ogent-agent-call "bash" '(:command "exit 7"))
+  (progn (fset 'ogent-ledger-record-tool-finish vnew) (ogent-agent-cal
+  (unwind-protect (progn (fset 'ogent-ledger-record-tool-finish vnew) 
+  (let* ((vnew #'(lambda (_call _data failure &rest _) (setq failures 
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (copy
+  #f(compiled-function () #<bytecode -0x9ca6fd654f902ea>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x9ca6fd654f902ea
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-and-sync-
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-async-" #f(compiled-function (e
+  ert-run-tests-batch("ogent-agent-execution-async-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-async-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-and-sync-failures-in-ledger condition:
+    (void-function ogent-agent-call)
+uncompressing vc-git.el.gz...
+uncompressing vc-git.el.gz...done
+uncompressing vc-dispatcher.el.gz...
+uncompressing vc-dispatcher.el.gz...done
+uncompressing vc.el.gz...
+uncompressing vc.el.gz...done
+uncompressing dired.el.gz...
+uncompressing dired.el.gz...done
+uncompressing autorevert.el.gz...
+uncompressing autorevert.el.gz...done
+uncompressing filenotify.el.gz...
+uncompressing filenotify.el.gz...done
+uncompressing dired-loaddefs.el.gz...
+uncompressing dired-loaddefs.el.gz...done
+uncompressing dnd.el.gz...
+uncompressing dnd.el.gz...done
+uncompressing files-x.el.gz...
+uncompressing files-x.el.gz...done
+uncompressing desktop.el.gz...
+uncompressing desktop.el.gz...done
+uncompressing frameset.el.gz...
+uncompressing frameset.el.gz...done
+uncompressing vc-dir.el.gz...
+uncompressing vc-dir.el.gz...done
+uncompressing diff-mode.el.gz...
+uncompressing diff-mode.el.gz...done
+uncompressing track-changes.el.gz...
+uncompressing track-changes.el.gz...done
+   FAILED  1/9  ogent-agent-execution-async-and-sync-failures-in-ledger (0.000148 sec) at test/ogent-agent-execution-tests.el:450
+Test ogent-agent-execution-async-custom-once-and-sync-rejection backtrace:
+  signal(void-function (ogent-agent-call))
+  apply(signal (void-function (ogent-agent-call)))
+  (setq value-447 (apply fn-445 args-446))
+  (unwind-protect (setq value-447 (apply fn-445 args-446)) (setq form-
+  (if (unwind-protect (setq value-447 (apply fn-445 args-446)) (setq f
+  (let (form-description-449) (if (unwind-protect (setq value-447 (app
+  (let ((value-447 'ert-form-evaluation-aborted-448)) (let (form-descr
+  (let* ((fn-445 #'equal) (args-446 (condition-case err (list (plist-g
+  (let* ((runs 0) (ogent-tool-registry (list (list :name 'delayed :asy
+  #f(lambda () [gptel--known-tools t] (let* ((runs 0) (ogent-tool-regi
+  #f(compiled-function () #<bytecode -0x9ca6fd654f902ea>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x9ca6fd654f902ea
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-custom-on
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-async-" #f(compiled-function (e
+  ert-run-tests-batch("ogent-agent-execution-async-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-async-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-custom-once-and-sync-rejection condition:
+    (void-function ogent-agent-call)
+   FAILED  2/9  ogent-agent-execution-async-custom-once-and-sync-rejection (0.000152 sec) at test/ogent-agent-execution-tests.el:214
+Test ogent-agent-execution-async-denial-and-cancel backtrace:
+  ogent-agent-call-async("shell" (:command "sleep 2") #f(lambda (data)
+  apply(ogent-agent-call-async ("shell" (:command "sleep 2") #f(lambda
+  (setq value-731 (apply fn-729 args-730))
+  (unwind-protect (setq value-731 (apply fn-729 args-730)) (setq form-
+  (not (unwind-protect (setq value-731 (apply fn-729 args-730)) (setq 
+  (if (not (unwind-protect (setq value-731 (apply fn-729 args-730)) (s
+  (let (form-description-733) (if (not (unwind-protect (setq value-731
+  (let ((value-731 'ert-form-evaluation-aborted-732)) (let (form-descr
+  (let* ((fn-729 #'ogent-agent-call-async) (args-730 (condition-case e
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (copy
+  #f(compiled-function () #<bytecode -0x9ca6fd654f902ea>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x9ca6fd654f902ea
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-denial-an
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-async-" #f(compiled-function (e
+  ert-run-tests-batch("ogent-agent-execution-async-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-async-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-denial-and-cancel condition:
+    (void-function ogent-agent-call-async)
+   FAILED  3/9  ogent-agent-execution-async-denial-and-cancel (0.000205 sec) at test/ogent-agent-execution-tests.el:430
+Test ogent-agent-execution-async-immediate-result-returns-nil backtrace:
+  ogent-agent-call-async("immediate" nil #f(lambda (data) [(result nil
+  apply(ogent-agent-call-async ("immediate" nil #f(lambda (data) [(res
+  (setq value-651 (apply fn-649 args-650))
+  (unwind-protect (setq value-651 (apply fn-649 args-650)) (setq form-
+  (not (unwind-protect (setq value-651 (apply fn-649 args-650)) (setq 
+  (if (not (unwind-protect (setq value-651 (apply fn-649 args-650)) (s
+  (let (form-description-653) (if (not (unwind-protect (setq value-651
+  (let ((value-651 'ert-form-evaluation-aborted-652)) (let (form-descr
+  (let* ((fn-649 #'ogent-agent-call-async) (args-650 (condition-case e
+  (let* ((spec (list :name 'immediate :async t :args nil :function #'(
+  #f(lambda () [gptel--known-tools t] (let* ((spec (list :name ... :as
+  #f(compiled-function () #<bytecode -0x9ca6fd654f902ea>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x9ca6fd654f902ea
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-immediate
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-async-" #f(compiled-function (e
+  ert-run-tests-batch("ogent-agent-execution-async-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-async-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-immediate-result-returns-nil condition:
+    (void-function ogent-agent-call-async)
+   FAILED  4/9  ogent-agent-execution-async-immediate-result-returns-nil (0.000158 sec) at test/ogent-agent-execution-tests.el:375
+ogent-test: provisioned tools store at /tmp/ogent-test-store-6taP9q/tools-m1deQe (retained)
+Test ogent-agent-execution-async-ledger-failure-preserves-tool-error backtrace:
+  ogent-agent-call-async("terminal-failure" nil #f(lambda (data) [(res
+  apply(ogent-agent-call-async ("terminal-failure" nil #f(lambda (data
+  (setq value-671 (apply fn-669 args-670))
+  (unwind-protect (setq value-671 (apply fn-669 args-670)) (setq form-
+  (not (unwind-protect (setq value-671 (apply fn-669 args-670)) (setq 
+  (if (not (unwind-protect (setq value-671 (apply fn-669 args-670)) (s
+  (let (form-description-673) (if (not (unwind-protect (setq value-671
+  (let ((value-671 'ert-form-evaluation-aborted-672)) (let (form-descr
+  (let* ((fn-669 #'ogent-agent-call-async) (args-670 (condition-case e
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode -0x9ca6fd654f902ea>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x9ca6fd654f902ea
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-ledger-fa
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-async-" #f(compiled-function (e
+  ert-run-tests-batch("ogent-agent-execution-async-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-async-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-ledger-failure-preserves-tool-error condition:
+    (void-function ogent-agent-call-async)
+   FAILED  5/9  ogent-agent-execution-async-ledger-failure-preserves-tool-error (0.000379 sec) at test/ogent-agent-execution-tests.el:387
+ogent-test: provisioned tools store at /tmp/ogent-test-store-6taP9q/tools-yNukFq (retained)
+Test ogent-agent-execution-async-ledger-records-success backtrace:
+  (ogent-agent-call-async "shell" '(:command "printf complete") #'(lam
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (ogent-
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode -0x9ca6fd654f902ea>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x9ca6fd654f902ea
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-ledger-re
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-async-" #f(compiled-function (e
+  ert-run-tests-batch("ogent-agent-execution-async-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-async-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-ledger-records-success condition:
+    (void-function ogent-agent-call-async)
+   FAILED  6/9  ogent-agent-execution-async-ledger-records-success (0.000259 sec) at test/ogent-agent-execution-tests.el:280
+ogent-test: provisioned tools store at /tmp/ogent-test-store-6taP9q/tools-q90yAi (retained)
+Test ogent-agent-execution-async-ledger-write-failure-retains-terminal backtrace:
+  (ogent-agent-call-async "shell" (list :command command :timeout 1) c
+  (if (eq format 'gptel-json) (let ((spec (ogent-tool-spec-get 'bash))
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
+  (let ((format (car tail))) (let* ((root (ogent-test--provision-store
+  (while tail (let ((format (car tail))) (let* ((root (ogent-test--pro
+  (let ((tail '(plist json gptel-json))) (while tail (let ((format (ca
+  #f(lambda () [gptel--known-tools t] (let ((tail '...)) (while tail (
+  #f(compiled-function () #<bytecode -0x9ca6fd654f902ea>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x9ca6fd654f902ea
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-ledger-wr
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-async-" #f(compiled-function (e
+  ert-run-tests-batch("ogent-agent-execution-async-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-async-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-ledger-write-failure-retains-terminal condition:
+    (void-function ogent-agent-call-async)
+   FAILED  7/9  ogent-agent-execution-async-ledger-write-failure-retains-terminal (0.000319 sec) at test/ogent-agent-execution-tests.el:239
+Test ogent-agent-execution-async-malformed-result-delivers-once backtrace:
+  (ogent-agent-call-async "read-file" '(:path 42) #'(lambda (data) (se
+  (let* ((data '(:has_more t :content "completed")) (spec (list :name 
+  #f(lambda () [gptel--known-tools t] (let* ((data '...) (spec (list :
+  #f(compiled-function () #<bytecode -0x9ca6fd654f902ea>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x9ca6fd654f902ea
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-malformed
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-async-" #f(compiled-function (e
+  ert-run-tests-batch("ogent-agent-execution-async-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-async-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-malformed-result-delivers-once condition:
+    (void-function ogent-agent-call-async)
+   FAILED  8/9  ogent-agent-execution-async-malformed-result-delivers-once (0.000171 sec) at test/ogent-agent-execution-tests.el:358
+Test ogent-agent-execution-async-real-process-and-ledger backtrace:
+  (ogent-agent-call-async "shell" '(:command "sleep 0.1; printf comple
+  (let ((process (ogent-agent-call-async "shell" '(:command "sleep 0.1
+  (progn (fset 'ogent-ledger-record-tool-finish vnew) (fset 'ogent-led
+  (unwind-protect (progn (fset 'ogent-ledger-record-tool-finish vnew) 
+  (let* ((vnew #'(lambda (&rest _) (setq starts (1+ starts)))) (vnew #
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (copy
+  #f(compiled-function () #<bytecode -0x9ca6fd654f902ea>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x9ca6fd654f902ea
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-real-proc
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-async-" #f(compiled-function (e
+  ert-run-tests-batch("ogent-agent-execution-async-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-async-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-real-process-and-ledger condition:
+    (void-function ogent-agent-call-async)
+   FAILED  9/9  ogent-agent-execution-async-real-process-and-ledger (0.000185 sec) at test/ogent-agent-execution-tests.el:193
+
+Ran 9 tests, 0 results as expected, 9 unexpected (2026-10-08 22:20:55+0000, 10.257309 sec)
+
+9 unexpected results:
+   FAILED  ogent-agent-execution-async-and-sync-failures-in-ledger
+   FAILED  ogent-agent-execution-async-custom-once-and-sync-rejection
+   FAILED  ogent-agent-execution-async-denial-and-cancel
+   FAILED  ogent-agent-execution-async-immediate-result-returns-nil
+   FAILED  ogent-agent-execution-async-ledger-failure-preserves-tool-error
+   FAILED  ogent-agent-execution-async-ledger-records-success
+   FAILED  ogent-agent-execution-async-ledger-write-failure-retains-terminal
+   FAILED  ogent-agent-execution-async-malformed-result-delivers-once
+   FAILED  ogent-agent-execution-async-real-process-and-ledger
+

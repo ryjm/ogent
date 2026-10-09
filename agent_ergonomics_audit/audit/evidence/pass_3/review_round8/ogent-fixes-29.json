@@ -1,0 +1,32 @@
+{
+  "argv": [
+    "docker",
+    "exec",
+    "-e",
+    "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+    "ogent-fixes-29",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-L",
+    "/work/lisp",
+    "-L",
+    "/work/lisp/ui",
+    "-L",
+    "/work/test",
+    "-L",
+    "/work/test/ui",
+    "-l",
+    "/work/test/ogent-test-helper.el",
+    "-l",
+    "/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round8/focused.el"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 2.524237632751465,
+  "summary": {
+    "selected": 21,
+    "expected": 21,
+    "unexpected": 0,
+    "skipped": 0
+  }
+}

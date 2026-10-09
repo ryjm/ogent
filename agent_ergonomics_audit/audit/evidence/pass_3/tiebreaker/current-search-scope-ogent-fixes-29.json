@@ -1,0 +1,32 @@
+{
+  "label": "current-search-scope-ogent-fixes-29",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "-e",
+    "TIEBREAKER_ELPA=/tmp/ogent-ergonomics-elpa",
+    "-e",
+    "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+    "-e",
+    "NO_COLOR=1",
+    "-e",
+    "CI=true",
+    "-e",
+    "TERM=dumb",
+    "ogent-fixes-29",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-l",
+    "agent_ergonomics_audit/audit/evidence/pass_3/tiebreaker/paired-sdk.el",
+    "-l",
+    "test/ogent-tool-process-tests.el",
+    "--eval",
+    "(ert-run-tests-batch-and-exit '(member ogent-tool-process-grep-gnu-binary-scope ogent-tool-process-grep-ripgrep-binary-scope ogent-tool-process-grep-gnu-symlink-scope ogent-tool-process-grep-ripgrep-symlink-scope))"
+  ],
+  "exit_code": 0,
+  "stdout": "audit/evidence/pass_3/tiebreaker/current-search-scope-ogent-fixes-29.stdout.log",
+  "stderr": "audit/evidence/pass_3/tiebreaker/current-search-scope-ogent-fixes-29.stderr.log"
+}

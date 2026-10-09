@@ -1,0 +1,24 @@
+{
+  "historical_baseline": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "manifest_passes_1_and_2_unchanged": true,
+  "historical_score_rows_unchanged": 38,
+  "all_current_rows": 76,
+  "preserved_files": [
+    {
+      "path": "agent_ergonomics_audit/audit/scorecard_pass_1.md",
+      "sha256": "475fc1a6b377d9852b9f15767e29b42c45163a48ca293dce6a7d0e140a0b144b"
+    },
+    {
+      "path": "agent_ergonomics_audit/audit/scorecard_pass_2.md",
+      "sha256": "957704b72cb9a9bf55e0ef31fa7eafba8719080e30584fc37194c8e4f9b8e775"
+    },
+    {
+      "path": "agent_ergonomics_audit/audit/heatmap_pass_1.svg",
+      "sha256": "cbf06afc86c8f057aef3742487e2dbb59bb915789d76b1b8e8ecd4c3bacdda86"
+    },
+    {
+      "path": "agent_ergonomics_audit/audit/heatmap.svg",
+      "sha256": "a6ae098edb1c49479208581f295867d7e69f51037c1e31d06efe348938489bc6"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "ogent-fixes-29",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-L",
+    "lisp",
+    "-L",
+    "lisp/ui",
+    "-L",
+    "test",
+    "-L",
+    "test/ui",
+    "-l",
+    "test/ogent-test-helper.el",
+    "-l",
+    "test/ogent-agent-execution-tests.el",
+    "--eval",
+    "(ert-run-tests-batch-and-exit \"^ogent-agent-execution-.*-raw-root-contract$\")"
+  ],
+  "source_sha": "ff4e96c21d5fb3ffe79843fbce8392390d1c8bf4",
+  "exit": 1,
+  "test_file": "working-new-root-regression",
+  "recorded_at": "2026-10-08T23:27:24.541256+00:00"
+}

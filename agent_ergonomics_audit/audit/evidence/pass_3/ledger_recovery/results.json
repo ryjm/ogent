@@ -1,0 +1,38 @@
+{
+  "source_sha": "10f86bb12a03f3122a60ba085be7289eb5277f5e",
+  "baseline_sha": "967eb054e13104d05e818656a2b78f037cc0effd",
+  "source_frozen": true,
+  "source_files_sha256": {
+    "lisp/ogent-tool-execution.el": "c113730ca7803eb5560df9a738fc41783c38fe948ffe7d649f10d9153a7a89ef",
+    "lisp/ui/ogent-ui-toolcalls.el": "754fe7fd371e74c756802b12d9d8e110cda8c897dea065c756580d428249740a",
+    "test/ogent-agent-execution-tests.el": "ae2da45f294e61d34fd1f0b7012491cd86529cdc7da1b5a91876fd4de783abc7",
+    "test/ui/ogent-ui-toolcalls-tests.el": "01e891b79e22a3fd3ae0d5af7d54fa76773045fcb38537aeecef51c86024f586"
+  },
+  "focused_tests": {
+    "emacs_30_2": {
+      "passed": 210,
+      "unexpected": 0,
+      "skipped": 0
+    },
+    "emacs_29_1": {
+      "passed": 210,
+      "unexpected": 0,
+      "skipped": 0
+    }
+  },
+  "existing_ui_tests": {
+    "emacs_30_2": 4,
+    "emacs_29_1": 4
+  },
+  "scoped_static_validation": "passed both runtimes",
+  "provider_api_calls": 0,
+  "provider_logins": 0,
+  "log_files": [
+    "focused_emacs30.log",
+    "focused_emacs29.log",
+    "ui_existing_emacs30.log",
+    "ui_existing_emacs29.log",
+    "scoped_validation_emacs30.log",
+    "scoped_validation_emacs29.log"
+  ]
+}

@@ -1,0 +1,4 @@
+Removed all .elc files
+
+In toplevel form:
+lisp/independent-fixture.el: Error: Invalid read syntax: ")", 12, 1

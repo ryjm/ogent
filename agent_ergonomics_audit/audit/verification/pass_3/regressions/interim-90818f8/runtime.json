@@ -1,0 +1,8 @@
+{
+  "emacs_version": "GNU Emacs 30.2",
+  "process_test_rg": {
+    "path": "/tmp/ogent-test-rg",
+    "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+    "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+  }
+}

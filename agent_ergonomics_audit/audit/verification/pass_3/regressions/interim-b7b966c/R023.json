@@ -1,0 +1,169 @@
+{
+  "recommendation_id": "R023",
+  "test_path": "agent_ergonomics_audit/audit/regression_tests/R023__actual_build_reports.test.sh",
+  "test_inputs_sha256": {
+    "agent_ergonomics_audit/audit/regression_tests/R023__actual_build_reports.test.sh": "23d45c5344f7ce460adbb67cad6d3ecba7b7199109d2266954da1d3d9e1dbd90",
+    "agent_ergonomics_audit/tools/run-ert.sh": "a9e618a585ad6496b8f3947e0ca14b0a90e8c5be1e7bdcfcf19e1387437bc4af",
+    "test/ogent-test-helper.el": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+    "test/makem-report-tests.sh": "825bb69913a14c308c02b9e50621431988efec42dee858d7ebfd14cb426578ab",
+    "Makefile": "bc702483fd3d2639143abf65db30b942a07f2dc3317409cbba31c768f89c7cbe",
+    "agent_ergonomics_audit/audit/verification/pass_3/regressions/fixture_trace.sh": "8bead3975489b49ca673ec5da1f9f02683aaadea0ffa3ce11eba40aa99949310"
+  },
+  "contract": {
+    "kind": "shell_fixture",
+    "test_file": "test/makem-report-tests.sh",
+    "expected_report_invocations": 21,
+    "expected_count": 23,
+    "count_unit": "real-runner cases (report calls, human failure, cancellation)"
+  },
+  "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "baseline": {
+    "argv": [
+      "docker",
+      "exec",
+      "ogent-fixes",
+      "env",
+      "-u",
+      "OGENT_AUDIT_SOURCE",
+      "-u",
+      "MAKEM_UNDER_TEST",
+      "-u",
+      "BASH_ENV",
+      "MAKEM_UNDER_TEST=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+      "OGENT_AUDIT_SOURCE=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+      "BASH_ENV=/work/agent_ergonomics_audit/audit/verification/pass_3/regressions/fixture_trace.sh",
+      "timeout",
+      "--kill-after=5",
+      "90",
+      "bash",
+      "/work/agent_ergonomics_audit/audit/regression_tests/R023__actual_build_reports.test.sh"
+    ],
+    "environment_overrides": {
+      "MAKEM_UNDER_TEST": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+      "OGENT_AUDIT_SOURCE": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg",
+      "BASH_ENV": "/work/agent_ergonomics_audit/audit/verification/pass_3/regressions/fixture_trace.sh"
+    },
+    "started_at": "2026-10-08T23:34:40.643712+00:00",
+    "duration_seconds": 0.115,
+    "exit_code": 1,
+    "timed_out": false,
+    "timeout_seconds": 90,
+    "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R023-baseline.log",
+    "log_sha256": "9196a347fef0fc97e1d3884b7b62fb30728337064ce7d794d6b191638f0853ab",
+    "source": {
+      "revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "source_root": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "source_root_in_container": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "tracked_source_clean": true,
+      "verified_git_archive": true,
+      "source_fingerprint_sha256": "307043b8873701e3bc746b75a7c1c5235001dc9517fbb9c15f9cf5ca32baf22c",
+      "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/baseline-source.json",
+      "manifest_sha256": "35ed30d194153dd7833a63a4e3c160d6b6c5510b35fa98053bacc31542922fe5"
+    },
+    "selected_count": 1,
+    "executed_count": 1,
+    "report_invocations": [
+      "0 ./makem.sh --json --capabilities"
+    ],
+    "human_failure_case_executed": false,
+    "cancellation_case_executed": false,
+    "fixture_success_marker": false,
+    "first_failing_assertion": "Expected exit 0, got 1: ./makem.sh --json --capabilities",
+    "evidence_errors": [],
+    "proven": true,
+    "runtime": {
+      "emacs_version": "GNU Emacs 30.2",
+      "process_test_rg": {
+        "path": "/tmp/ogent-test-rg",
+        "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+        "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+      }
+    }
+  },
+  "proven": true,
+  "current": {
+    "argv": [
+      "docker",
+      "exec",
+      "ogent-fixes",
+      "env",
+      "-u",
+      "OGENT_AUDIT_SOURCE",
+      "-u",
+      "MAKEM_UNDER_TEST",
+      "-u",
+      "BASH_ENV",
+      "MAKEM_UNDER_TEST=/work/makem.sh",
+      "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+      "BASH_ENV=/work/agent_ergonomics_audit/audit/verification/pass_3/regressions/fixture_trace.sh",
+      "timeout",
+      "--kill-after=5",
+      "90",
+      "bash",
+      "/work/agent_ergonomics_audit/audit/regression_tests/R023__actual_build_reports.test.sh"
+    ],
+    "environment_overrides": {
+      "MAKEM_UNDER_TEST": "/work/makem.sh",
+      "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg",
+      "BASH_ENV": "/work/agent_ergonomics_audit/audit/verification/pass_3/regressions/fixture_trace.sh"
+    },
+    "started_at": "2026-10-08T23:34:59.030287+00:00",
+    "duration_seconds": 8.244,
+    "exit_code": 0,
+    "timed_out": false,
+    "timeout_seconds": 90,
+    "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R023-current.log",
+    "log_sha256": "2f91c227689d48a95de691fd75fd533aeeda6e6291f9c8652896140cbf7a32e0",
+    "source": {
+      "revision": "b7b966c6ac5acc15d15c8ea0c70d81653072cae9",
+      "source_root": "/workspace/ogent",
+      "source_root_in_container": "/work",
+      "tracked_source_clean": true,
+      "verified_git_archive": false,
+      "source_fingerprint_sha256": "98bbcc586250a59e10d6c647151ef86fe4d995a7a6e63dd7eafc87be1ce641ce",
+      "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/current-source.json",
+      "manifest_sha256": "a4cbd18a503df16a9797c8edbcf7cc1cacacb3e16d953c39e190c885fa48d656"
+    },
+    "selected_count": 23,
+    "executed_count": 23,
+    "report_invocations": [
+      "0 ./makem.sh --json --capabilities",
+      "2 ./makem.sh --json --emacs=/unavailable/emacs tset",
+      "2 ./makem.sh --json --emaxx=emacs compile",
+      "2 ./makem.sh --json",
+      "2 ./makem.sh --json interactive",
+      "3 ./makem.sh --json --emacs=/unavailable/emacs compile",
+      "0 ./makem.sh --json --help",
+      "3 env PATH=/tmp/ogent-makem-report-tests.2XcLhg/bootstrap-bin ./makem.sh --json --capabilities",
+      "0 ./makem.sh --json --emacs=emacs compile",
+      "0 ./makem.sh --json --emacs=emacs --no-compile test",
+      "1 ./makem.sh --json --emacs=emacs --no-compile test-buttercup",
+      "0 ./makem.sh --json --emacs=emacs --no-compile --exclude=test/report-fixture-tests.el test",
+      "0 make --no-print-directory test format=json EMACS=emacs",
+      "0 make --no-print-directory recompile format=json EMACS=emacs",
+      "0 ./makem.sh --json --emacs=emacs --no-compile batch -- --eval '(progn (princ \"quote\\\" newline\\n\") (princ (decode-coding-string (unibyte-string 233 155 170) (quote utf-8))))' --eval '(ignore \"\u96ea\")'",
+      "1 ./makem.sh --json --emacs=emacs lint-compile",
+      "1 ./makem.sh --json --emacs=emacs compile",
+      "1 ./makem.sh --json --emacs=emacs compile",
+      "1 ./makem.sh --json --emacs=emacs --no-compile batch",
+      "1 ./makem.sh --json --emacs=emacs --no-compile batch",
+      "1 ./makem.sh --json --emacs=emacs --no-compile test-ert"
+    ],
+    "human_failure_case_executed": true,
+    "cancellation_case_executed": true,
+    "fixture_success_marker": true,
+    "first_failing_assertion": null,
+    "evidence_errors": [],
+    "proven": true,
+    "runtime": {
+      "emacs_version": "GNU Emacs 30.2",
+      "process_test_rg": {
+        "path": "/tmp/ogent-test-rg",
+        "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+        "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+      }
+    }
+  }
+}

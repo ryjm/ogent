@@ -1,0 +1,30 @@
+{
+  "sha": "10f86bb12a03f3122a60ba085be7289eb5277f5e",
+  "unstaged_source_diff": "",
+  "staged_source_diff": "",
+  "changed_files_sha256": {
+    ".beads/issues.jsonl": "fb148c26ad00d1fbc741a8c11a0b1bc8e85f57c5b6cde0ff60b97f2b44fb7f7d",
+    ".github/workflows/ci.yml": "aa7deef981c7c00decc4358e58b0d26ed0b12730908eaa040527db8e52b02853",
+    "Makefile": "bc702483fd3d2639143abf65db30b942a07f2dc3317409cbba31c768f89c7cbe",
+    "README.org": "64aab1952b500be56d3c1d3d13105af32177839662627f2457811c4f6bd21a91",
+    "docs/agent-ergonomics.org": "d8cc76b3b49e2c7535df4ae210426c96ad476911d2ddb9c33cb0322c00cb6cf8",
+    "docs/build-reporting.org": "5d556d1047a3ed3a17cb7d061e3964ed64bae76c74bb491209b79ce7def104c6",
+    "lisp/ogent-agent.el": "a75d5718412d3c321d774eaff3d3a85a0d8e880424bb00bacf0a29a685e70342",
+    "lisp/ogent-debug.el": "bbe21a45311c2fb0a88f1dc15785868d63738db6efe0fdcaea97e70b10c00a4d",
+    "lisp/ogent-models.el": "ee3c2df8e4329c9d5e65e7254f6e2a442f94841d6e8de22521a78ded1fb5a3d1",
+    "lisp/ogent-tool-approval.el": "2d5186a8b49173a9b7f784b3de6552e66812f0706be3aa9354834919e4877e0c",
+    "lisp/ogent-tool-contract.el": "f828083fa00094b82f6aaa4b8aa34e25de370896e9fa9e041eb10989b68b872d",
+    "lisp/ogent-tool-execution.el": "c113730ca7803eb5560df9a738fc41783c38fe948ffe7d649f10d9153a7a89ef",
+    "lisp/ogent-tool-process.el": "a239df838a715cfeff5a6d38cf04cbe5056e5ce9e4d3d997aa6c7b9981c095c2",
+    "lisp/ogent-tool-results.el": "111ef60d4b87866ac8c932dce5ff3e600454be32a0085c57ab25efd857b48bf9",
+    "lisp/ogent-tools.el": "6fa93a2af96050b0d36b8507667183a4844e66fb5cc14cfb92a6998949ace69a",
+    "lisp/ui/ogent-ui-toolcalls.el": "754fe7fd371e74c756802b12d9d8e110cda8c897dea065c756580d428249740a",
+    "makem.sh": "8492a15c695e9b80df1ba3e349a4157e78952db01eccd524f077192ca9794db4",
+    "test/makem-report-tests.sh": "825bb69913a14c308c02b9e50621431988efec42dee858d7ebfd14cb426578ab",
+    "test/offline/workflows.el.in": "47dac91c8c1753ee514353c8d336ebaf0109d18314bbcb62268ab0a19afcb4c7",
+    "test/ogent-agent-execution-tests.el": "ae2da45f294e61d34fd1f0b7012491cd86529cdc7da1b5a91876fd4de783abc7",
+    "test/ogent-debug-tests.el": "031845af0e738d248a5f6d9c65331aacf9f033e0342dff5648466882b725231d",
+    "test/ogent-tool-process-tests.el": "972bddab9cc2427c2457022fba3d27810baca473858d45b6f7e959efce417b1d",
+    "test/ui/ogent-ui-toolcalls-tests.el": "01e891b79e22a3fd3ae0d5af7d54fa76773045fcb38537aeecef51c86024f586"
+  }
+}

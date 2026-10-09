@@ -1,0 +1,14 @@
+{
+  "source_revision": "5d07d807bc85a093725db24e33996b4af690ec0f",
+  "recommendations": 11,
+  "proof_pairs": 11,
+  "consecutive_clean_reviews": [
+    14,
+    15
+  ],
+  "native_checks": 8,
+  "paired_score_rows": 76,
+  "new_api_rows": 6,
+  "all_checks_passed": true,
+  "scope": "Local artifact consistency; exact pushed-SHA CI is verified separately."
+}

@@ -3,6 +3,12 @@ audit/partial/
 audit/.archive/
 audit/agent_simulations/**/fixtures/
 audit/manifest.json.template
+# Source snapshots and isolated Git build fixtures are archived as tar.gz files.
+# Keep their live .el copies out of makem's tracked feature/test discovery.
+audit/evidence/pass_3/**/*fixture*/
+audit/evidence/pass_3/**/baseline-source/
+audit/evidence/pass_3/**/baseline_sources/
+audit/evidence/pass_3/**/paired_sources_*/
 
 # Don't ignore other audit/ contents — they're the durable artifacts
 !audit/
@@ -13,3 +19,9 @@ audit/manifest.json.template
 .DS_Store
 *.swp
 *.tmp
+__pycache__/
+audit/evidence/pass_3/ledger_context/baseline-*.el
+audit/verification/pass_3/native/**/*.log
+# Preserve the replay shim as .source.txt without registering its provided
+# feature with makem's tracked Elisp discovery.
+audit/evidence/pass_3/review_round12/offline-selected.el

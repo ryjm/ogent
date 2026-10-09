@@ -1,0 +1,227 @@
++ set -euo pipefail
++++ dirname /work/test/makem-report-tests.sh
+++ cd /work/test/..
+++ pwd
++ report_test_root=/work
++ report_test_makem=/work/makem.sh
++ report_test_emacs=emacs
+++ mktemp -d /tmp/ogent-makem-report-tests.XXXXXX
++ report_test_dir=/tmp/ogent-makem-report-tests.upkMRl
++ trap 'rm -rf "$report_test_dir"' EXIT
++ mkdir -p /tmp/ogent-makem-report-tests.upkMRl/lisp /tmp/ogent-makem-report-tests.upkMRl/test
++ cp /work/makem.sh /tmp/ogent-makem-report-tests.upkMRl/makem.sh
++ cp /work/Makefile /tmp/ogent-makem-report-tests.upkMRl/Makefile
++ chmod +x /tmp/ogent-makem-report-tests.upkMRl/makem.sh
++ cd /tmp/ogent-makem-report-tests.upkMRl
++ git init -q
++ cat
++ cat
++ git add lisp test
++ run-report 0 ./makem.sh --json --capabilities
++ local expected=0
++ shift
++ local actual=0
++ ./makem.sh --json --capabilities
++ [[ 0 != \0 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 0
++ python3 -
++ run-report 2 ./makem.sh --json --emacs=/unavailable/emacs tset
++ local expected=2
++ shift
++ local actual=0
++ ./makem.sh --json --emacs=/unavailable/emacs tset
++ actual=2
++ [[ 2 != \2 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 2
++ python3 -
++ run-report 2 ./makem.sh --json --emaxx=emacs compile
++ local expected=2
++ shift
++ local actual=0
++ ./makem.sh --json --emaxx=emacs compile
++ actual=2
++ [[ 2 != \2 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 2
++ run-report 2 ./makem.sh --json
++ local expected=2
++ shift
++ local actual=0
++ ./makem.sh --json
++ actual=2
++ [[ 2 != \2 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 2
++ run-report 2 ./makem.sh --json interactive
++ local expected=2
++ shift
++ local actual=0
++ ./makem.sh --json interactive
++ actual=2
++ [[ 2 != \2 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 2
++ run-report 3 ./makem.sh --json --emacs=/unavailable/emacs compile
++ local expected=3
++ shift
++ local actual=0
++ ./makem.sh --json --emacs=/unavailable/emacs compile
++ actual=3
++ [[ 3 != \3 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 3
++ run-report 0 ./makem.sh --json --help
++ local expected=0
++ shift
++ local actual=0
++ ./makem.sh --json --help
++ [[ 0 != \0 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 0
++ mkdir bootstrap-bin
+++ command -v bash
++ ln -s /usr/bin/bash bootstrap-bin/bash
++ run-report 3 env PATH=/tmp/ogent-makem-report-tests.upkMRl/bootstrap-bin ./makem.sh --json --capabilities
++ local expected=3
++ shift
++ local actual=0
++ env PATH=/tmp/ogent-makem-report-tests.upkMRl/bootstrap-bin ./makem.sh --json --capabilities
++ actual=3
++ [[ 3 != \3 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 3
++ python3 -
++ run-report 0 ./makem.sh --json --emacs=emacs compile
++ local expected=0
++ shift
++ local actual=0
++ ./makem.sh --json --emacs=emacs compile
++ [[ 0 != \0 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 0
++ test -s lisp/report-fixture.elc
++ python3 -
++ run-report 0 ./makem.sh --json --emacs=emacs --no-compile test
++ local expected=0
++ shift
++ local actual=0
++ ./makem.sh --json --emacs=emacs --no-compile test
++ [[ 0 != \0 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 0
++ python3 -
++ run-report 1 ./makem.sh --json --emacs=emacs --no-compile test-buttercup
++ local expected=1
++ shift
++ local actual=0
++ ./makem.sh --json --emacs=emacs --no-compile test-buttercup
++ actual=1
++ [[ 1 != \1 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 1
++ python3 -
++ run-report 0 ./makem.sh --json --emacs=emacs --no-compile --exclude=test/report-fixture-tests.el test
++ local expected=0
++ shift
++ local actual=0
++ ./makem.sh --json --emacs=emacs --no-compile --exclude=test/report-fixture-tests.el test
++ [[ 0 != \0 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 0
++ python3 -
++ run-report 0 make --no-print-directory test format=json EMACS=emacs
++ local expected=0
++ shift
++ local actual=0
++ make --no-print-directory test format=json EMACS=emacs
++ [[ 0 != \0 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 0
++ python3 -
++ run-report 0 make --no-print-directory recompile format=json EMACS=emacs
++ local expected=0
++ shift
++ local actual=0
++ make --no-print-directory recompile format=json EMACS=emacs
++ [[ 0 != \0 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 0
++ python3 -
++ run-report 0 ./makem.sh --json --emacs=emacs --no-compile batch -- --eval '(progn (princ "quote\" newline\n") (princ (decode-coding-string (unibyte-string 233 155 170) (quote utf-8))))' --eval '(ignore "雪")'
++ local expected=0
++ shift
++ local actual=0
++ ./makem.sh --json --emacs=emacs --no-compile batch -- --eval '(progn (princ "quote\" newline\n") (princ (decode-coding-string (unibyte-string 233 155 170) (quote utf-8))))' --eval '(ignore "雪")'
++ [[ 0 != \0 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 0
++ python3 -
++ cat
++ run-report 1 ./makem.sh --json --emacs=emacs lint-compile
++ local expected=1
++ shift
++ local actual=0
++ ./makem.sh --json --emacs=emacs lint-compile
++ actual=1
++ [[ 1 != \1 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 1
++ python3 -
++ cat
++ run-report 1 ./makem.sh --json --emacs=emacs compile
++ local expected=1
++ shift
++ local actual=0
++ ./makem.sh --json --emacs=emacs compile
++ actual=1
++ [[ 1 != \1 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 1
++ python3 -
++ cp lisp/report-fixture.el syntax-fixture.saved
++ cat
++ run-report 1 ./makem.sh --json --emacs=emacs compile
++ local expected=1
++ shift
++ local actual=0
++ ./makem.sh --json --emacs=emacs compile
++ actual=1
++ [[ 1 != \1 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 1
++ python3 -
++ cp syntax-fixture.saved lisp/report-fixture.el
++ run-report 1 ./makem.sh --json --emacs=emacs --no-compile batch
++ local expected=1
++ shift
++ local actual=0
++ ./makem.sh --json --emacs=emacs --no-compile batch
++ actual=1
++ [[ 1 != \1 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 1
++ python3 -
++ cat
++ cat
++ run-report 1 ./makem.sh --json --emacs=emacs --no-compile batch
++ local expected=1
++ shift
++ local actual=0
++ ./makem.sh --json --emacs=emacs --no-compile batch
++ actual=1
++ [[ 1 != \1 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 1
++ python3 -
++ cat
++ cat
++ run-report 1 ./makem.sh --json --emacs=emacs --no-compile test-ert
++ local expected=1
++ shift
++ local actual=0
++ ./makem.sh --json --emacs=emacs --no-compile test-ert
++ actual=1
++ [[ 1 != \1 ]]
++ python3 - /tmp/ogent-makem-report-tests.upkMRl/output.json 1
++ python3 -
++ human_status=0
++ NO_COLOR=
++ ./makem.sh --emacs=emacs --no-compile test-ert
++ human_status=1
++ test 1 '!=' 0
++ test '!' -s human.out
++ python3 -
++ report_test_pid=603054
++ sleep 2
++ ./makem.sh --json --emacs=emacs --no-compile batch -- --eval '(progn (princ "ready") (sleep-for 30))'
++ kill -TERM 603054
++ signal_status=0
++ wait 603054
++ signal_status=143
++ test 143 == 143
++ python3 -
+makem JSON contract: all real-runner checks passed
++ printf 'makem JSON contract: all real-runner checks passed\n'
++ rm -rf /tmp/ogent-makem-report-tests.upkMRl

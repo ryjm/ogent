@@ -1,0 +1,57 @@
+#+title: Final 021cca4 known-task regression replay
+
+All nine established tasks were actually replayed and passed against production
+SHA 021cca4d28e7b20fba3617c57522cc5014f640f9, identical at execution start/end.
+The production-path git diff --quiet HEAD guards exited 0 before and after the
+exercise. Execution ran from 2026-10-08T23:06:27.252446+00:00 through 2026-10-08T23:06:31.444638+00:00.
+
+This familiar regression replay records 89 public SDK/makem round trips. It is
+not a new blind exercise or evidence of comparative efficiency. The original
+fresh result of 9/9 tasks, seven first-strategy successes, and 94 canonical trips
+is unchanged. All 30 prior final_freeze files were preserved byte-for-byte in
+../replay_a2fa8ce/. That archive and all earlier historical replay/raw artifacts
+were verified unchanged: 223 files, with hashes in preservation_manifest.json.
+
+The supplied canonical_tasks_pass_3.md is absent. The established nine task
+contracts were reused from the published tasks.el and summarize.py replay. The
+older audit/canonical_tasks.md lists the prior seven-task exercise.
+
+| Task | Actual outcome | Regression trips |
+|------+----------------+------------------|
+| 1. Named execution/search/async discovery | Passed; named search arguments and async support exposed | 1 |
+| 2. README pagination | Passed; 429 exact positioned lines, 62 seven-line pages, terminal done | 63 |
+| 3. Recursive .el discovery | Passed; all 105 exact paths once, three pages, terminal done | 4 |
+| 4. Search pagination | Passed; all 250 exact locations and colon/newline filename, three pages | 4 |
+| 5. No-match/invalid-regex outcomes | Passed in nonempty and empty directories | 4 |
+| 6. Approval and unsafe batch | Passed; zero prompts, zero mutations, rejected batch read zero files | 3 |
+| 7. Common-envelope batch composition | Passed; all three files/search/read calls completed | 1 |
+| 8. Async terminal callbacks | Passed; completion and cancellation each called back exactly once | 4 |
+| 9. Real compiler/ERT JSON reporting | Passed; success exit 0, two intentional fixture failures exit 1 | 5 |
+
+Task 9 directly invoked actual production /work/makem.sh in existing independent
+container-owned tracked Git projects. No Makefile invocation is claimed. The
+successful compile/ERT run returned status success and exit_kind success, exited
+0, and reported one expected ERT test. The malformed fixture has an unmatched
+closing parenthesis at audit-build.el:14:1; the actual compiler returned status
+error, exit_kind task_failure, and exit 1 with a typed file/line/column diagnostic.
+The ERT fixture expects 3 from an addition returning 2; the actual runner returned
+status error, exit_kind task_failure, and exit 1 with one unexpected test. Its
+typed location was test/audit-build-tests.el:4, with null column because ERT
+emitted no column. These deliberate fixture failures are successful regression
+checks. Eight actual Emacs commands executed across the three build invocations.
+
+Every recorded command retains complete argv, cwd, Unix timestamps, duration,
+stdout, stderr, and exit status, plus byte-complete stdout/stderr companion files.
+SDK stdout retains full public forms, results, and both callback payloads. The
+summary records exact task results, error evidence, timestamps, and source guards.
+
+Only established public SDK workflow, runtime discovery/help, requested repository
+instructions, and the owned replay scripts/fixtures were used. No production or
+test implementation or Git history was inspected. The canonical read task reads
+README.org. Actual SDK source loaded via the protected test helper, which may
+supply gptel doubles. Search used the observed GNU grep fallback. There were no
+provider logins/inference requests, safety-policy changes, staging/commits,
+production/root-document edits, or broad project build/test/compile runs.
+
+This replay makes no native-gate or remote-CI claim. It does not establish live
+provider transport, unexecuted search backends, or other unexecuted branches.

@@ -1,0 +1,60 @@
+{
+  "verdict": "NOT_CLEAN",
+  "substantive_findings": 1,
+  "trivial_findings": 0,
+  "source_edits": 0,
+  "source_sha": "021cca4d28e7b20fba3617c57522cc5014f640f9",
+  "baseline_sha": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "branch": "master",
+  "actual_counts": {
+    "selected": 114,
+    "expected": 112,
+    "unexpected": 2,
+    "skipped": 0
+  },
+  "distinct_tests": 57,
+  "run_count": 4,
+  "source_guard_comparison": {
+    "head_unchanged": true,
+    "branch_unchanged": true,
+    "worktree_source_diff_empty": true,
+    "staged_source_diff_empty": true,
+    "all_source_hashes_unchanged": true,
+    "tracked_source_hash_count": 226,
+    "start_head": "021cca4d28e7b20fba3617c57522cc5014f640f9",
+    "end_head": "021cca4d28e7b20fba3617c57522cc5014f640f9"
+  },
+  "finding": {
+    "priority": "P2",
+    "title": "Structured globs silently drop selected raw-byte filenames",
+    "filter_source": "lisp/ogent-tools.el:386",
+    "validation_source": "lisp/ogent-tool-results.el:103",
+    "contract_source": "docs/agent-ergonomics.org:30",
+    "reproduced_runtimes": [
+      "Emacs 30.2",
+      "Emacs 29.1"
+    ],
+    "reproduced_patterns": [
+      "*.txt",
+      "**/*.txt"
+    ],
+    "actual": "status ok; files []; total_files 0",
+    "expected": "typed unsupported_output result",
+    "source_only_confirmation": true,
+    "compiled_probe_confirmation": true,
+    "repair_owner": "root"
+  },
+  "strict_compilation": {
+    "files": [
+      "lisp/ogent-agent.el",
+      "lisp/ogent-tool-results.el"
+    ],
+    "error_on_warn": true,
+    "succeeded_runtimes": [
+      "Emacs 30.2",
+      "Emacs 29.1"
+    ]
+  },
+  "prior_scoped_lint_evidence": "../lint_hygiene/validate.el and both successful logs; no scoped checkdoc/indent rerun by reviewer",
+  "fresh_eyes_streak_reset_required": true
+}

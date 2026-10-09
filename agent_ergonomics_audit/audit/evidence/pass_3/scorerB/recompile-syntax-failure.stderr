@@ -1,0 +1,11 @@
+Removed all .elc files
+
+In toplevel form:
+lisp/scorer-fixture.el: Error: End of file during parsing
+
+In toplevel form:
+test/scorer-fixture-tests.el:3:11: Error: End of file during parsing: /work/agent_ergonomics_audit/audit/evidence/pass_3/scorerB/build-fixture/lisp/scorer-fixture.el
+ERROR (2026-10-08 22:33:27): Compiling failed.
+LOG (2026-10-08 22:33:27): Finished with 1 errors.
+make[1]: *** [Makefile:97: compile] Error 1
+make: *** [Makefile:106: recompile] Error 2

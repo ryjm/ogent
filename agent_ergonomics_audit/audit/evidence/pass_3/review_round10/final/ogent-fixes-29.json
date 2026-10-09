@@ -1,0 +1,40 @@
+{
+  "container": "ogent-fixes-29",
+  "argv": [
+    "docker",
+    "exec",
+    "-e",
+    "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+    "ogent-fixes-29",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-L",
+    "/work/lisp",
+    "-L",
+    "/work/lisp/ui",
+    "-L",
+    "/work/test",
+    "-L",
+    "/work/test/ui",
+    "-l",
+    "/work/test/ogent-test-helper.el",
+    "-l",
+    "/work/test/ogent-agent-execution-tests.el",
+    "-l",
+    "/work/test/ogent-tool-process-tests.el",
+    "-l",
+    "/work/test/ui/ogent-ui-toolcalls-tests.el",
+    "--eval",
+    "(ert-run-tests-batch-and-exit t)"
+  ],
+  "started": "2026-10-08T22:46:36.668350+00:00",
+  "elapsed_seconds": 13.258709248999367,
+  "exit": 0,
+  "counts": {
+    "selected": 108,
+    "expected": 108,
+    "unexpected": 0,
+    "skipped": 0
+  }
+}

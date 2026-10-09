@@ -1,0 +1,9 @@
+ogent-tool--grep-async t
+ogent-tool--bash-async t
+ogent-tool--write-file t
+ogent-tool--edit-file t
+ogent-tool-get t
+ogent-tool-spec-get t
+ogent-tools-enabled-list t
+ogent-doctor-run t
+ogent-doctor-batch t

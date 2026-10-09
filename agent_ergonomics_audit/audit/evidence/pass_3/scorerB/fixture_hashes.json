@@ -1,0 +1,82 @@
+[
+  {
+    "file": "audit/evidence/pass_3/scorerB/probe.el",
+    "sha256": "c0885bbd0a7e554f84f9c61e92d26df296f19d73ee363979c923cb46e8af12b6"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/probe_baseline.el",
+    "sha256": "7ff09e9fa04fda60a01af2d4d57ca9a367fe9425065b4c57f80f8cc63c1d989f"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/probe_binary_selection.el",
+    "sha256": "1c80bada092f8fdd9587e90ce9d673ad9259b2295879f4efff9b927ec080eba5"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/probe_build.py",
+    "sha256": "1219f3b6853c430aff1d22f4c8c4b0cba3e0c02dd21a1c73d852787421fcb937"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/probe_build_baseline.py",
+    "sha256": "e2dae3a7f78fa466ca38a51bae880e1a204fcc737b85808f0885b3586c67ab05"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/probe_encoding.el",
+    "sha256": "8ddb6ac79a55893c84f8b238e00bd13f44624ad0bc3f9ad1b8d7e9af7eef65b1"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/probe_final_edges.el",
+    "sha256": "6e39a4b21dc07aaac6902c90840e6021e2df621e97a3f23d4b0d04da668c216f"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/probe_identity.el",
+    "sha256": "564865f716d099dbd82e99c5b088b54bafe2cb0b29f1b267056d436c911aaf2f"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/probe_ledger_context.el",
+    "sha256": "599f954ddd629a47a77b61ccc4521e3b51422bb02dbaeab3a6753b7c75e0d22a"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/probe_ledger_recovery.el",
+    "sha256": "74b5a902c4f54df3d630722993b43fb50ef565733ddd7852ab8deb9b4acd03d0"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/probe_object_freeze.el",
+    "sha256": "07be74b7be0006bc857a07669d81f6118368f5411cf1b2df6324bbf709b4b53d"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/probe_registry.el",
+    "sha256": "080c0c8fd3778be8ebd3ef6e55894326b522714028a452e8e7a1e8577f0d1f78"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/build-fixture/Makefile",
+    "sha256": "bc702483fd3d2639143abf65db30b942a07f2dc3317409cbba31c768f89c7cbe"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/build-fixture/lisp/scorer-fixture.el",
+    "sha256": "3d181a710d515d972c1c97c91e4a9f0db742690d5f19f888d600c971cf788e45"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/build-fixture/makem.sh",
+    "sha256": "8492a15c695e9b80df1ba3e349a4157e78952db01eccd524f077192ca9794db4"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/build-fixture/test/scorer-fixture-tests.el",
+    "sha256": "ffc07ab253c83b42bb2fb093e66974602727a7e2280dd559b9bf3ea001859dc3"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/baseline-build-fixture/Makefile",
+    "sha256": "de19d89549f2fdd3042755a9b8a501782c1c59388d2ad3664763f4f1756c57db"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/baseline-build-fixture/lisp/scorer-fixture.el",
+    "sha256": "3d181a710d515d972c1c97c91e4a9f0db742690d5f19f888d600c971cf788e45"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/baseline-build-fixture/makem.sh",
+    "sha256": "d619aa0c8c8c4cf0f47d736054c6a902d94dbb619e1beeae9eacdcf30198fdf9"
+  },
+  {
+    "file": "audit/evidence/pass_3/scorerB/baseline-build-fixture/test/scorer-fixture-tests.el",
+    "sha256": "ffc07ab253c83b42bb2fb093e66974602727a7e2280dd559b9bf3ea001859dc3"
+  }
+]

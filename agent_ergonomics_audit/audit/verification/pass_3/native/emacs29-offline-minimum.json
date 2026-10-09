@@ -1,0 +1,38 @@
+{
+  "check": "emacs29-offline-minimum",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "-e",
+    "OGENT_ELPA_DIR=/tmp/ogent-ergonomics-elpa",
+    "-e",
+    "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+    "-e",
+    "OGENT_GPTEL_DIR=/tmp/gptel-minimum",
+    "ogent-fixes-29",
+    "make",
+    "offline-test"
+  ],
+  "exit_code": 0,
+  "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+  "started_at": "2026-10-08T23:56:48.284040+00:00",
+  "completed_at": "2026-10-08T23:56:58.058457+00:00",
+  "summary": [
+    "Offline dependencies: Emacs 29.1, Org 9.8.10, transient 0.13.8, gptel 0.9.9.5 (/tmp/gptel-minimum/gptel-request.el)",
+    "Ran 206 tests, 203 results as expected, 0 unexpected, 3 skipped (2026-10-08 23:56:58+0000, 5.531277 sec)"
+  ],
+  "stdout": "audit/verification/pass_3/native/emacs29-offline-minimum.stdout.log.gz",
+  "stderr": "audit/verification/pass_3/native/emacs29-offline-minimum.stderr.log.gz",
+  "transcript_hashes": {
+    "stdout": {
+      "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip_sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+    },
+    "stderr": {
+      "raw_sha256": "e5c0472affd7faac3952dea86d71df2bf96ccf4cbc830737813bf4755c2d3b24",
+      "gzip_sha256": "c8f11dbd496f71db36493811cbdc242bb916930d05115eb1501411811d1cd059"
+    }
+  }
+}

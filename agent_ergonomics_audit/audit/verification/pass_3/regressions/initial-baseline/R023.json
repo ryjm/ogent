@@ -1,0 +1,76 @@
+{
+  "recommendation_id": "R023",
+  "test_path": "agent_ergonomics_audit/audit/regression_tests/R023__actual_build_reports.test.sh",
+  "test_inputs_sha256": {
+    "agent_ergonomics_audit/audit/regression_tests/R023__actual_build_reports.test.sh": "23d45c5344f7ce460adbb67cad6d3ecba7b7199109d2266954da1d3d9e1dbd90",
+    "agent_ergonomics_audit/tools/run-ert.sh": "a9e618a585ad6496b8f3947e0ca14b0a90e8c5be1e7bdcfcf19e1387437bc4af",
+    "test/ogent-test-helper.el": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+    "test/makem-report-tests.sh": "3f5fc57fc0b565ee6fb19b592275d417eb62702a7d58b202a10e1883ea0226b3",
+    "Makefile": "bc702483fd3d2639143abf65db30b942a07f2dc3317409cbba31c768f89c7cbe",
+    "agent_ergonomics_audit/audit/verification/pass_3/regressions/fixture_trace.sh": "8bead3975489b49ca673ec5da1f9f02683aaadea0ffa3ce11eba40aa99949310"
+  },
+  "contract": {
+    "kind": "shell_fixture",
+    "test_file": "test/makem-report-tests.sh",
+    "expected_report_invocations": 20,
+    "expected_count": 22,
+    "count_unit": "real-runner cases (report calls, human failure, cancellation)"
+  },
+  "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "baseline": {
+    "argv": [
+      "docker",
+      "exec",
+      "ogent-fixes",
+      "env",
+      "-u",
+      "OGENT_AUDIT_SOURCE",
+      "-u",
+      "MAKEM_UNDER_TEST",
+      "-u",
+      "BASH_ENV",
+      "MAKEM_UNDER_TEST=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+      "OGENT_AUDIT_SOURCE=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "BASH_ENV=/work/agent_ergonomics_audit/audit/verification/pass_3/regressions/fixture_trace.sh",
+      "timeout",
+      "--kill-after=5",
+      "90",
+      "bash",
+      "/work/agent_ergonomics_audit/audit/regression_tests/R023__actual_build_reports.test.sh"
+    ],
+    "environment_overrides": {
+      "MAKEM_UNDER_TEST": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+      "OGENT_AUDIT_SOURCE": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "BASH_ENV": "/work/agent_ergonomics_audit/audit/verification/pass_3/regressions/fixture_trace.sh"
+    },
+    "started_at": "2026-10-08T20:50:35.630115+00:00",
+    "duration_seconds": 0.078,
+    "exit_code": 1,
+    "timed_out": false,
+    "timeout_seconds": 90,
+    "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R023-baseline.log",
+    "log_sha256": "f20a34c1d113f6fd7e9de02fa9aa371c6b4ba4683f90e99a6cd714a98fd6cb7b",
+    "source": {
+      "revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "source_root": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "source_root_in_container": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "tracked_source_clean": true,
+      "verified_git_archive": true,
+      "source_fingerprint_sha256": "307043b8873701e3bc746b75a7c1c5235001dc9517fbb9c15f9cf5ca32baf22c",
+      "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/baseline-source.json",
+      "manifest_sha256": "35ed30d194153dd7833a63a4e3c160d6b6c5510b35fa98053bacc31542922fe5"
+    },
+    "selected_count": 1,
+    "executed_count": 1,
+    "report_invocations": [
+      "0 ./makem.sh --json --capabilities"
+    ],
+    "human_failure_case_executed": false,
+    "cancellation_case_executed": false,
+    "fixture_success_marker": false,
+    "first_failing_assertion": "Expected exit 0, got 1: ./makem.sh --json --capabilities",
+    "evidence_errors": [],
+    "proven": true
+  },
+  "proven": false
+}

@@ -1,0 +1,19 @@
+{
+  "review_round": 7,
+  "pass": 3,
+  "verdict": "NOT_CLEAN",
+  "baseline_sha": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "start_sha": "967eb054e13104d05e818656a2b78f037cc0effd",
+  "end_sha": "967eb054e13104d05e818656a2b78f037cc0effd",
+  "production_diff_start_bytes": 0,
+  "production_diff_end_bytes": 0,
+  "substantive_findings": 1,
+  "finding": "P2: terminal ledger filesystem failure suppresses the asynchronous SDK callback",
+  "runtime": {"emacs": ["30.2", "29.1"], "ripgrep": "15.2.0"},
+  "focused_ert": {"emacs30": {"exit_code": 0, "passed": 193, "unexpected": 0}, "emacs29": {"exit_code": 0, "passed": 193, "unexpected": 0}},
+  "ledger_failure_probe": {"emacs30": {"exit_code": 0, "command_exit_code": 0, "callbacks": 0}, "emacs29": {"exit_code": 0, "command_exit_code": 0, "callbacks": 0}},
+  "search_probe": {"emacs30": {"exit_code": 0, "engines": ["ripgrep", "gnu-grep"], "matches": 268, "page_lengths": [200, 68], "objects_identical": true}, "emacs29": {"exit_code": 0, "engines": ["ripgrep", "gnu-grep"], "matches": 268, "page_lengths": [200, 68], "objects_identical": true}},
+  "source_edits": false,
+  "test_edits": false,
+  "staging_or_commits": false
+}

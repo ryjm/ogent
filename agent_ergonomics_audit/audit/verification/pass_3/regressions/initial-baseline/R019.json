@@ -1,0 +1,114 @@
+{
+  "recommendation_id": "R019",
+  "test_path": "agent_ergonomics_audit/audit/regression_tests/R019__async_sdk.test.sh",
+  "test_inputs_sha256": {
+    "agent_ergonomics_audit/audit/regression_tests/R019__async_sdk.test.sh": "73e016b597df4289034822f3ec93be83dec6e0256077bed563ee6499c8f14937",
+    "agent_ergonomics_audit/tools/run-ert.sh": "a9e618a585ad6496b8f3947e0ca14b0a90e8c5be1e7bdcfcf19e1387437bc4af",
+    "test/ogent-test-helper.el": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+    "test/ogent-agent-execution-tests.el": "e6c825b46ae8d1e7adf4915de74e831a842e770f9da6f3f040b603ed5aaa025e"
+  },
+  "contract": {
+    "kind": "ert",
+    "runs": [
+      {
+        "selector": "ogent-agent-execution-async-",
+        "test_file": "test/ogent-agent-execution-tests.el",
+        "expected_count": 4,
+        "expected_names": [
+          "ogent-agent-execution-async-and-sync-failures-in-ledger",
+          "ogent-agent-execution-async-custom-once-and-sync-rejection",
+          "ogent-agent-execution-async-denial-and-cancel",
+          "ogent-agent-execution-async-real-process-and-ledger"
+        ]
+      }
+    ],
+    "expected_count": 4,
+    "count_unit": "ERT tests"
+  },
+  "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "baseline": {
+    "argv": [
+      "docker",
+      "exec",
+      "ogent-fixes",
+      "env",
+      "-u",
+      "OGENT_AUDIT_SOURCE",
+      "-u",
+      "MAKEM_UNDER_TEST",
+      "-u",
+      "BASH_ENV",
+      "MAKEM_UNDER_TEST=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+      "OGENT_AUDIT_SOURCE=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "timeout",
+      "--kill-after=5",
+      "90",
+      "bash",
+      "/work/agent_ergonomics_audit/audit/regression_tests/R019__async_sdk.test.sh"
+    ],
+    "environment_overrides": {
+      "MAKEM_UNDER_TEST": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+      "OGENT_AUDIT_SOURCE": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3"
+    },
+    "started_at": "2026-10-08T20:50:21.879141+00:00",
+    "duration_seconds": 4.31,
+    "exit_code": 1,
+    "timed_out": false,
+    "timeout_seconds": 90,
+    "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R019-baseline.log",
+    "log_sha256": "69706325350d14c115849dc310c70d9d0f174d4539bad0864a2b6a8a5c89fa5c",
+    "source": {
+      "revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "source_root": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "source_root_in_container": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "tracked_source_clean": true,
+      "verified_git_archive": true,
+      "source_fingerprint_sha256": "307043b8873701e3bc746b75a7c1c5235001dc9517fbb9c15f9cf5ca32baf22c",
+      "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/baseline-source.json",
+      "manifest_sha256": "35ed30d194153dd7833a63a4e3c160d6b6c5510b35fa98053bacc31542922fe5"
+    },
+    "selected_count": 4,
+    "executed_count": 4,
+    "unexpected_count": 4,
+    "runs": [
+      {
+        "selected": 4,
+        "completed": 4,
+        "expected": 0,
+        "unexpected": 4,
+        "skipped": 0,
+        "results": [
+          {
+            "status": "FAILED",
+            "index": 1,
+            "selected_total": 4,
+            "name": "ogent-agent-execution-async-and-sync-failures-in-ledger"
+          },
+          {
+            "status": "FAILED",
+            "index": 2,
+            "selected_total": 4,
+            "name": "ogent-agent-execution-async-custom-once-and-sync-rejection"
+          },
+          {
+            "status": "FAILED",
+            "index": 3,
+            "selected_total": 4,
+            "name": "ogent-agent-execution-async-denial-and-cancel"
+          },
+          {
+            "status": "FAILED",
+            "index": 4,
+            "selected_total": 4,
+            "name": "ogent-agent-execution-async-real-process-and-ledger"
+          }
+        ],
+        "summary": "Ran 4 tests, 0 results as expected, 4 unexpected"
+      }
+    ],
+    "unexecuted_selectors": [],
+    "evidence_errors": [],
+    "proven": true
+  },
+  "proven": false
+}

@@ -1,0 +1,1 @@
+{"probe":"actual-gptel-offline-tool-result-request-encoding","emacs":"29.1","tool_source":"/work/lisp/ogent-tool-execution.el","constructor_source":"/tmp/gptel-minimum/gptel-request.el","tool_result_multibyte":true,"gptel_content_multibyte":true,"same_object_after_process_tool_call":true,"actual_serializer":{"status":"encoded","content_preserved":true},"provider_requests":0}

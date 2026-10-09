@@ -1,0 +1,150 @@
+{
+  "verdict": "CLEAN",
+  "substantive_findings": 0,
+  "trivial_findings": 0,
+  "source_guards": {
+    "start_head": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+    "end_head": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+    "same_head": true,
+    "same_source_hashes": true,
+    "source_files_hashed": 224,
+    "source_worktree_diff_bytes": 0,
+    "source_staged_diff_bytes": 0
+  },
+  "runs": {
+    "ogent-fixes-overlap": {
+      "command": [
+        "docker",
+        "exec",
+        "-e",
+        "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+        "ogent-fixes",
+        "emacs",
+        "-Q",
+        "--batch",
+        "-L",
+        "/work/lisp",
+        "-L",
+        "/work/lisp/ui",
+        "-L",
+        "/work/test",
+        "-L",
+        "/work/test/ui",
+        "-l",
+        "/work/test/ogent-test-helper.el",
+        "-l",
+        "/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round9/overlap-ledger-probe.el"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.34456324577331543,
+      "tests": {
+        "total": 1,
+        "expected": 1,
+        "unexpected": 0,
+        "skipped": 0
+      }
+    },
+    "ogent-fixes-29-overlap": {
+      "command": [
+        "docker",
+        "exec",
+        "-e",
+        "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+        "ogent-fixes-29",
+        "emacs",
+        "-Q",
+        "--batch",
+        "-L",
+        "/work/lisp",
+        "-L",
+        "/work/lisp/ui",
+        "-L",
+        "/work/test",
+        "-L",
+        "/work/test/ui",
+        "-l",
+        "/work/test/ogent-test-helper.el",
+        "-l",
+        "/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round9/overlap-ledger-probe.el"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 0.3420443534851074,
+      "tests": {
+        "total": 1,
+        "expected": 1,
+        "unexpected": 0,
+        "skipped": 0
+      }
+    },
+    "ogent-fixes-29": {
+      "command": [
+        "docker",
+        "exec",
+        "-e",
+        "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+        "ogent-fixes-29",
+        "emacs",
+        "-Q",
+        "--batch",
+        "-L",
+        "/work/lisp",
+        "-L",
+        "/work/lisp/ui",
+        "-L",
+        "/work/test",
+        "-L",
+        "/work/test/ui",
+        "-l",
+        "/work/test/ogent-test-helper.el",
+        "--eval",
+        "(progn (load \"/work/test/ogent-agent-execution-tests.el\" nil nil t) (load \"/work/test/ogent-tool-process-tests.el\" nil nil t) (load \"/work/test/ui/ogent-ui-toolcalls-tests.el\" nil nil t))",
+        "-f",
+        "ert-run-tests-batch-and-exit"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 13.002833127975464,
+      "tests": {
+        "total": 108,
+        "expected": 108,
+        "unexpected": 0,
+        "skipped": 0
+      }
+    },
+    "ogent-fixes": {
+      "command": [
+        "docker",
+        "exec",
+        "-e",
+        "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+        "ogent-fixes",
+        "emacs",
+        "-Q",
+        "--batch",
+        "-L",
+        "/work/lisp",
+        "-L",
+        "/work/lisp/ui",
+        "-L",
+        "/work/test",
+        "-L",
+        "/work/test/ui",
+        "-l",
+        "/work/test/ogent-test-helper.el",
+        "--eval",
+        "(progn (load \"/work/test/ogent-agent-execution-tests.el\" nil nil t) (load \"/work/test/ogent-tool-process-tests.el\" nil nil t) (load \"/work/test/ui/ogent-ui-toolcalls-tests.el\" nil nil t))",
+        "-f",
+        "ert-run-tests-batch-and-exit"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 12.448477983474731,
+      "tests": {
+        "total": 108,
+        "expected": 108,
+        "unexpected": 0,
+        "skipped": 0
+      }
+    }
+  },
+  "total_ert_executions": 218,
+  "distinct_ert_tests": 109
+}

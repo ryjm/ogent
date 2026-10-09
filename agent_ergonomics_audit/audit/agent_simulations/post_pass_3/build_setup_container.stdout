@@ -1,0 +1,74 @@
+[
+  {
+    "command": [
+      "git",
+      "init",
+      "--quiet",
+      "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/build_success_container"
+    ],
+    "stdout": "",
+    "stderr": "",
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "git",
+      "-C",
+      "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/build_success_container",
+      "add",
+      "audit-build.el",
+      "test/audit-build-tests.el"
+    ],
+    "stdout": "",
+    "stderr": "",
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "git",
+      "init",
+      "--quiet",
+      "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/build_compile_failure_container"
+    ],
+    "stdout": "",
+    "stderr": "",
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "git",
+      "-C",
+      "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/build_compile_failure_container",
+      "add",
+      "audit-build.el",
+      "test/audit-build-tests.el"
+    ],
+    "stdout": "",
+    "stderr": "",
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "git",
+      "init",
+      "--quiet",
+      "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/build_ert_failure_container"
+    ],
+    "stdout": "",
+    "stderr": "",
+    "exit_code": 0
+  },
+  {
+    "command": [
+      "git",
+      "-C",
+      "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/build_ert_failure_container",
+      "add",
+      "audit-build.el",
+      "test/audit-build-tests.el"
+    ],
+    "stdout": "",
+    "stderr": "",
+    "exit_code": 0
+  }
+]

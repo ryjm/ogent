@@ -1,0 +1,26 @@
+;;; raw-path-diagnostic.el --- Inspect review filename fixture -*- lexical-binding: t; -*-
+(require 'ogent-agent-execution-tests)
+(load "/work/lisp/ogent-agent.el" nil t t)
+(load "/work/lisp/ogent-tool-results.el" nil t t)
+(let* ((root (ogent-test--provision-store-directory 'round11-diagnostic))
+       (file (concat root "/" (unibyte-string 255) ".txt"))
+       (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+       (ogent-ledger-enabled nil))
+  (with-temp-file file (insert "contents"))
+  (princ (format "root multibyte=%S; file codepoints=%S\n" (multibyte-string-p root) (string-to-list file)))
+  (princ (format "file-name-coding-system=%S; default-file-name-coding-system=%S\n"
+                 file-name-coding-system default-file-name-coding-system))
+  (princ (format "directory names=%S\n" (mapcar #'string-to-list (directory-files root))))
+  (let ((default-directory root))
+    (princ (format "wildcard regexp=%S; names matching regexp=%S\n"
+                   (wildcard-to-regexp "*.txt")
+                   (mapcar #'string-to-list (directory-files root nil (wildcard-to-regexp "*.txt")))))
+    (princ (format "file-expand-wildcards=%S\n" (mapcar #'string-to-list (file-expand-wildcards "*.txt" t)))))
+  (princ (format "exist original=%S; regular listed=%S\n"
+                 (file-regular-p file)
+                 (mapcar (lambda (name) (list (string-to-list name) (file-regular-p name)))
+                         (directory-files root t "txt$"))))
+  (princ (format "recursive glob=%S\n" (ogent-agent-call "files" (list :pattern "**/*.txt" :path root) 'json)))
+  (princ (format "glob paths=%S\n" (mapcar #'string-to-list (ogent-tools--glob-files "*.txt" root))))
+  (princ (format "read=%S\n" (ogent-agent-call "read" (list :file_path file) 'json)))
+  (princ (format "glob=%S\n" (ogent-agent-call "files" (list :pattern "*.txt" :path root) 'json))))

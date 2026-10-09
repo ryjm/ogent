@@ -1,0 +1,41 @@
+{
+  "container": "ogent-fixes-29",
+  "label": "sdk",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "-e",
+    "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+    "ogent-fixes-29",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-L",
+    "/work/lisp",
+    "-L",
+    "/work/lisp/ui",
+    "-L",
+    "/work/test",
+    "-L",
+    "/work/test/ui",
+    "-l",
+    "/work/test/ogent-test-helper.el",
+    "--eval",
+    "(progn (load \"/work/lisp/ogent-agent.el\" nil t t) (load \"/work/lisp/ogent-tool-results.el\" nil t t))",
+    "-l",
+    "/work/test/ogent-agent-execution-tests.el",
+    "--eval",
+    "(ert-run-tests-batch-and-exit \"^ogent-agent-execution-\")"
+  ],
+  "started": "2026-10-08T23:06:48.950941+00:00",
+  "elapsed_seconds": 3.3583924259983178,
+  "exit": 0,
+  "counts": {
+    "selected": 53,
+    "expected": 53,
+    "unexpected": 0,
+    "skipped": 0
+  }
+}

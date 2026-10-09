@@ -1,0 +1,8 @@
+
+In toplevel form:
+audit-build.el: Error: Invalid read syntax: ")", 14, 1
+
+In toplevel form:
+test/audit-build-tests.el:3:11: Error: Invalid read syntax: ")", 14, 1
+ERROR (2026-10-08 21:07:50): Compiling failed.
+LOG (2026-10-08 21:07:50): Finished with 1 errors.

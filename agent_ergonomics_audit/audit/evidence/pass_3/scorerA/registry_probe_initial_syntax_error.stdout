@@ -1,0 +1,9 @@
+
+Error: end-of-file ("/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/probe_registry.el")
+  read(#<buffer  *load*>)
+  eval-buffer(#<buffer  *load*> nil "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/probe_registry.el" nil t)
+  load-with-code-conversion("/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/probe_registry.el" "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/probe_registry.el" nil t)
+  load("/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/probe_registry.el" nil t)
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/test" "-L" "/tmp/ogent-fixdeps/30.2/elpa/compat-31.1.0.0" "-L" "/tmp/ogent-fixdeps/30.2/elpa/gptel-20261007.432" "-l" "/work/test/ogent-test-helper.el" "-l" "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/probe_registry.el"))
+  command-line()
+  normal-top-level()

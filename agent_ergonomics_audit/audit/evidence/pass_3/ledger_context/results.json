@@ -1,0 +1,54 @@
+{
+  "source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+  "baseline_sha": "10f86bb12a03f3122a60ba085be7289eb5277f5e",
+  "source_frozen": true,
+  "source_files_sha256": {
+    "lisp/ogent-tool-execution.el": "96e907f2973a3f726cbec7e6589b1dd09cc404f31eb331383327a6933e64972f",
+    "lisp/ui/ogent-ui-toolcalls.el": "7d2ae8b936852ee7ce8bc3d20f4c9e341ecdcb094707743f7a928131ed3dd39a",
+    "test/ogent-agent-execution-tests.el": "c6af205f9276ba4f11c56256ddf0eb09c813854032664a8314ca9a8e96fe88ba",
+    "test/ui/ogent-ui-toolcalls-tests.el": "ea9a7cab198567afb5e7f03bf42635cb894c16d1068edc8565e82d2b7011b694"
+  },
+  "baseline_production_files_sha256": {
+    "lisp/ogent-tool-execution.el": "c113730ca7803eb5560df9a738fc41783c38fe948ffe7d649f10d9153a7a89ef",
+    "lisp/ui/ogent-ui-toolcalls.el": "754fe7fd371e74c756802b12d9d8e110cda8c897dea065c756580d428249740a"
+  },
+  "focused_tests": {
+    "emacs_30_2": {
+      "passed": 213,
+      "unexpected": 0,
+      "skipped": 0
+    },
+    "emacs_29_1": {
+      "passed": 213,
+      "unexpected": 0,
+      "skipped": 0
+    }
+  },
+  "existing_ui_tests": {
+    "emacs_30_2": 4,
+    "emacs_29_1": 4
+  },
+  "context_regressions": {
+    "tests": 3,
+    "execution_cases": 32,
+    "baseline_10f_expected_failures": 3,
+    "baseline_10f_observed_failures_both_versions": 3,
+    "baseline_10f_exit_code_both_versions": 1,
+    "fixed_source_passed_both_versions": 3
+  },
+  "scoped_static_validation": "passed both runtimes",
+  "provider_api_calls": 0,
+  "provider_logins": 0,
+  "log_files": [
+    "focused_emacs30.log",
+    "ui_existing_emacs30.log",
+    "scoped_validation_emacs30.log",
+    "baseline_regressions_emacs30.log",
+    "context_regressions_emacs30.log",
+    "focused_emacs29.log",
+    "ui_existing_emacs29.log",
+    "scoped_validation_emacs29.log",
+    "baseline_regressions_emacs29.log",
+    "context_regressions_emacs29.log"
+  ]
+}

@@ -1,0 +1,78 @@
+./makem.sh [OPTIONS] RULES...
+
+Linter- and test-specific rules will error when their linters or tests
+are not found.  With -vv, rules that run multiple rules will show a
+message for unavailable linters or tests.
+
+Rules:
+  all      Run all lints and tests.
+  compile  Byte-compile source files.
+
+  lint           Run all linters, ignoring unavailable ones.
+  lint-checkdoc  Run checkdoc.
+  lint-compile   Byte-compile source files with warnings as errors.
+  lint-declare   Run check-declare.
+  lint-elsa      Run Elsa (not included in "lint" rule).
+  lint-indent    Lint indentation.
+  lint-package   Run package-lint.
+  lint-regexps   Run relint.
+
+  test, tests           Run all tests, ignoring missing test types.
+  test-buttercup        Run Buttercup tests.
+  test-ert              Run ERT tests.
+  test-ert-interactive  Run ERT tests interactively.
+
+  batch        Run Emacs in batch mode, loading project source and test files
+               automatically, with remaining args (after "--") passed to Emacs.
+  interactive  Run Emacs interactively, loading project source and test files
+               automatically, with remaining args (after "--") passed to Emacs.
+
+Options:
+  -d, --debug    Print debug info.
+  -h, --help     I need somebody!
+  -v, --verbose  Increase verbosity, up to -vvv.
+  --no-color     Disable color output.
+  --json         Return a versioned JSON report; send diagnostics to stderr.
+  --capabilities Show rules, reporting contracts, and exit codes without Emacs.
+
+  --debug-load-path  Print load-path from inside Emacs.
+
+  -E, --emacs PATH  Run Emacs at PATH.
+
+  -e, --exclude FILE  Exclude FILE from linting and testing.
+  -f, --file FILE     Check FILE in addition to discovered files.
+
+  -c, --compile-batch  Batch-compile files (instead of separately; quicker, but
+                                            may hide problems).
+  -C, --no-compile     Don't compile files automatically.
+
+Sandbox options:
+  -s[DIR], --sandbox[=DIR]  Run Emacs with an empty config in a sandbox DIR.
+                            If DIR does not exist, make it.  If DIR is not
+                            specified, use a temporary sandbox directory and
+                            delete it afterward, implying --install-deps and
+                            --install-linters.
+  --install-deps            Automatically install package dependencies.
+  --install-linters         Automatically install linters.
+  -i, --install PACKAGE     Install PACKAGE before running rules.
+
+  An Emacs version-specific subdirectory is automatically made inside
+  the sandbox, allowing testing with multiple Emacs versions.  When
+  specifying a sandbox directory, use options --install-deps and
+  --install-linters on first-run and omit them afterward to save time.
+
+Source files are automatically discovered from git, or may be
+specified with options.  Package dependencies are discovered from
+"Package-Requires" headers in source files, from -pkg.el files, and
+from a Cask file.
+
+Checkdoc's spell checker may not recognize some words, causing the
+`lint-checkdoc' rule to fail.  Custom words can be added in file-local
+or directory-local variables using the variable
+`ispell-buffer-session-localwords', which should be set to a list of
+strings.
+
+JSON exit codes: 0 success, 1 task failure, 2 invalid invocation,
+3 missing prerequisite, 130 interrupted, 143 terminated.
+JSON requires Python 3 and supports noninteractive rules only.  NO_COLOR and
+non-terminal stderr disable color in ordinary output too.

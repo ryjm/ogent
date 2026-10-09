@@ -1,0 +1,25 @@
+;;; closure-probe.el --- Frozen structured extension probe -*- lexical-binding: t; -*-
+(require 'ogent-agent)
+(require 'ogent-ui-toolcalls)
+(let* ((runs 0)
+       (spec (list :name 'closure-probe :args nil :description "Review fixture"
+                   :function (lambda () "legacy")
+                   :result-function (lambda () (list :answer (cl-incf runs)))))
+       (ogent-tool-registry (list spec))
+       (ogent-tool-require-approval nil)
+       (wrapper (ogent-tool-execution-wrapper spec 'json)))
+  (princ (format "first=%s" (funcall wrapper)))
+  (princ (format "second=%s" (funcall wrapper)))
+  (princ (format "runs=%d\n" runs)))
+(let* ((runs 0)
+       (spec (list :name 'closure-probe :args nil :description "Review fixture"
+                   :async t :function (lambda (callback) (funcall callback "legacy"))
+                   :result-function (lambda () (list :answer runs))
+                   :result-async-function
+                   (lambda (callback) (funcall callback (list :answer (cl-incf runs))))))
+       (ogent-tool-registry (list spec))
+       (ogent-tool-require-approval nil)
+       (wrapper (ogent-tool-execution-wrapper spec 'json)))
+  (funcall wrapper (lambda (result) (princ (format "async-first=%s" result))))
+  (funcall wrapper (lambda (result) (princ (format "async-second=%s" result))))
+  (princ (format "async-runs=%d\n" runs)))

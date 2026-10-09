@@ -1,0 +1,12 @@
+
+Error: end-of-file ("/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round15/probe.el")
+  mapbacktrace(#f(compiled-function (evald func args flags) #<bytecode -0x3262c424a517957>))
+  debug-early-backtrace()
+  debug-early(error (end-of-file "/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round15/probe.el"))
+  read(#<buffer  *load*>)
+  eval-buffer(#<buffer  *load*> nil "/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round15/probe.el" nil t)
+  load-with-code-conversion("/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round15/probe.el" "/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round15/probe.el" nil t)
+  load("/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round15/probe.el" nil t)
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/test" "-L" "/work/test/ui" "-l" "/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round15/boot.el" "-l" "/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round15/probe.el"))
+  command-line()
+  normal-top-level()

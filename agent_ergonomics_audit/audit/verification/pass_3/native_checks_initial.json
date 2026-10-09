@@ -1,0 +1,208 @@
+{
+  "source_sha": "a820ac0dc03738e90b2a2dbec5efe64e875bc3f4",
+  "provider_requests": false,
+  "checks": [
+    {
+      "check": "emacs30-lint",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "ogent-fixes",
+        "make",
+        "lint",
+        "sandbox=/tmp/ogent-fixdeps",
+        "format=json"
+      ],
+      "exit_code": 2,
+      "source_sha": "a820ac0dc03738e90b2a2dbec5efe64e875bc3f4",
+      "started_at": "2026-10-08T20:33:41.215679+00:00",
+      "completed_at": "2026-10-08T20:36:04.535606+00:00",
+      "summary": [
+        "Actual makem JSON: error; exit=1",
+        "GNU Make returns its own failure exit; helper code retained in JSON"
+      ],
+      "stdout": "audit/verification/pass_3/native_initial/emacs30-lint.stdout.log.gz",
+      "stderr": "audit/verification/pass_3/native_initial/emacs30-lint.stderr.log.gz",
+      "note": "Initial integration check, before review corrections; not final source-freeze evidence."
+    },
+    {
+      "check": "emacs30-test",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "ogent-fixes",
+        "make",
+        "test",
+        "sandbox=/tmp/ogent-fixdeps",
+        "format=json"
+      ],
+      "exit_code": 0,
+      "source_sha": "a820ac0dc03738e90b2a2dbec5efe64e875bc3f4",
+      "started_at": "2026-10-08T20:36:04.537058+00:00",
+      "completed_at": "2026-10-08T20:38:35.718665+00:00",
+      "summary": [
+        "Actual makem JSON: success; exit=0",
+        "ERT: {'total': 3185, 'expected': 3165, 'unexpected': 0, 'skipped': 20}"
+      ],
+      "stdout": "audit/verification/pass_3/native_initial/emacs30-test.stdout.log.gz",
+      "stderr": "audit/verification/pass_3/native_initial/emacs30-test.stderr.log.gz",
+      "note": "Initial integration check, before review corrections; not final source-freeze evidence."
+    },
+    {
+      "check": "emacs30-store-isolation",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "ogent-fixes",
+        "make",
+        "test-isolation"
+      ],
+      "exit_code": 0,
+      "source_sha": "a820ac0dc03738e90b2a2dbec5efe64e875bc3f4",
+      "started_at": "2026-10-08T20:38:35.814757+00:00",
+      "completed_at": "2026-10-08T20:38:53.869874+00:00",
+      "summary": [
+        "STORE-INTEGRITY: clean - no real-store drift across the suite run",
+        "Ran 3185 tests, 3165 results as expected, 0 unexpected, 20 skipped (2026-10-08 20:38:53+0000, 14.965971 sec)"
+      ],
+      "stdout": "audit/verification/pass_3/native_initial/emacs30-store-isolation.stdout.log.gz",
+      "stderr": "audit/verification/pass_3/native_initial/emacs30-store-isolation.stderr.log.gz",
+      "note": "Initial integration check, before review corrections; not final source-freeze evidence."
+    },
+    {
+      "check": "emacs30-offline-current",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "OGENT_ELPA_DIR=/tmp/ogent-fixdeps/30.2/elpa",
+        "ogent-fixes",
+        "make",
+        "offline-test"
+      ],
+      "exit_code": 0,
+      "source_sha": "a820ac0dc03738e90b2a2dbec5efe64e875bc3f4",
+      "started_at": "2026-10-08T20:38:53.870047+00:00",
+      "completed_at": "2026-10-08T20:39:02.182839+00:00",
+      "summary": [
+        "Offline dependencies: Emacs 30.2, Org 9.8.10, transient 0.13.8, gptel 0.9.9.6 (/tmp/ogent-fixdeps/30.2/elpa/gptel-20261007.432/gptel-request.el)",
+        "Ran 205 tests, 203 results as expected, 0 unexpected, 2 skipped (2026-10-08 20:39:02+0000, 4.708622 sec)"
+      ],
+      "stdout": "audit/verification/pass_3/native_initial/emacs30-offline-current.stdout.log.gz",
+      "stderr": "audit/verification/pass_3/native_initial/emacs30-offline-current.stderr.log.gz",
+      "note": "Initial integration check, before review corrections; not final source-freeze evidence."
+    },
+    {
+      "check": "emacs30-offline-minimum",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "OGENT_ELPA_DIR=/tmp/ogent-fixdeps/30.2/elpa",
+        "-e",
+        "OGENT_GPTEL_DIR=/tmp/gptel-minimum",
+        "ogent-fixes",
+        "make",
+        "offline-test"
+      ],
+      "exit_code": 0,
+      "source_sha": "a820ac0dc03738e90b2a2dbec5efe64e875bc3f4",
+      "started_at": "2026-10-08T20:39:02.182943+00:00",
+      "completed_at": "2026-10-08T20:39:10.509727+00:00",
+      "summary": [
+        "Offline dependencies: Emacs 30.2, Org 9.8.10, transient 0.13.8, gptel 0.9.9.5 (/tmp/gptel-minimum/gptel-request.el)",
+        "Ran 205 tests, 203 results as expected, 0 unexpected, 2 skipped (2026-10-08 20:39:10+0000, 4.754418 sec)"
+      ],
+      "stdout": "audit/verification/pass_3/native_initial/emacs30-offline-minimum.stdout.log.gz",
+      "stderr": "audit/verification/pass_3/native_initial/emacs30-offline-minimum.stderr.log.gz",
+      "note": "Initial integration check, before review corrections; not final source-freeze evidence."
+    },
+    {
+      "check": "emacs29-store-isolation",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "ogent-fixes-29",
+        "make",
+        "test-isolation"
+      ],
+      "exit_code": 0,
+      "source_sha": "a820ac0dc03738e90b2a2dbec5efe64e875bc3f4",
+      "started_at": "2026-10-08T20:33:41.215925+00:00",
+      "completed_at": "2026-10-08T20:34:01.936489+00:00",
+      "summary": [
+        "STORE-INTEGRITY: clean - no real-store drift across the suite run",
+        "Ran 3185 tests, 3164 results as expected, 0 unexpected, 21 skipped (2026-10-08 20:34:01+0000, 17.027739 sec)"
+      ],
+      "stdout": "audit/verification/pass_3/native_initial/emacs29-store-isolation.stdout.log.gz",
+      "stderr": "audit/verification/pass_3/native_initial/emacs29-store-isolation.stderr.log.gz",
+      "note": "Initial integration check, before review corrections; not final source-freeze evidence."
+    },
+    {
+      "check": "emacs29-offline-current",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "OGENT_ELPA_DIR=/tmp/ogent-ergonomics-elpa",
+        "ogent-fixes-29",
+        "make",
+        "offline-test"
+      ],
+      "exit_code": 0,
+      "source_sha": "a820ac0dc03738e90b2a2dbec5efe64e875bc3f4",
+      "started_at": "2026-10-08T20:34:01.936701+00:00",
+      "completed_at": "2026-10-08T20:34:11.157513+00:00",
+      "summary": [
+        "Offline dependencies: Emacs 29.1, Org 9.8.10, transient 0.13.8, gptel 0.9.9.6 (/tmp/ogent-ergonomics-elpa/gptel-20261007.432/gptel-request.el)",
+        "Ran 205 tests, 202 results as expected, 0 unexpected, 3 skipped (2026-10-08 20:34:11+0000, 5.232497 sec)"
+      ],
+      "stdout": "audit/verification/pass_3/native_initial/emacs29-offline-current.stdout.log.gz",
+      "stderr": "audit/verification/pass_3/native_initial/emacs29-offline-current.stderr.log.gz",
+      "note": "Initial integration check, before review corrections; not final source-freeze evidence."
+    },
+    {
+      "check": "emacs29-offline-minimum",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "OGENT_ELPA_DIR=/tmp/ogent-ergonomics-elpa",
+        "-e",
+        "OGENT_GPTEL_DIR=/tmp/gptel-minimum",
+        "ogent-fixes-29",
+        "make",
+        "offline-test"
+      ],
+      "exit_code": 0,
+      "source_sha": "a820ac0dc03738e90b2a2dbec5efe64e875bc3f4",
+      "started_at": "2026-10-08T20:34:11.157659+00:00",
+      "completed_at": "2026-10-08T20:34:20.262968+00:00",
+      "summary": [
+        "Offline dependencies: Emacs 29.1, Org 9.8.10, transient 0.13.8, gptel 0.9.9.5 (/tmp/gptel-minimum/gptel-request.el)",
+        "Ran 205 tests, 202 results as expected, 0 unexpected, 3 skipped (2026-10-08 20:34:20+0000, 5.076051 sec)"
+      ],
+      "stdout": "audit/verification/pass_3/native_initial/emacs29-offline-minimum.stdout.log.gz",
+      "stderr": "audit/verification/pass_3/native_initial/emacs29-offline-minimum.stderr.log.gz",
+      "note": "Initial integration check, before review corrections; not final source-freeze evidence."
+    }
+  ],
+  "all_passed": false,
+  "note": "Initial integration round: lint failed and was corrected. Source changed while checks ran; not final evidence."
+}

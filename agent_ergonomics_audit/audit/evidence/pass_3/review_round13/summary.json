@@ -1,0 +1,183 @@
+{
+  "verdict": "NOT_CLEAN",
+  "substantive_findings": 1,
+  "trivial_findings": 0,
+  "head": "b7b966c6ac5acc15d15c8ea0c70d81653072cae9",
+  "commands": [
+    {
+      "record": "actual_min29.json",
+      "exit": 0,
+      "tests": [
+        {
+          "total": 3,
+          "expected": 3,
+          "unexpected": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "record": "actual_min30.json",
+      "exit": 0,
+      "tests": [
+        {
+          "total": 3,
+          "expected": 3,
+          "unexpected": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "record": "compiled29.json",
+      "exit": 0,
+      "tests": [
+        {
+          "total": 60,
+          "expected": 60,
+          "unexpected": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "record": "compiled30.json",
+      "exit": 0,
+      "tests": [
+        {
+          "total": 60,
+          "expected": 60,
+          "unexpected": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "record": "filter_bytecode29.json",
+      "exit": 1,
+      "tests": [
+        {
+          "total": 2,
+          "expected": 0,
+          "unexpected": 2,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "record": "filter_bytecode30.json",
+      "exit": 1,
+      "tests": [
+        {
+          "total": 2,
+          "expected": 0,
+          "unexpected": 2,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "record": "filter_contract29.json",
+      "exit": 1,
+      "tests": [
+        {
+          "total": 2,
+          "expected": 0,
+          "unexpected": 2,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "record": "filter_contract30.json",
+      "exit": 1,
+      "tests": [
+        {
+          "total": 2,
+          "expected": 0,
+          "unexpected": 2,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "record": "filter_observe29.json",
+      "exit": 0,
+      "tests": []
+    },
+    {
+      "record": "filter_observe29_retry.json",
+      "exit": 0,
+      "tests": []
+    },
+    {
+      "record": "filter_observe30.json",
+      "exit": 0,
+      "tests": []
+    },
+    {
+      "record": "filter_observe30_retry.json",
+      "exit": 0,
+      "tests": []
+    },
+    {
+      "record": "source29.json",
+      "exit": 0,
+      "tests": [
+        {
+          "total": 146,
+          "expected": 146,
+          "unexpected": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "record": "source30.json",
+      "exit": 255,
+      "tests": []
+    },
+    {
+      "record": "source30_retry.json",
+      "exit": 0,
+      "tests": [
+        {
+          "total": 146,
+          "expected": 146,
+          "unexpected": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "record": "ui29.json",
+      "exit": 0,
+      "tests": [
+        {
+          "total": 8,
+          "expected": 8,
+          "unexpected": 0,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "record": "ui30.json",
+      "exit": 0,
+      "tests": [
+        {
+          "total": 8,
+          "expected": 8,
+          "unexpected": 0,
+          "skipped": 0
+        }
+      ]
+    }
+  ],
+  "totals": {
+    "selected": 442,
+    "expected": 434,
+    "unexpected": 8,
+    "skipped": 0
+  }
+}

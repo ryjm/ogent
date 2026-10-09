@@ -1,0 +1,13 @@
+{
+  "command": [
+    "git",
+    "rev-parse",
+    "HEAD"
+  ],
+  "cwd": "/workspace/ogent",
+  "started_unix": 1791492171.1224234,
+  "duration_seconds": 0.0018436908721923828,
+  "exit_code": 0,
+  "stdout": "895bed7a8446b3a57769ac0dd737bf32c9feea4b\n",
+  "stderr": ""
+}

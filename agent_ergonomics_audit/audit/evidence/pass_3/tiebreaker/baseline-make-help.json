@@ -1,0 +1,30 @@
+{
+  "label": "baseline-make-help",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work/agent_ergonomics_audit/audit/evidence/pass_3/tiebreaker/fixture-baseline",
+    "-e",
+    "NO_COLOR=1",
+    "-e",
+    "CI=true",
+    "-e",
+    "TERM=dumb",
+    "-e",
+    "GIT_CONFIG_COUNT=1",
+    "-e",
+    "GIT_CONFIG_KEY_0=safe.directory",
+    "-e",
+    "GIT_CONFIG_VALUE_0=/work/agent_ergonomics_audit/audit/evidence/pass_3/tiebreaker/fixture-baseline",
+    "-e",
+    "SOURCE_DATE_EPOCH=1",
+    "ogent-fixes",
+    "make",
+    "--no-print-directory",
+    "help"
+  ],
+  "exit_code": 0,
+  "stdout": "audit/evidence/pass_3/tiebreaker/baseline-make-help.stdout.log",
+  "stderr": "audit/evidence/pass_3/tiebreaker/baseline-make-help.stderr.log"
+}

@@ -1,0 +1,32 @@
+{
+  "label": "emacs30",
+  "family": "structured-root-guard",
+  "target_sha": "b7b966c6ac5acc15d15c8ea0c70d81653072cae9",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "-e",
+    "REFRESH_ELPA=/tmp/ogent-fixdeps/30.2/elpa",
+    "-e",
+    "NO_COLOR=1",
+    "-e",
+    "CI=true",
+    "-e",
+    "TERM=dumb",
+    "ogent-fixes",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-l",
+    "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_root_guard/probe.el"
+  ],
+  "started_utc": "2026-10-08T23:30:52.731281+00:00",
+  "finished_utc": "2026-10-08T23:30:55.816263+00:00",
+  "exit_code": 255,
+  "stdout": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_root_guard/emacs30.stdout.jsonl",
+  "stderr": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_root_guard/emacs30.stderr",
+  "probe_source": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_root_guard/probe.el",
+  "probe_sha256": "e72aa30817676353ccced57ab51ce4dee5dbf619723d95aae072b2980a911754"
+}

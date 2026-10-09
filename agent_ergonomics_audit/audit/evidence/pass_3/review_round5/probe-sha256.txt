@@ -1,0 +1,2 @@
+8e59b602adedc0cd07a6fe4b547ea7bcb8190a31ea97f5eb3e03f43f8c37cef3  agent_ergonomics_audit/audit/evidence/pass_3/review_round5/independent-probe.el
+70e698eb731343e72036e96fa0bc5f8b92c00d71d53adca494ecc966bd6d4f7f  agent_ergonomics_audit/audit/evidence/pass_3/review_round5/cancellation-race-probe.el

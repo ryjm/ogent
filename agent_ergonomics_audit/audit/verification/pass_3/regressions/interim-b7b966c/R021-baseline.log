@@ -1,0 +1,147 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 3 tests (2026-10-08 23:34:26+0000, selector `"ogent-agent-execution-discovery-"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-ZIRMRi/tools-ptnvYb (retained)
+Test ogent-agent-execution-discovery-example-executes backtrace:
+uncompressing cl-print.el.gz...
+uncompressing cl-print.el.gz...done
+uncompressing help-fns.el.gz...
+uncompressing help-fns.el.gz...done
+uncompressing radix-tree.el.gz...
+uncompressing radix-tree.el.gz...done
+uncompressing derived.el.gz...
+uncompressing derived.el.gz...done
+  (ogent-agent-describe "read_file")
+  (plist-get (ogent-agent-describe "read_file") :tool)
+  (let* ((tool (plist-get (ogent-agent-describe "read_file") :tool)) (
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (ogent-
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode -0x1851d6f341fa5295>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x1851d6f341fa529
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-discovery-examp
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-discovery-" #f(compiled-functio
+  ert-run-tests-batch("ogent-agent-execution-discovery-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-discovery-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-discovery-example-executes condition:
+    (void-function ogent-agent-describe)
+uncompressing vc-git.el.gz...
+uncompressing vc-git.el.gz...done
+uncompressing vc-dispatcher.el.gz...
+uncompressing vc-dispatcher.el.gz...done
+uncompressing vc.el.gz...
+uncompressing vc.el.gz...done
+uncompressing dired.el.gz...
+uncompressing dired.el.gz...done
+uncompressing autorevert.el.gz...
+uncompressing autorevert.el.gz...done
+uncompressing filenotify.el.gz...
+uncompressing filenotify.el.gz...done
+uncompressing dired-loaddefs.el.gz...
+uncompressing dired-loaddefs.el.gz...done
+uncompressing dnd.el.gz...
+uncompressing dnd.el.gz...done
+uncompressing files-x.el.gz...
+uncompressing files-x.el.gz...done
+uncompressing desktop.el.gz...
+uncompressing desktop.el.gz...done
+uncompressing frameset.el.gz...
+uncompressing frameset.el.gz...done
+uncompressing vc-dir.el.gz...
+uncompressing vc-dir.el.gz...done
+uncompressing diff-mode.el.gz...
+uncompressing diff-mode.el.gz...done
+uncompressing track-changes.el.gz...
+uncompressing track-changes.el.gz...done
+   FAILED  1/3  ogent-agent-execution-discovery-example-executes (0.000361 sec) at test/ogent-agent-execution-tests.el:757
+Test ogent-agent-execution-discovery-exposes-real-call-shapes backtrace:
+  (ogent-agent-describe "read")
+  (plist-get (ogent-agent-describe "read") :tool)
+  (let ((read (plist-get (ogent-agent-describe "read") :tool)) (search
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (copy
+  #f(compiled-function () #<bytecode -0x1851d6f341fa5295>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x1851d6f341fa529
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-discovery-expos
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-discovery-" #f(compiled-functio
+  ert-run-tests-batch("ogent-agent-execution-discovery-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-discovery-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-discovery-exposes-real-call-shapes condition:
+    (void-function ogent-agent-describe)
+   FAILED  2/3  ogent-agent-execution-discovery-exposes-real-call-shapes (0.000152 sec) at test/ogent-agent-execution-tests.el:744
+Test ogent-agent-execution-discovery-schema-and-purity backtrace:
+  (ogent-agent-schema 'json)
+  (json-parse-string (ogent-agent-schema 'json) :object-type 'plist)
+  (let ((schema (json-parse-string (ogent-agent-schema 'json) :object-
+  (progn (fset 'ogent-tool-execution-call vnew) (let ((schema (json-pa
+  (unwind-protect (progn (fset 'ogent-tool-execution-call vnew) (let (
+  (let* ((vnew #'(lambda (&rest _) (ert-fail "Discovery executed a too
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (copy
+  #f(compiled-function () #<bytecode -0x1851d6f341fa5295>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x1851d6f341fa529
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-discovery-schem
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-discovery-" #f(compiled-functio
+  ert-run-tests-batch("ogent-agent-execution-discovery-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-discovery-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-discovery-schema-and-purity condition:
+    (void-function ogent-agent-schema)
+   FAILED  3/3  ogent-agent-execution-discovery-schema-and-purity (0.000190 sec) at test/ogent-agent-execution-tests.el:768
+
+Ran 3 tests, 0 results as expected, 3 unexpected (2026-10-08 23:34:29+0000, 2.751830 sec)
+
+3 unexpected results:
+   FAILED  ogent-agent-execution-discovery-example-executes
+   FAILED  ogent-agent-execution-discovery-exposes-real-call-shapes
+   FAILED  ogent-agent-execution-discovery-schema-and-purity
+

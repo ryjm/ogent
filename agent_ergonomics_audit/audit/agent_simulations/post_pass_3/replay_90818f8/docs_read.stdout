@@ -1,0 +1,628 @@
+#+title: ogent
+
+#+begin_example
+╭──────────────────────────────────────╮
+│                  █                   │
+│                 ███                  │
+│                █████                 │
+│               ╱  █  ╲                │
+│              ╱   █   ╲               │
+│             ┌┘   █   └┐              │
+│             │  ╔═╩═╗  │              │
+│             │  ║ ✦ ║  │              │
+│             │  ╚═╦═╝  │              │
+│             ┌┴───┴───┴┐              │
+│            │ ◣█▏   ▕█◢ │             │
+│            │  ▀▀   ▀▀  │             │
+│            ├┐ ┌─────┐ ┌┤             │
+│            │║ │▆▆▆▆▆│ ║│             │
+│            │║ └─────┘ ║│             │
+│             └╨───────╨┘              │
+│                                      │
+│    _____ _____  _____ _   _ _____    │
+│   |  _  |  __ \|  ___| \ | |_   _|   │
+│   | | | | |  \/| |__ |  \| | | |     │
+│   | | | | | __ |  __|| . ` | | |     │
+│   \ \_/ / |_\ \| |___| |\  | | |     │
+│    \___/ \____/\____/\_| \_/ \_/     │
+│                                      │
+│         · agentic org-mode ·         │
+╰──────────────────────────────────────╯
+#+end_example
+
+[[https://github.com/ryjm/ogent/actions/workflows/ci.yml][https://github.com/ryjm/ogent/actions/workflows/ci.yml/badge.svg]]
+
+*Use LLMs in structured Org workflows*
+
+ogent brings language models into Org-mode the Emacs way: composable commands with text + org-mode as the universal interface.
+
+** Exoskeleton + Agent
+
+ogent is designed around this constraint:
+
+- *Make review fast*: Responses land in Org blocks you can fold, diff, and navigate with standard keybindings. Tree based navigation beats scrolling and =C-c C-c= beats ad-hoc copy pasting for context management.
+
+- *Make context explicit*: You declare what goes in via =@handles=, pins, and codemap. Obviously just giving it the whole project works too.
+
+** Features
+
+- *Context as data*: =@handles= resolve to Org nodes, files, or org-roam entries. Codemap indexes your project. Pins persist across requests.
+
+- *Responses as structure*: Output lands in src blocks with metadata (=:model=, =:status=, =:latency=). Fold them, edit them, version them. It's just Org.
+
+- *Edits as diffs*: Code changes render as smerge conflicts. Accept with =C-c C-c=, reject with =C-c C-k=.
+
+- *Commands*: =C-c . RET= runs the current bullet as the prompt, with parent bullets passed as =# Parent Bullets= context. =C-c . q= asks a new minibuffer question about the current subtree. =C-c . ?= shows the ask menu. =C-c . p= opens full dispatch. =C-c . E= requests code edits.
+
+- *Armory*: A local agent workspace built from plain Org files. Armory gives you persistent agents, jobs, conversations, approvals, schedules, task boards, data views, git state, and generated app artifacts without leaving Emacs.
+
+* Requirements
+- Emacs 29.1 or newer
+- Org 9.8.7 or newer
+- [[https://github.com/karthink/gptel][gptel]] 0.9.9.5 or newer for transport and model selection
+- [[https://github.com/magit/transient][transient]] 0.13.5 or newer for command menus
+- Optional: [[https://www.orgroam.com/][org-roam]] for cross-file handle resolution
+- An LLM provider:
+  - **OpenAI Codex / ChatGPT**: Reuse Codex CLI OAuth credentials
+  - **Claude Code / Claude Max/Pro**: Use OAuth authentication (recommended, no API key needed)
+  - **API Key**: Traditional API key for Anthropic or OpenAI
+
+* Install
+1. Clone the repository:
+   #+begin_src shell
+   git clone https://github.com/ryjm/ogent.git
+   cd ogent
+   #+end_src
+2. Ensure dependencies compile cleanly:
+   #+begin_src shell
+   make lint
+   make test
+   #+end_src
+3. Add =lisp/= and =lisp/ui/= to your =load-path=, then require =ogent=:
+   #+begin_src emacs-lisp
+   (add-to-list 'load-path (expand-file-name "lisp" "/path/to/ogent"))
+   (add-to-list 'load-path (expand-file-name "lisp/ui" "/path/to/ogent"))
+   (require 'ogent)
+   #+end_src
+
+* Agent tools and local checks
+Use familiar names, named arguments, and structured results after loading
+ogent. These local SDK workflows need no provider login or inference:
+
+#+begin_src emacs-lisp
+(ogent-agent-describe "read" 'json) ; Exact arguments, aliases, examples, and approval policy
+(let ((page (ogent-agent-call "read" '(:file_path "README.org" :limit 20))))
+  (ogent-agent-next page))         ; Follow the exact position; reject changed snapshots
+(ogent-agent-batch
+ '[(:tool "files" :args (:pattern "**/*.el" :limit 5))
+   (:tool "search" :args (:pattern "defun" :path "lisp" :limit 5))])
+(ogent-agent-capabilities 'json)   ; All live tool contracts
+(ogent-agent-schema 'json)         ; Version 1 result envelope schema
+(ogent-agent-triage 'json)         ; Local health and next actions
+#+end_src
+
+Results separate =status=, =data=, =error=, and page continuations. Empty files
+and no matches succeed. Async calls deliver one terminal result; read-only
+batches validate the whole plan before running. Writes and shell commands
+retain the existing approval, edit review, and ledger flow.
+
+Discovery reads the current registry; =(ogent-tools-install-defaults)= explicitly
+adds built-in specs when needed. Existing integrations keep text output by
+default; =ogent-tools-result-format= can opt registered calls into =json=.
+=make test format=json= and =make lint format=json= report actual
+compiler/test results with diagnostics on stderr. See
+[[file:docs/agent-ergonomics.org][the agent interface guide]] for pagination, async calls, bounds, and migration.
+
+* Configuration
+** Quick Setup (Recommended)
+Run =M-x ogent-onboard= to interactively configure your LLM provider. This wizard:
+1. Lets you choose between OpenAI Codex OAuth, Claude Code OAuth, or API key authentication
+2. Guides you through the login process
+3. Configures gptel backends automatically
+4. Run =M-x ogent-doctor= at any time to check Emacs/package versions,
+   gptel/backend state, br availability, and local OAuth caches without
+   making network calls.
+
+** OpenAI Codex / ChatGPT OAuth
+If you already use the Codex CLI with ChatGPT login, ogent reads supported credentials (including OAuth tokens)
+cached in =$CODEX_HOME/auth.json= or =~/.codex/auth.json=:
+
+#+begin_src emacs-lisp
+(require 'ogent)
+(ogent-codex-login)         ; Opens Codex browser login
+(ogent-codex-login-device)  ; Device-code fallback for headless sessions
+#+end_src
+
+After login, choose =OpenAI Codex / ChatGPT (OAuth - Recommended)= in
+=M-x ogent-onboard=.
+
+To check status: =M-x ogent-codex-status=
+To logout: =M-x ogent-codex-logout=
+
+** Claude Code / Claude Max/Pro OAuth
+If you have a Claude Pro, Max, Team, Enterprise, or Console account, you can
+authenticate via the Claude Code-compatible OAuth flow:
+
+#+begin_src emacs-lisp
+(require 'ogent)
+(ogent-claude-code-login)  ; Opens browser, paste the code
+#+end_src
+
+This stores refresh tokens in =~/.emacs.d/ogent/anthropic-oauth/= and automatically
+refreshes them as needed, so there is no API key to manage.
+
+** Vanilla Emacs (API Key)
+#+begin_src emacs-lisp
+(add-hook 'org-mode-hook #'ogent-mode)
+(setq ogent-default-model "gpt-6.1-sol")
+#+end_src
+
+** Doom Emacs
+#+begin_src emacs-lisp
+(package! ogent :recipe (:local-repo "/path/to/ogent/lisp" :files ("*.el" "ui/*.el")))
+(use-package! ogent
+  :after org
+  :init
+  (setq ogent-enable-doom-bindings t
+        ogent-doom-prefix "o")
+  :config
+  (ogent-setup-doom-bindings)
+  (ogent-global-mode 1))
+#+end_src
+
+* Usage
+- Open any Org buffer and toggle =ogent-mode= (or rely on =ogent-global-mode=).
+- Write a normal Org bullet/heading, then press =C-c . RET= to run that subtree as the prompt; ogent inserts a compact =Request:= / =Response= transcript below it.
+- Parent bullets are sent explicitly under =# Parent Bullets= for Zen runs: each parent contributes its own body text, never its children, so nothing is duplicated and prior transcripts never leak into the payload.
+- Workspace selection is prose-first: a bullet like =look in ~/vault/projects/ogent for ideas= makes that directory the request workspace. Explicit labels (=Context:=, =Workspace:=, =Project:=, =Repo:=) still work, but are optional. The payload shows a =# Workspace= section, relative ogent tool paths resolve from that root, and code-grounded wording asks gptel to use read-only tools before answering.
+- Re-run a bullet from anywhere inside its transcript: =C-c . RET= appends a fresh run, =C-c . != (or =C-c C-c= on the transcript) replaces it. Earlier runs collapse automatically when a new run starts.
+- Press =C-c . q= to ask a new minibuffer question about the subtree at point.
+- Press =C-c . ?= when you are unsure: the ask menu names the active scope and offers run-current-bullet, re-run, inline ask, popup ask, malleable region ask/rewrite, edit application, context preview, and the full dispatcher.
+- Press =C-c . p= to open the dispatcher, pick models, and send the current subtree.
+- Doom/Evil users get the same command surface under =SPC o= when =ogent-setup-doom-bindings= or evil bindings are active.
+- Use =C-c . c= for a context preview and =C-c . m= to inspect the codemap.
+- Press =C-c . d= to capture the last AI response to a Notes child heading.
+- To attach reusable prompt snippets, create Org nodes with an =OGENT_ID= (see =docs/prompts.org=).
+
+** Zen notebook presentation
+=ogent-zen-mode= (enabled with =ogent-mode= in Org buffers; see
+=ogent-zen-enable-in-org=) keeps the page quiet without touching the
+stored text.  To turn it on for every Org buffer independently of
+=ogent-mode=, enable =global-ogent-zen-mode= (it activates in Org
+buffers only and skips internal scratch buffers):
+- Heading stars compose into a uniform bullet (=ogent-zen-bullet=,
+  default =•=; skipped automatically when org-modern, org-bullets, or
+  org-superstar is active).
+- Generated =Request:= / =Response= headings render as compact run cards:
+  expanded requests stay prompt-first, while folded completed requests
+  become result-first indexes such as =✓ 10 grounded ideas · from “Better
+  headline display”=.  Folded results can add a muted virtual preview line
+  (=ogent-zen-folded-result-preview=) without changing the stored Org.
+  Request metadata is split into outcome badges and lower-priority
+  right-aligned metadata when the window can support it; density is
+  customizable with =ogent-zen-result-headline-density= (=minimal=,
+  =balanced=, =rich=, or =debug=).
+  Multi-model runs show model chips, selected/accepted responses, and
+  sibling lineage such as =latest= or =superseded by newer run=.  Active
+  tool work is promoted into the main title (=reading lisp/ogent-zen.el ·
+  Headline idea=) rather than buried in a suffix.  Tool-call failures stay
+  as inline diagnostics instead of failing the run card; only request-level
+  model/network/abort failures turn the headline red.  Empty runs show
+  =0 chars= instead of a vague warning.
+  Response headings are quieter secondary rows and, when folded, carry
+  response-local result previews plus review badges.  Zen review now
+  persists a structured decision model (=OGENT_DECISION=,
+  =OGENT_REVIEW_STATUS=, =OGENT_USEFULNESS=, =OGENT_LINEAGE=,
+  =OGENT_OUTCOME=, timestamps, reviewer, and a visible =:REVIEW:= drawer)
+  while keeping legacy =OGENT_REVIEW= in sync for older transcripts.
+  Review can explicitly target the run or one response, can accept a
+  response as the selected model, and exposes a queue/dashboard workflow
+  under =C-c ,=.  Active requests animate only in visible buffers
+  (=ogent-zen-pretty-headings=).  Parent breadcrumb suffixes are opt-in
+  via =ogent-zen-show-breadcrumbs=.  Overlay-local =RET= / =r= / =u= /
+  =e= action hints and bindings are opt-in via =ogent-zen-heading-actions=
+  so Evil and other modal keymaps keep owning those keys by default.
+  Use =C-c . w= (=ogent-zen-copy-response=) anywhere in a Zen transcript
+  to copy only the response body, without request metadata or headings.
+  Malleable editing uses the same tree-context machinery at smaller scope:
+  =C-c . C-r= (=ogent-zen-run-region=) asks about the active region,
+  =C-c . C-e= (=ogent-zen-edit-dwim=) rewrites the active region /
+  paragraph / sentence with a SEARCH/REPLACE response, and =C-c . C-a=
+  (=ogent-zen-apply-last-edit=) replays the latest structured edit into
+  an inline diff preview.  Accept or reject the preview with
+  =ogent-zen-accept-edit= / =ogent-zen-reject-edit= (or
+  =inline-diff-mode='s =C-c C-c= / =C-c C-k=).  Tool calls no longer
+  inline into the notebook: Zen records them out of band so repeated
+  prompt submissions stay responsive, keeps a compact count on the
+  request headline, and opens the full list (arguments, results, status)
+  in a separate buffer with =C-c . h= (=ogent-zen-show-tool-calls=).
+  Set =ogent-zen-tool-calls-inline= to restore the legacy inline
+  =:TOOL:= drawers.  Transcript property drawers and prompt blocks fold
+  away immediately (=ogent-zen-fold-noise=), and earlier runs collapse
+  with status, model, result titles, and =superseded= lineage when a new
+  run starts (=ogent-zen-collapse-previous-runs=).
+- Set =ogent-zen-center-column= to an integer (e.g. =80=) to center the
+  notebook in wide windows.
+Disabling the mode restores plain Org; the underlying transcript is
+always standard =Request:= / =Response= text, so history replay and
+older tooling keep working.
+
+** Keybindings
+| Key       | Command                       | Description                              |
+|-----------+-------------------------------+------------------------------------------|
+| =C-c . p= | =ogent-prompt-dispatch=       | Open dispatcher to select models/presets |
+| =C-c . @= | =ogent-model-picker=          | Switch models, assign task roles, pin models |
+| =C-c . RET= | =ogent-run-subtree=            | Run current bullet/subtree as prompt     |
+| =C-c . != | =ogent-zen-rerun=              | Re-run transcript at point (or run bullet) |
+| =C-c . w= | =ogent-zen-copy-response=      | Copy only the Zen response body            |
+| =C-c . u= | =ogent-zen-review-menu=        | Mark Zen request/response review state    |
+| =C-c . C-r= | =ogent-zen-run-region=       | Ask about active region with Zen context |
+| =C-c . C-e= | =ogent-zen-edit-dwim=        | Rewrite region/paragraph/sentence        |
+| =C-c . C-a= | =ogent-zen-apply-last-edit=  | Re-preview latest structured edit        |
+| =C-c . r= | =ogent-request=               | Send request with current context        |
+| =C-c . a= | =ogent-abort-request=         | Abort current request                    |
+| =C-c . R= | =ogent-retry-request=         | Retry last request                       |
+| =C-c . c= | =ogent-context-preview=       | Preview context before sending           |
+| =C-c . m= | =ogent-codemap-buffer=        | Generate codemap for current buffer      |
+| =C-c . P= | =ogent-pin-dwim=              | Pin file/buffer/region to context        |
+| =C-c . U= | =ogent-unpin-interactive=     | Unpin item from context                  |
+| =C-c . l= | =ogent-list-pinned=           | List all pinned context items            |
+| =C-c . e= | =ogent-edit-menu=             | Edit menu for inline code changes        |
+| =C-c . E= | =ogent-request-edit=          | Request code edits for buffer            |
+| =C-c . s= | =ogent-edit-goto-source=      | Go to source from companion              |
+| =C-c . C= | =ogent-edit-goto-companion=   | Go to companion from source              |
+| =C-c . t= | =ogent-debug-tools-menu=      | Tools debug menu                         |
+| =C-c . T= | =ogent-tool-rerun=            | Re-run tool at point                     |
+| =C-c . h= | =ogent-zen-show-tool-calls=   | List Zen tool calls under heading        |
+| =C-c . b= | =ogent-show-backlinks=        | Show backlinks to current heading        |
+| =C-c . g= | =ogent-show-dependency-graph= | Show dependency graph                    |
+| =C-c . o= | =ogent-open-block=            | Open source block with ogent-mode        |
+| =C-c . i= | =ogent-issues=                | Open issue tracker                       |
+| =C-c . S= | =ogent-session-save=          | Save current session                     |
+| =C-c . L= | =ogent-session-load=          | Load a saved session                     |
+| =C-c . H= | =ogent-session-list=          | List saved sessions                      |
+| =C-c . q= | =ogent-ask-here=              | Ask at point; insert Request/Response    |
+| =C-c . ?= | =ogent-ask-menu=              | Show contextual ask menu                 |
+| =C-c . d= | =ogent-notes-capture=         | Capture last response to Notes heading   |
+| =C-c . D= | =ogent-debug-mode=            | Toggle debug mode                        |
+
+** Review Prefix
+| Key       | Command                    | Description                              |
+|-----------+----------------------------+------------------------------------------|
+| =C-c , n= | =ogent-review-next=       | Next review item needing attention       |
+| =C-c , p= | =ogent-review-previous=   | Previous review item needing attention   |
+| =C-c , a= | =ogent-review-accept=     | Accept current completion/Zen item       |
+| =C-c , x= | =ogent-review-reject=     | Reject current completion/Zen item       |
+| =C-c , u= | =ogent-review-useful=     | Mark current Zen item useful             |
+| =C-c , m= | =ogent-review-defer=      | Mark current Zen item needs review       |
+| =C-c , s= | =ogent-review-stale=      | Mark current Zen item stale              |
+| =C-c , d= | =ogent-review-dashboard=  | Open the Zen review queue/dashboard      |
+| =C-c , .= | =ogent-review-describe=   | Explain current review target and state  |
+
+** Armory
+
+Armory turns a directory of Org files into a local agent workspace. Open
+=M-x ogent-armory-home= or press =C-c . j=. The Armory surface includes
+agents, jobs, conversations, lead action approvals, data browsing, ranked
+palette search, git state, settings, backup, registry import, help, app
+artifacts, and a schedule calendar. In =M-x ogent-armory-tasks=, press =c= or
+=C-c c= to capture a manual Inbox task with a short TODO-style prompt path.
+
+| Key       | Command                         | Description                 |
+|-----------+---------------------------------+-----------------------------|
+| =C-c . j= | =ogent-armory-home=            | Armory Home                |
+| =C-c . K= | =ogent-armory-status=          | Armory graph/status        |
+| =C-c . y= | =ogent-armory-agents=          | Armory agents              |
+| =C-c . Y= | =ogent-armory-agent=           | Armory agent profile       |
+| =C-c . B= | =ogent-armory-org-chart=       | Armory org chart           |
+| =C-c . ;= | =ogent-armory-data=            | Armory data browser        |
+| =C-c . I= | =ogent-armory-tasks=           | Armory task board          |
+| =C-c . O= | =ogent-armory-conversations=   | Armory conversations       |
+| =C-c . N= | =ogent-armory-actions=         | Armory action approvals    |
+| =C-c . J= | =ogent-armory-schedule=        | Day/week/month schedule     |
+| =C-c . Q= | =ogent-armory-agenda=          | Org agenda over Armory     |
+| =C-c . := | =ogent-armory-git-status=      | Armory git status          |
+| =C-c . /= | =ogent-armory-command-palette= | Ranked command palette      |
+| =C-c . ,= | =ogent-armory-settings=        | Armory settings            |
+| =C-c . .= | =ogent-armory-help=            | Armory help                |
+| =C-c . '= | =ogent-armory-onboard=         | Onboard Armory             |
+| ~C-c . =~ | =ogent-armory-registry-import= | Import Armory template     |
+| =C-c . _= | =ogent-armory-backup=          | Back up Armory             |
+| =C-c . V= | =ogent-armory-search=          | Armory-wide search         |
+| =C-c . W= | =ogent-armory-apps=            | Generated app artifacts     |
+| =C-c . X= | =ogent-armory-create-agent=    | Create Armory agent        |
+| =C-c . Z= | =ogent-armory-create-job=      | Create Armory job          |
+
+Schedule events come from =OGENT_CRON= jobs, agent heartbeat cron fields,
+one-shot =OGENT_RUN_AFTER= tasks, and conversations with
+=OGENT_SCHEDULED_KEY=. Missed past slots can be run directly from the schedule
+buffer.
+
+* Prompt Templates
+
+ogent includes a library of reusable prompt templates for common workflows.
+Templates are defined in =docs/prompts.org= and can be referenced using =@handle= syntax.
+
+** Using Prompt Templates
+
+Apply a template from the prompt dispatcher's Templates infix (=T= in
+=M-x ogent-prompt-dispatch=), or with =M-x ogent-prompt-insert=, which inserts
+the composed template text at point. With the optional yasnippet integration
+(see below), type a template's handle and press =TAB= to expand it inline:
+
+#+begin_example
+@code-review
+#+end_example
+
+** Composing Multiple Templates
+
+Select more than one template from the Templates infix or =ogent-prompt-insert=;
+ogent concatenates them, ordered by each template's =compose-order=. The
+=@handle+@handle= shorthand is accepted by the compose API
+(=ogent-prompt-compose-from-string=):
+
+#+begin_src emacs-lisp
+(ogent-prompt-compose-from-string "@code-review+@security-audit")
+#+end_src
+
+** Available Templates
+
+| Template            | Purpose                                      |
+|---------------------+----------------------------------------------|
+| =@code-review=      | Review code for bugs, style, performance     |
+| =@refactoring=      | Suggest refactoring opportunities            |
+| =@documentation=    | Generate docstrings and comments             |
+| =@testing=          | Suggest test cases and edge cases            |
+| =@explain-code=     | Explain what code does step by step          |
+| =@debug-steps=      | Systematic debugging approach                |
+| =@security-audit=   | Audit for security vulnerabilities           |
+| =@performance-review= | Review for performance issues              |
+
+See =docs/prompts.org= for the full list and detailed instructions.
+
+** Creating Custom Templates
+
+Create Org headlines with an =OGENT_ID= property:
+
+#+begin_src org
+,** My Custom Review
+:PROPERTIES:
+:OGENT_ID: my-review
+:END:
+Review this code with special attention to:
+- Our team's coding standards
+- Integration with the legacy API
+#+end_src
+
+** Per-Project Customization
+
+Set =ogent-project-prompts-file= in =.dir-locals.el= to load project-specific templates:
+
+#+begin_src emacs-lisp
+((nil . ((ogent-project-prompts-file . "prompts.org"))))
+#+end_src
+
+Override existing templates with =ogent-prompt-overrides=:
+
+#+begin_src emacs-lisp
+((nil . ((ogent-prompt-overrides
+          . (("code-review" . (:content "Review with our team standards...")))))))
+#+end_src
+
+** Yasnippet Integration
+
+Enable yasnippet integration for quick template insertion:
+
+#+begin_src emacs-lisp
+(add-hook 'org-mode-hook #'ogent-prompts-yasnippet-mode)
+#+end_src
+
+Then type =@code-review= and press TAB to expand the template.
+
+* Updating
+Pull the latest changes, then rerun =make lint= and =make test= to confirm your environment still passes before hacking.
+
+* Contributing
+See [[file:CONTRIBUTING.md][CONTRIBUTING.md]] for setup, testing, and pull request guidelines.
+
+* License
+ogent is licensed under GPL-3.0-or-later.  See [[file:LICENSE][LICENSE]] for the full license text.
+#+title: ogent agent interface
+
+Load ogent normally, then call local tools by name. These SDK workflows need
+no provider login or inference. Paths resolve against =ogent-tools-project-root=
+when set, otherwise the detected project/default directory.
+
+* Read a file, then follow its pages
+
+#+begin_src emacs-lisp
+(let ((page (ogent-agent-call "read" '(:file_path "README.org" :limit 40)))
+      pages)
+  (while (equal (plist-get page :status) "ok")
+    (push (plist-get page :data) pages)
+    (setq page (ogent-agent-next page)))
+  (list :pages (vconcat (nreverse pages)) :terminal page))
+#+end_src
+
+=ogent-agent-next= follows the exact next position, including the column inside
+a long line. It accepts a result plist or JSON string. A successful final page
+becomes =done= on the next call. Check the terminal status before combining
+pages: =snapshot_changed= means restart the original call. Continuations keep
+absolute targets, so changing the current directory cannot redirect a page.
+
+Read =data= contains =lines= with =number=, =column=, =text=, and =partial=,
+plus =content=, =total_lines=, =snapshot=, and =ends_with_newline=. Columns count
+characters from 1. The newline flag describes the original file; =content=
+joins the returned line fragments and does not append that final newline.
+Use positions to join partial lines rather than inserting newlines between
+every page. Empty files succeed with zero lines.
+Structured file paths must be Unicode; unsupported raw filename bytes return
+=unsupported_output=, including one terminal error callback in asynchronous JSON calls.
+
+* Discover and search in one batch
+
+#+begin_src emacs-lisp
+(ogent-agent-batch
+ '[(:tool "files" :args (:pattern "**/*.el" :path "lisp" :limit 5))
+   (:tool "search" :args (:pattern "defun" :path "lisp"
+                         :glob_filter "*.el" :context_lines 1 :limit 5))
+   (:tool "read" :args (:file_path "README.org" :limit 20))])
+#+end_src
+
+The batch validates all calls before executing any and accepts up to 20 tools
+whose declared effects are read-only. It uses the same result envelope as
+individual calls, with =results=, =requested=, =completed=, and =stopped= under
+=data=, and status =ok= or =partial=. Pass =t= as the third
+argument to stop after the first unsuccessful call; the default continues.
+Preflight failures return the ordinary error envelope and execute nothing.
+Shell commands and writes need individual calls through approval.
+
+=files= returns file objects with =path=, =size=, and =modified=, ordered by
+absolute path. =**= matches zero or more directory levels. =search= returns
+match objects with =path=, =line=, =text=, =context_before=, =context_after=,
+and =truncated=. Both report totals and snapshot identities. No matches is
+successful empty data. Search uses ripgrep when available or GNU grep with
+xargs; the fallback uses extended regular expressions.
+
+* Find the exact contract
+
+#+begin_src emacs-lisp
+(ogent-agent-describe "read" 'json) ; One tool's arguments, aliases, and examples
+(ogent-agent-capabilities 'json)    ; All live tool contracts and approval metadata
+(ogent-agent-schema 'json)          ; JSON Schema for the result envelope
+(ogent-agent-guide)                 ; Copyable local SDK handbook
+#+end_src
+
+Use =call_arguments= for =ogent-agent-call= and =ogent-agent-call-async=.
+The legacy positional schema is =arguments=; named calls also accept result
+pagination arguments such as =column= and search/glob =offset= and =limit=.
+=async_sdk= declares terminal callback support; =legacy_streaming= describes
+the separate older streaming API. The =async= field refers to the primary
+legacy tool function, so inspect =async_sdk= for the public asynchronous SDK.
+
+Built-in aliases include =read=/=cat=, =files=/=find=, =search=, =shell=/=run=,
+=write=, and =edit=. Canonical names and underscore aliases such as =read_file=
+also work. Exact registered names win over aliases. Typos suggest corrections
+and execute nothing. Discovery reads metadata without constructing tools or
+contacting providers. An empty =tools= array means no specs are installed;
+=(ogent-tools-install-defaults)= explicitly adds the built-in specs.
+
+* Handle outcomes without parsing prose
+
+=ogent-agent-call= returns =contract_version= ="1"=, =tool=, =status=, =data=,
+=error=, and =next=. Pass ='json= as the final argument to serialize the same
+result. Native collections are vectors; false and null use =:json-false= and
+=:json-null=. Compare native result booleans with =t= rather than treating every
+non-nil value as true. JSON uses ordinary arrays, booleans, and null.
+
+| Status            | Next step                                              |
+|-------------------+--------------------------------------------------------|
+| ok                | Use data; follow next pages if present                  |
+| done              | Pagination completed                                   |
+| error             | Read error.code, message, and recovery                  |
+| approval_required | Continue through normal user approval/review            |
+| denied            | Respect the decision; ask the user to review the policy |
+| proposed          | An edit awaits review; it has not been applied          |
+
+Errors identify =unknown_tool=, =invalid_arguments=, =snapshot_changed=,
+=async_required=, =unsafe_batch=, =dependency_missing=, =process_start_failed=,
+=unsupported_output=, =search_failed=, =command_failed=, =timeout=, or
+=cancelled= as applicable. Extension/execution failures can use
+=execution_failed= or =unavailable=. Follow =recovery= rather than guessing
+from a human log. Arguments reject missing required fields, unknown or duplicate
+keys, wrong standard types, and invalid enums before approval or execution.
+Native boolean input accepts =nil= or =:json-false=. MCP specs using JSON
+booleans distinguish explicit =:json-false= from an omitted optional =nil=.
+
+* Keep work bounded and cancellable
+
+| Tool   | Position convention | Default page / bound                         |
+|--------+---------------------+----------------------------------------------|
+| read   | Line/column from 1  | Lesser of 200 and ogent-tools-max-file-lines  |
+| files  | Offset from 0       | 100 files; at most 200 per page               |
+| search | Offset from 0       | 200 matches; at most 20 context lines         |
+| shell  | Positive seconds    | ogent-tools-shell-timeout, initially 120      |
+
+=ogent-tools-max-output-chars= defaults to 30,000 characters for read content,
+combined shell stdout/stderr, and retained search match/context text. Metadata
+and the JSON envelope are outside that text budget. Read pages retain an exact
+continuation through long lines. Search retains match locations even
+when text/context is shortened; inspect =truncated= and read the matching file
+for complete text. Search uses =ogent-tools-grep-timeout=, initially 30 seconds,
+and rejects oversized wire records explicitly rather than claiming complete
+results. Read snapshots identify decoded content, glob snapshots identify file
+metadata, and search snapshots identify the observed match/context records.
+
+#+begin_src emacs-lisp
+(ogent-agent-call-async
+ "search" '(:pattern "defun" :path "lisp" :limit 5)
+ (lambda (result) (message "Search finished: %s" (plist-get result :status))))
+#+end_src
+
+The callback receives exactly one terminal envelope. The call returns a process
+for asynchronous work or =nil= when it finishes immediately. Cancel a returned
+process with =ogent-tool-process-cancel=. Legacy streaming callbacks and
+=ogent-tools-stream-callback= have their own event shapes; they do not use this
+one-result callback contract.
+
+Structured read results require Unicode filenames and supported text encoding.
+Unsupported raw bytes return =unsupported_output=; JSON serialization failures
+from extension values also deliver a typed error, including async callbacks.
+
+Shell =data= separates =stdout=, =stderr=, =exit_code=, =signal=, =timed_out=,
+=cancelled=, and =truncated=. Nonzero exits, timeouts, and cancellation return
+an error while retaining available output. =encoding_loss= marks UTF-8
+replacement; =drain_incomplete= means some pipe output could not be collected
+within the drain deadline and also marks the shell result truncated. Search
+reports encoding loss when present and fails if it cannot fully drain its
+output. Search failures do not claim a complete match page.
+
+* Preserve approval and existing integrations
+
+Public calls use the shared approval, edit review, and ledger owners. They
+never grant approval or prompt from the programmatic SDK. Read-only built-ins
+need no confirmation by default; writes and shell calls require a decision
+unless existing policy already permits them. An edit's =old_string= must be
+nonempty and unique unless =replace_all= is explicitly true. A failed review
+acceptance remains available for retry or rejection.
+
+Existing =ogent-tool--*= primitives default to their text results. Explicit
+=plist= or =json= format arguments select structured data for read/search/shell
+primitives; these are low-level calls, so use =ogent-agent-call= for policy and
+ledger enforcement. The public agent SDK returns structured envelopes without
+changing the text format chosen by existing integrations.
+
+Opt normal registered model-facing calls into the same JSON envelopes:
+
+#+begin_src emacs-lisp
+(setq ogent-tools-result-format 'json)
+(ogent-register-tools)
+#+end_src
+
+JSON mode exposes the result pagination arguments in gptel's tool schema and
+keeps calls in the shared approval, review, and ledger flow. Registration
+regenerates tool objects when the format changes. Switch before assembling the
+next request's tool list; objects already held by a caller retain their captured
+format. Set the option back to =text= and re-register to restore legacy results.
+This changes local tool formatting and registration; it does not log into a
+provider or run inference.
+
+* Verify and diagnose locally
+
+=(ogent-agent-triage 'json)= combines discovery, local doctor results, and next
+actions. It excludes opt-in network checks. =(ogent-doctor-batch nil 'json)=
+returns structured health with exit 0 for ok/info, 1 for warnings, and 2 for
+errors. Local diagnostics may inspect credential metadata but do not log in
+or run inference.
+
+=make test format=json= and =make lint format=json= run the actual build helper
+with one versioned JSON report on stdout and diagnostics on stderr. Inspect
+tasks, real command exits, compiler locations, and ERT counts. Discover the
+build contract with =./makem.sh --capabilities --json=; see
+[[file:build-reporting.org][build reporting]] for the exit dictionary.
+
+=make test-isolation= checks that tests leave real stores unchanged.
+=OGENT_ELPA_DIR=/path/to/elpa make offline-test= exercises actual dependencies
+with loopback and fixture processes; =OGENT_GPTEL_DIR= optionally selects a
+supported gptel checkout. =EMACS=PATH= selects the build executable, and
+=make help= lists the available commands.

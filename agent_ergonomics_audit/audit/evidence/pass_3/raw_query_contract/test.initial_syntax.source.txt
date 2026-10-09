@@ -1,0 +1,35 @@
+(ert-deftest ogent-agent-execution-process-raw-query-contract ()
+  "Reject raw query bytes before results or continuations can retain them."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (raw (decode-coding-string (unibyte-string 255) 'utf-8-unix))
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+         (ogent-ledger-enabled nil))
+    (ogent-agent-execution-tests--file root "a.el" "needle\nneedle\n")
+    (dolist (field '(:glob_filter :pattern))
+      (dolist (matches '(t nil))
+        (let ((args (list :pattern "needle" :path root :glob_filter "*.el" :limit 1)))
+          (plist-put args field
+                     (if (eq field :glob_filter)
+                         (concat "[" (if matches "a" "z") raw "]*.el")
+                       (concat "[" (if matches "n" "z") raw "]eedle")))
+          (dolist (format '(plist json))
+            (let ((result (ogent-agent-call "search" args format)))
+              (when (eq format 'json)
+                (setq result (json-parse-string result :object-type 'plist)))
+              (should (equal (plist-get result :status) "error"))
+              (should (equal (plist-get (plist-get result :error) :code) "unsupported_output")))
+            (let ((callbacks 0) result)
+              (should-not
+               (ogent-agent-call-async
+                "search" args (lambda (data) (cl-incf callbacks) (setq result data)) format))
+              (when (eq format 'json)
+                (setq result (json-parse-string result :object-type 'plist)))
+              (should (= callbacks 1))
+              (should (equal (plist-get (plist-get result :error) :code) "unsupported_output"))))))
+    (ogent-agent-execution-tests--file root "unicode.el" "λ\nλ\n")
+    (let ((result (ogent-agent-call "search" (list :pattern "λ" :path root
+                                                 :glob_filter "unicode.el" :limit 1))))
+      (should (= (length (plist-get result :next)) 1))
+      (should (json-serialize result :false-object :json-false :null-object :json-null))
+      (should (equal (plist-get (ogent-agent-next result) :status) "ok")))))
+

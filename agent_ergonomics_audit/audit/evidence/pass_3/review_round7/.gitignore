@@ -1,0 +1,3 @@
+# Preserve live probe fixtures locally; the compressed archive is durable evidence.
+search-probe/
+ledger-probe/

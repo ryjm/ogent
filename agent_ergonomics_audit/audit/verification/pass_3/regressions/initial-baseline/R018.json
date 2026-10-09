@@ -1,0 +1,349 @@
+{
+  "recommendation_id": "R018",
+  "test_path": "agent_ergonomics_audit/audit/regression_tests/R018__structured_processes.test.sh",
+  "test_inputs_sha256": {
+    "agent_ergonomics_audit/audit/regression_tests/R018__structured_processes.test.sh": "6d42c680a49f343dc5015ecb4927c9e55ef96bee263e2465854865c874bf6b3b",
+    "agent_ergonomics_audit/tools/run-ert.sh": "a9e618a585ad6496b8f3947e0ca14b0a90e8c5be1e7bdcfcf19e1387437bc4af",
+    "test/ogent-test-helper.el": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+    "test/ogent-tool-process-tests.el": "797b04d32dc6cdfa72eddae61610eb502889ffd352453d6f101971a9a2dc3eef",
+    "test/ogent-agent-execution-tests.el": "e6c825b46ae8d1e7adf4915de74e831a842e770f9da6f3f040b603ed5aaa025e"
+  },
+  "contract": {
+    "kind": "ert",
+    "runs": [
+      {
+        "selector": "ogent-tool-process-",
+        "test_file": "test/ogent-tool-process-tests.el",
+        "expected_count": 36,
+        "expected_names": [
+          "ogent-tool-process-bash-async-is-asynchronous",
+          "ogent-tool-process-bash-bounds-combined-channels",
+          "ogent-tool-process-bash-callback-error-cleans-up",
+          "ogent-tool-process-bash-cancel-keeps-partial-output",
+          "ogent-tool-process-bash-cancel-kills-grandchild",
+          "ogent-tool-process-bash-invalid-utf8-remains-json-safe",
+          "ogent-tool-process-bash-separates-channels-and-exit",
+          "ogent-tool-process-bash-signal-is-distinct-from-cancel",
+          "ogent-tool-process-bash-startup-error-is-terminal",
+          "ogent-tool-process-bash-terminal-exit-bounds-descendant-drain",
+          "ogent-tool-process-bash-timeout-keeps-partial-output",
+          "ogent-tool-process-bash-validation-does-not-spawn",
+          "ogent-tool-process-bash-zero-output-budget",
+          "ogent-tool-process-grep-async-once",
+          "ogent-tool-process-grep-cancel-has-typed-error",
+          "ogent-tool-process-grep-context-includes-nearby-matches",
+          "ogent-tool-process-grep-deterministic-order",
+          "ogent-tool-process-grep-directory-spans-argument-batches",
+          "ogent-tool-process-grep-empty-gnu-candidates-validate-regex",
+          "ogent-tool-process-grep-empty-is-success",
+          "ogent-tool-process-grep-finds-hidden-and-ignored-files",
+          "ogent-tool-process-grep-glob-filter",
+          "ogent-tool-process-grep-invalid-regex-error",
+          "ogent-tool-process-grep-oversized-wire-line-is-explicit",
+          "ogent-tool-process-grep-pages-all-matches",
+          "ogent-tool-process-grep-pattern-is-literal-process-argument",
+          "ogent-tool-process-grep-preserves-unusual-filenames",
+          "ogent-tool-process-grep-snapshot-changes-with-source",
+          "ogent-tool-process-grep-timeout-has-typed-error",
+          "ogent-tool-process-grep-truncation-keeps-count-and-page",
+          "ogent-tool-process-grep-validates-page-and-context",
+          "ogent-tool-process-grep-zero-budget-does-not-skip-matches",
+          "ogent-tool-process-results-serialize-as-json",
+          "ogent-tool-process-ripgrep-base64-text",
+          "ogent-tool-process-ripgrep-real-json-protocol",
+          "ogent-tool-process-ripgrep-searches-hidden-files"
+        ]
+      },
+      {
+        "selector": "ogent-agent-execution-process-",
+        "test_file": "test/ogent-agent-execution-tests.el",
+        "expected_count": 2,
+        "expected_names": [
+          "ogent-agent-execution-process-grep-integration",
+          "ogent-agent-execution-process-shell-failures-retain-data"
+        ]
+      }
+    ],
+    "expected_count": 38,
+    "count_unit": "ERT tests"
+  },
+  "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "baseline": {
+    "argv": [
+      "docker",
+      "exec",
+      "ogent-fixes",
+      "env",
+      "-u",
+      "OGENT_AUDIT_SOURCE",
+      "-u",
+      "MAKEM_UNDER_TEST",
+      "-u",
+      "BASH_ENV",
+      "MAKEM_UNDER_TEST=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+      "OGENT_AUDIT_SOURCE=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "timeout",
+      "--kill-after=5",
+      "90",
+      "bash",
+      "/work/agent_ergonomics_audit/audit/regression_tests/R018__structured_processes.test.sh"
+    ],
+    "environment_overrides": {
+      "MAKEM_UNDER_TEST": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+      "OGENT_AUDIT_SOURCE": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3"
+    },
+    "started_at": "2026-10-08T20:49:26.157555+00:00",
+    "duration_seconds": 55.72,
+    "exit_code": 1,
+    "timed_out": false,
+    "timeout_seconds": 90,
+    "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R018-baseline.log",
+    "log_sha256": "c273e3d06c375a3791237289cff50af4f6e883dc786c88b0794b3fe943c989fa",
+    "source": {
+      "revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "source_root": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "source_root_in_container": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "tracked_source_clean": true,
+      "verified_git_archive": true,
+      "source_fingerprint_sha256": "307043b8873701e3bc746b75a7c1c5235001dc9517fbb9c15f9cf5ca32baf22c",
+      "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/baseline-source.json",
+      "manifest_sha256": "35ed30d194153dd7833a63a4e3c160d6b6c5510b35fa98053bacc31542922fe5"
+    },
+    "selected_count": 36,
+    "executed_count": 34,
+    "unexpected_count": 34,
+    "runs": [
+      {
+        "selected": 36,
+        "completed": 34,
+        "expected": 0,
+        "unexpected": 34,
+        "skipped": 0,
+        "results": [
+          {
+            "status": "FAILED",
+            "index": 1,
+            "selected_total": 36,
+            "name": "ogent-tool-process-bash-async-is-asynchronous"
+          },
+          {
+            "status": "FAILED",
+            "index": 2,
+            "selected_total": 36,
+            "name": "ogent-tool-process-bash-bounds-combined-channels"
+          },
+          {
+            "status": "FAILED",
+            "index": 3,
+            "selected_total": 36,
+            "name": "ogent-tool-process-bash-callback-error-cleans-up"
+          },
+          {
+            "status": "FAILED",
+            "index": 4,
+            "selected_total": 36,
+            "name": "ogent-tool-process-bash-cancel-keeps-partial-output"
+          },
+          {
+            "status": "FAILED",
+            "index": 5,
+            "selected_total": 36,
+            "name": "ogent-tool-process-bash-cancel-kills-grandchild"
+          },
+          {
+            "status": "FAILED",
+            "index": 6,
+            "selected_total": 36,
+            "name": "ogent-tool-process-bash-invalid-utf8-remains-json-safe"
+          },
+          {
+            "status": "FAILED",
+            "index": 7,
+            "selected_total": 36,
+            "name": "ogent-tool-process-bash-separates-channels-and-exit"
+          },
+          {
+            "status": "FAILED",
+            "index": 8,
+            "selected_total": 36,
+            "name": "ogent-tool-process-bash-signal-is-distinct-from-cancel"
+          },
+          {
+            "status": "FAILED",
+            "index": 9,
+            "selected_total": 36,
+            "name": "ogent-tool-process-bash-startup-error-is-terminal"
+          },
+          {
+            "status": "FAILED",
+            "index": 10,
+            "selected_total": 36,
+            "name": "ogent-tool-process-bash-terminal-exit-bounds-descendant-drain"
+          },
+          {
+            "status": "FAILED",
+            "index": 11,
+            "selected_total": 36,
+            "name": "ogent-tool-process-bash-timeout-keeps-partial-output"
+          },
+          {
+            "status": "FAILED",
+            "index": 12,
+            "selected_total": 36,
+            "name": "ogent-tool-process-bash-validation-does-not-spawn"
+          },
+          {
+            "status": "FAILED",
+            "index": 13,
+            "selected_total": 36,
+            "name": "ogent-tool-process-bash-zero-output-budget"
+          },
+          {
+            "status": "FAILED",
+            "index": 14,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-async-once"
+          },
+          {
+            "status": "FAILED",
+            "index": 15,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-cancel-has-typed-error"
+          },
+          {
+            "status": "FAILED",
+            "index": 16,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-context-includes-nearby-matches"
+          },
+          {
+            "status": "FAILED",
+            "index": 17,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-deterministic-order"
+          },
+          {
+            "status": "FAILED",
+            "index": 18,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-directory-spans-argument-batches"
+          },
+          {
+            "status": "FAILED",
+            "index": 19,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-empty-gnu-candidates-validate-regex"
+          },
+          {
+            "status": "FAILED",
+            "index": 20,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-empty-is-success"
+          },
+          {
+            "status": "FAILED",
+            "index": 21,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-finds-hidden-and-ignored-files"
+          },
+          {
+            "status": "FAILED",
+            "index": 22,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-glob-filter"
+          },
+          {
+            "status": "FAILED",
+            "index": 23,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-invalid-regex-error"
+          },
+          {
+            "status": "FAILED",
+            "index": 24,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-oversized-wire-line-is-explicit"
+          },
+          {
+            "status": "FAILED",
+            "index": 25,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-pages-all-matches"
+          },
+          {
+            "status": "FAILED",
+            "index": 26,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-pattern-is-literal-process-argument"
+          },
+          {
+            "status": "FAILED",
+            "index": 27,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-preserves-unusual-filenames"
+          },
+          {
+            "status": "FAILED",
+            "index": 28,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-snapshot-changes-with-source"
+          },
+          {
+            "status": "FAILED",
+            "index": 29,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-timeout-has-typed-error"
+          },
+          {
+            "status": "FAILED",
+            "index": 30,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-truncation-keeps-count-and-page"
+          },
+          {
+            "status": "FAILED",
+            "index": 31,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-validates-page-and-context"
+          },
+          {
+            "status": "FAILED",
+            "index": 32,
+            "selected_total": 36,
+            "name": "ogent-tool-process-grep-zero-budget-does-not-skip-matches"
+          },
+          {
+            "status": "FAILED",
+            "index": 33,
+            "selected_total": 36,
+            "name": "ogent-tool-process-results-serialize-as-json"
+          },
+          {
+            "status": "FAILED",
+            "index": 34,
+            "selected_total": 36,
+            "name": "ogent-tool-process-ripgrep-base64-text"
+          }
+        ],
+        "summary": "Ran 36 tests, 0 results as expected, 34 unexpected"
+      }
+    ],
+    "unexecuted_selectors": [
+      {
+        "selector": "ogent-agent-execution-process-",
+        "test_file": "test/ogent-agent-execution-tests.el",
+        "expected_count": 2,
+        "expected_names": [
+          "ogent-agent-execution-process-grep-integration",
+          "ogent-agent-execution-process-shell-failures-retain-data"
+        ]
+      }
+    ],
+    "evidence_errors": [
+      "ERT run 1 lacks complete matching selected-test evidence"
+    ],
+    "proven": false
+  },
+  "proven": false,
+  "coverage_note": "Wrapper runs process suite then execution integration suite under set -e. Baseline failure of the first suite short-circuits the second; current must execute both."
+}

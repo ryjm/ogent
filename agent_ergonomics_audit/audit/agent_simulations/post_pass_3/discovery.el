@@ -1,0 +1,21 @@
+;;; discovery.el --- Fresh-agent SDK discovery -*- lexical-binding: t; -*-
+(require 'json)
+(defun audit-form (form)
+  (princ (format "FORM %S\n" form))
+  (condition-case err
+      (let ((result (eval form t)))
+        (princ (format "RESULT %S\n" result))
+        result)
+    (error (princ (format "CONDITION %S\n" err)) nil)))
+(audit-form '(require 'ogent))
+(audit-form '(ogent-agent-capabilities 'json))
+;; README explicitly authorizes installing defaults when registry is empty.
+(audit-form '(ogent-tools-install-defaults))
+(audit-form '(ogent-agent-describe "search" 'json))
+(audit-form '(ogent-agent-describe "files" 'json))
+(audit-form '(ogent-agent-describe "shell" 'json))
+(audit-form '(ogent-agent-describe "write" 'json))
+(audit-form '(ogent-agent-describe "read" 'json))
+(audit-form '(help-function-arglist 'ogent-agent-call-async))
+(audit-form '(documentation 'ogent-agent-call-async))
+(audit-form '(documentation 'ogent-tool-process-cancel))

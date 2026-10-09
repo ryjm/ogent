@@ -1,0 +1,30 @@
+{
+  "label": "current-ledger-terminal-ogent-fixes",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "-e",
+    "TIEBREAKER_ELPA=/tmp/ogent-fixdeps/30.2/elpa",
+    "-e",
+    "NO_COLOR=1",
+    "-e",
+    "CI=true",
+    "-e",
+    "TERM=dumb",
+    "ogent-fixes",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-l",
+    "agent_ergonomics_audit/audit/evidence/pass_3/tiebreaker/paired-sdk.el",
+    "-l",
+    "test/ogent-agent-execution-tests.el",
+    "--eval",
+    "(ert-run-tests-batch-and-exit '(member ogent-agent-execution-async-ledger-write-failure-retains-terminal ogent-agent-execution-sync-ledger-failure-retains-completed-data ogent-agent-execution-async-ledger-context-survives-project-switch ogent-agent-execution-sync-ledger-context-survives-tool-context-change))"
+  ],
+  "exit_code": 0,
+  "stdout": "audit/evidence/pass_3/tiebreaker/current-ledger-terminal-ogent-fixes.stdout.log",
+  "stderr": "audit/evidence/pass_3/tiebreaker/current-ledger-terminal-ogent-fixes.stderr.log"
+}

@@ -1,0 +1,7 @@
+{
+  "runtime_path": "agent_ergonomics_audit/audit/evidence/pass_3/review_round12/offline-selected.el",
+  "durable_source": "agent_ergonomics_audit/audit/evidence/pass_3/review_round12/offline-selected.el.source.txt",
+  "sha256": "d76d755e7c987d4cc7f0c0636b1ff9bcd6e3ce5742fe30ad95aaabdb3ba6dfa5",
+  "bytes_identical": true,
+  "reason": "The archived runtime shim provides ogent-offline-boot. Keep its original local .el ignored so makem cannot discover an audit-only feature. For replay, copy the .source.txt bytes back to the recorded runtime path; do not stage that .el."
+}

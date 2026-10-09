@@ -1,0 +1,299 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing face-remap.el.gz...
+uncompressing face-remap.el.gz...done
+uncompressing transient.el.gz...
+uncompressing transient.el.gz...done
+uncompressing eieio.el.gz...
+uncompressing eieio.el.gz...done
+uncompressing eieio-core.el.gz...
+uncompressing eieio-core.el.gz...done
+uncompressing edmacro.el.gz...
+uncompressing edmacro.el.gz...done
+uncompressing kmacro.el.gz...
+uncompressing kmacro.el.gz...done
+uncompressing derived.el.gz...
+uncompressing derived.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 188 tests (2026-10-08 21:26:53+0000, selector `"ogent-\\(agent-execution\\|tool-process\\|debug\\)"')
+   passed    1/188  ogent-agent-execution-aliases-exact-and-ambiguous (0.000178 sec)
+   passed    2/188  ogent-agent-execution-aliases-share-policy (0.000560 sec)
+   passed    3/188  ogent-agent-execution-async-and-sync-failures-in-ledger (0.103299 sec)
+   passed    4/188  ogent-agent-execution-async-custom-once-and-sync-rejection (0.000687 sec)
+   passed    5/188  ogent-agent-execution-async-denial-and-cancel (0.052281 sec)
+   passed    6/188  ogent-agent-execution-async-real-process-and-ledger (0.153044 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-NIXinS (retained)
+   passed    7/188  ogent-agent-execution-batch-composes-read-tools (0.055278 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-OH2mHc (retained)
+   passed    8/188  ogent-agent-execution-batch-continues-or-stops (0.002346 sec)
+   passed    9/188  ogent-agent-execution-batch-freezes-calls-and-argument-strings (0.000753 sec)
+   passed   10/188  ogent-agent-execution-batch-freezes-canonical-alias-target (0.000652 sec)
+   passed   11/188  ogent-agent-execution-batch-freezes-nested-object-values (0.000748 sec)
+   passed   12/188  ogent-agent-execution-batch-inplace-effects-change (0.000481 sec)
+   passed   13/188  ogent-agent-execution-batch-preflight-prevents-unsafe-prefix (0.000537 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-VSCTfH (retained)
+   passed   14/188  ogent-agent-execution-denial-and-approval-required (0.000556 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-LLTevc (retained)
+   passed   15/188  ogent-agent-execution-discovery-example-executes (0.001187 sec)
+   passed   16/188  ogent-agent-execution-discovery-exposes-real-call-shapes (0.000437 sec)
+   passed   17/188  ogent-agent-execution-discovery-schema-and-purity (0.000435 sec)
+   passed   18/188  ogent-agent-execution-failures-recorded (0.000290 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-2o6geU (retained)
+   passed   19/188  ogent-agent-execution-glob-complete-pagination (0.019428 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-FDwNTp (retained)
+   passed   20/188  ogent-agent-execution-glob-json-empty-and-weird-paths (0.000481 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-F1WZXM (retained)
+   passed   21/188  ogent-agent-execution-glob-star-stays-in-component (0.000756 sec)
+   passed   22/188  ogent-agent-execution-json-unsupported-extension-callback-once (0.000702 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-7c3r3a (retained)
+   passed   23/188  ogent-agent-execution-json-unsupported-path-delivers-error (0.001162 sec)
+   passed   24/188  ogent-agent-execution-model-detects-object-schema-mutation (0.000433 sec)
+   passed   25/188  ogent-agent-execution-model-freezes-argument-strings (0.000791 sec)
+   passed   26/188  ogent-agent-execution-model-freezes-metadata-strings (0.000612 sec)
+   passed   27/188  ogent-agent-execution-model-freezes-object-arguments (0.001203 sec)
+   passed   28/188  ogent-agent-execution-model-inplace-change-during-approval (0.000667 sec)
+   passed   29/188  ogent-agent-execution-model-json-async-callback (0.000419 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-5GWo4S (retained)
+   passed   30/188  ogent-agent-execution-model-json-pages-and-cache-refresh (0.005155 sec)
+   passed   31/188  ogent-agent-execution-model-refreshes-object-schema-cache (0.000500 sec)
+   passed   32/188  ogent-agent-execution-model-stale-after-approval (0.000723 sec)
+   passed   33/188  ogent-agent-execution-named-call-and-json (0.000306 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-vVBTsF (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-ZwlPMd (retained)
+   passed   34/188  ogent-agent-execution-next-freezes-path-and-follows-json (0.002488 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-uDVehk (retained)
+   passed   35/188  ogent-agent-execution-next-refuses-changed-snapshot (0.002152 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-5UKdPS (retained)
+   passed   36/188  ogent-agent-execution-next-retains-long-line-characters (0.002466 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-QEk5NR (retained)
+   passed   37/188  ogent-agent-execution-process-grep-integration (0.156835 sec)
+   passed   38/188  ogent-agent-execution-process-shell-failures-retain-data (0.143946 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-Ke4P2A (retained)
+   passed   39/188  ogent-agent-execution-read-empty-and-invalid (0.002357 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-5h3lou (retained)
+   passed   40/188  ogent-agent-execution-read-long-line-continuation (0.000537 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-Xql2CY (retained)
+   passed   41/188  ogent-agent-execution-read-respects-configured-default (0.001580 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-o9aAFH/tools-vK3rC5 (retained)
+   passed   42/188  ogent-agent-execution-read-structured-pages (0.001153 sec)
+   passed   43/188  ogent-agent-execution-validates-before-policy (0.000224 sec)
+   passed   44/188  ogent-debug-log-context-respects-flag (0.000172 sec)
+   passed   45/188  ogent-debug-log-creates-buffer (0.000119 sec)
+   passed   46/188  ogent-debug-log-edit-apply-logs-status (0.000086 sec)
+   passed   47/188  ogent-debug-log-edit-parse-logs-info (0.000164 sec)
+   passed   48/188  ogent-debug-log-respects-level (0.000043 sec)
+   passed   49/188  ogent-debug-log-validation-logs-result (0.000141 sec)
+ogent-debug-mode enabled (level: info)
+ogent-debug-mode disabled
+   passed   50/188  ogent-debug-mode-enables-logging (0.000095 sec)
+   passed   51/188  ogent-debug-mode-keymap (0.000158 sec)
+   passed   52/188  ogent-debug-test-args-preservation (0.000066 sec)
+Debug buffer cleared
+   passed   53/188  ogent-debug-test-clear-debug-buffer (0.000057 sec)
+Tool call history cleared
+   passed   54/188  ogent-debug-test-clear-history (0.000061 sec)
+Debug buffer cleared
+   passed   55/188  ogent-debug-test-clear-nil-buffer (0.000046 sec)
+   passed   56/188  ogent-debug-test-debug-log-function (0.000067 sec)
+   passed   57/188  ogent-debug-test-debug-log-multiple-format-args (0.000066 sec)
+   passed   58/188  ogent-debug-test-debug-log-to-messages (0.000066 sec)
+   passed   59/188  ogent-debug-test-debug-macro-nil-when-disabled (0.000041 sec)
+ogent debugging disabled
+   passed   60/188  ogent-debug-test-disable (0.000045 sec)
+   passed   61/188  ogent-debug-test-duration-tracking (0.000070 sec)
+ogent debugging enabled (interpreted code only)
+   passed   62/188  ogent-debug-test-enable (0.000047 sec)
+   passed   63/188  ogent-debug-test-entry-at-point-found (0.000222 sec)
+   passed   64/188  ogent-debug-test-entry-at-point-nil-outside (0.000117 sec)
+   passed   65/188  ogent-debug-test-export-json-empty-history (0.000058 sec)
+ogent-test: provisioned debug store at /tmp/ogent-test-store-o9aAFH/debug-gGCFky (retained)
+Exported 1 tool calls to /tmp/ogent-test-store-o9aAFH/debug-gGCFky/export-format.json
+   passed   66/188  ogent-debug-test-export-json-format (0.000631 sec)
+ogent-test: provisioned debug store at /tmp/ogent-test-store-o9aAFH/debug-LwJE7F (retained)
+Exported 3 tool calls to /tmp/ogent-test-store-o9aAFH/debug-LwJE7F/export-multi.json
+   passed   67/188  ogent-debug-test-export-json-multiple-entries (0.000653 sec)
+ogent-test: provisioned debug store at /tmp/ogent-test-store-o9aAFH/debug-uZeBhs (retained)
+Exported 1 tool calls to /tmp/ogent-test-store-o9aAFH/debug-uZeBhs/export-trunc.json
+   passed   68/188  ogent-debug-test-export-json-truncates-result (0.000720 sec)
+   passed   69/188  ogent-debug-test-export-text-empty-history (0.000133 sec)
+ogent-test: provisioned debug store at /tmp/ogent-test-store-o9aAFH/debug-srNoRH (retained)
+Exported 1 tool calls to /tmp/ogent-test-store-o9aAFH/debug-srNoRH/export-error.txt
+   passed   70/188  ogent-debug-test-export-text-error-entry (0.000333 sec)
+ogent-test: provisioned debug store at /tmp/ogent-test-store-o9aAFH/debug-lNPlQG (retained)
+Exported 1 tool calls to /tmp/ogent-test-store-o9aAFH/debug-lNPlQG/export-text.txt
+   passed   71/188  ogent-debug-test-export-text-format (0.000318 sec)
+ogent-test: provisioned debug store at /tmp/ogent-test-store-o9aAFH/debug-rJbEKA (retained)
+Exported 1 tool calls to /tmp/ogent-test-store-o9aAFH/debug-rJbEKA/export-nil-args.txt
+   passed   72/188  ogent-debug-test-export-text-nil-args (0.000275 sec)
+ogent-test: provisioned debug store at /tmp/ogent-test-store-o9aAFH/debug-pomZhK (retained)
+Exported 1 tool calls to /tmp/ogent-test-store-o9aAFH/debug-pomZhK/export-long-args.txt
+   passed   73/188  ogent-debug-test-export-text-truncates-long-args (0.000316 sec)
+ogent-test: provisioned debug store at /tmp/ogent-test-store-o9aAFH/debug-O489iv (retained)
+Exported 1 tool calls to /tmp/ogent-test-store-o9aAFH/debug-O489iv/export-long-result.txt
+   passed   74/188  ogent-debug-test-export-text-truncates-long-result (0.000345 sec)
+   passed   75/188  ogent-debug-test-history-buffer-content (0.000197 sec)
+   passed   76/188  ogent-debug-test-history-buffer-empty (0.000111 sec)
+   passed   77/188  ogent-debug-test-history-buffer-nil-result (0.000193 sec)
+   passed   78/188  ogent-debug-test-history-buffer-non-string-result (0.000166 sec)
+   passed   79/188  ogent-debug-test-history-buffer-reverse-display (0.000133 sec)
+   passed   80/188  ogent-debug-test-history-buffer-short-args (0.000122 sec)
+   passed   81/188  ogent-debug-test-history-buffer-truncates-long-args (0.000117 sec)
+   passed   82/188  ogent-debug-test-history-buffer-truncates-long-result (0.000115 sec)
+ogent-test: provisioned debug store at /tmp/ogent-test-store-o9aAFH/debug-gFpTIk (retained)
+Exported 2 tool calls to /tmp/ogent-test-store-o9aAFH/debug-gFpTIk/history.json
+Imported 2 tool calls from /tmp/ogent-test-store-o9aAFH/debug-gFpTIk/history.json
+   passed   83/188  ogent-debug-test-history-json-preserves-execution-mode (0.000677 sec)
+   passed   84/188  ogent-debug-test-history-max-exact (0.000102 sec)
+   passed   85/188  ogent-debug-test-history-max-limit (0.000065 sec)
+   passed   86/188  ogent-debug-test-history-max-one (0.000060 sec)
+ogent-test: provisioned debug store at /tmp/ogent-test-store-o9aAFH/debug-eao4Ks (retained)
+Imported 1 tool calls from /tmp/ogent-test-store-o9aAFH/debug-eao4Ks/import-merge.json
+   passed   87/188  ogent-debug-test-import-merges-with-existing (0.000370 sec)
+ogent-test: provisioned debug store at /tmp/ogent-test-store-o9aAFH/debug-TKnzmQ (retained)
+Imported 3 tool calls from /tmp/ogent-test-store-o9aAFH/debug-TKnzmQ/import-limit.json
+   passed   88/188  ogent-debug-test-import-respects-max-limit (0.000397 sec)
+ogent-test: provisioned debug store at /tmp/ogent-test-store-o9aAFH/debug-J07Is4 (retained)
+Imported 2 tool calls from /tmp/ogent-test-store-o9aAFH/debug-J07Is4/import-history.json
+   passed   89/188  ogent-debug-test-import-tool-history (0.000401 sec)
+   passed   90/188  ogent-debug-test-insert-log-appends (0.000077 sec)
+   passed   91/188  ogent-debug-test-insert-log-creates-buffer (0.000057 sec)
+   passed   92/188  ogent-debug-test-insert-log-multiple (0.000058 sec)
+   passed   93/188  ogent-debug-test-insert-log-nil-buffer (0.000040 sec)
+   passed   94/188  ogent-debug-test-last-tool (0.000056 sec)
+   passed   95/188  ogent-debug-test-live-execute-logs-failure-to-history (0.000228 sec)
+   passed   96/188  ogent-debug-test-live-execute-logs-to-history (0.000223 sec)
+   passed   97/188  ogent-debug-test-log-context-nil-level (0.000051 sec)
+   passed   98/188  ogent-debug-test-log-context-with-flag-and-level (0.000090 sec)
+   passed   99/188  ogent-debug-test-log-edit-apply-nil-level (0.000049 sec)
+   passed  100/188  ogent-debug-test-log-edit-apply-with-error (0.000091 sec)
+   passed  101/188  ogent-debug-test-log-edit-parse-debug-level (0.000092 sec)
+   passed  102/188  ogent-debug-test-log-edit-parse-empty-result-list (0.000076 sec)
+   passed  103/188  ogent-debug-test-log-edit-parse-nil-level (0.000047 sec)
+   passed  104/188  ogent-debug-test-log-edit-parse-non-list-result (0.000073 sec)
+   passed  105/188  ogent-debug-test-log-multiple-props (0.000105 sec)
+   passed  106/188  ogent-debug-test-log-no-props (0.000065 sec)
+   passed  107/188  ogent-debug-test-log-post-response (0.000087 sec)
+   passed  108/188  ogent-debug-test-log-post-response-elapsed (0.000081 sec)
+   passed  109/188  ogent-debug-test-log-post-response-no-start-time (0.000070 sec)
+   passed  110/188  ogent-debug-test-log-pre-request (0.000082 sec)
+   passed  111/188  ogent-debug-test-log-pre-request-no-model (0.000079 sec)
+   passed  112/188  ogent-debug-test-log-tool-call (0.000119 sec)
+   passed  113/188  ogent-debug-test-log-tool-call-with-error (0.000059 sec)
+   passed  114/188  ogent-debug-test-log-validation-nil-details (0.000080 sec)
+   passed  115/188  ogent-debug-test-log-validation-nil-level (0.000045 sec)
+ogent-debug-mode enabled (level: debug)
+ogent-debug-mode disabled
+   passed  116/188  ogent-debug-test-mode-preserves-existing-log-level (0.000070 sec)
+ogent-debug-mode enabled (level: info)
+ogent-debug-mode disabled
+   passed  117/188  ogent-debug-test-mode-round-trip (0.000069 sec)
+ogent-debug-mode enabled (level: info)
+ogent-debug-mode disabled
+   passed  118/188  ogent-debug-test-mode-sets-gptel-log-level (0.000064 sec)
+   passed  119/188  ogent-debug-test-multiple-calls-ordering (0.005643 sec)
+   passed  120/188  ogent-debug-test-replay-at-point-no-entry (0.000181 sec)
+   passed  121/188  ogent-debug-test-replay-last-tool-empty (0.000068 sec)
+ogent-test: provisioned debug store at /tmp/ogent-test-store-o9aAFH/debug-6XiGkO (retained)
+bash completed (exit 0) in 0.0s
+Replaying bash...
+Replay result: Tool execution denied by user
+Replaying bash...
+Replay result: Tool execution denied by user
+Replaying bash...
+Replay result: (:contract_version 1 :tool bash :status denied :data :json-null :error (:code denied :message Current approval policy denies this tool; ask the user to review the decision :recovery Use the normal user approval/review flow; do not retry with relaxed policy) :next [])
+Replaying bash...
+Replay result: (:contract_version 1 :tool bash :status denied :data :json-null :error (:code denied :message Current approval policy denies this tool; ask the user to review the decision :recovery Use the normal user approval/review flow; do not retry with relaxed policy) :next [])
+   passed  122/188  ogent-debug-test-replay-respects-current-approval (0.055191 sec)
+ogent-test: provisioned debug store at /tmp/ogent-test-store-o9aAFH/debug-wEsCXS (retained)
+Replaying read-file...
+Replay result:      1	legacy content
+   passed  123/188  ogent-debug-test-replay-tool-uses-live-executor (0.000926 sec)
+   passed  124/188  ogent-debug-test-setup-hooks (0.000074 sec)
+uncompressing view.el.gz...
+uncompressing view.el.gz...done
+   passed  125/188  ogent-debug-test-show-approval-status-empty (0.034011 sec)
+   passed  126/188  ogent-debug-test-show-approval-status-populated (0.000152 sec)
+   passed  127/188  ogent-debug-test-show-creates-buffer (0.000111 sec)
+   passed  128/188  ogent-debug-test-show-nil-buffer (0.000079 sec)
+   passed  129/188  ogent-debug-test-structured-process-failures-in-history (0.183956 sec)
+ogent-test: provisioned debug store at /tmp/ogent-test-store-o9aAFH/debug-Jq7XUk (retained)
+Replaying read-file...
+Replay result: (:contract_version 1 :tool read-file :status ok :data (:path /tmp/ogent-test-store-o9aAFH/debug-Jq7XUk/structured-read.txt :snapshot ae0666f161fed1a5dde998bbd0e140550d2da0db27db1d0e31e370f2bd366a57 :total_lines 1 :offset 1 :column 3 :limit 200 :lines [(:number 1 :column 3 :text cdef :partial :json-false)] :content cdef :ends_with_newline t :has_more :json-false :next_offset :json-null :next_column :json-null) :error :json-null :next [])
+   passed  130/188  ogent-debug-test-structured-read-replay-retains-column (0.001991 sec)
+   passed  131/188  ogent-debug-test-teardown-hooks (0.000075 sec)
+   passed  132/188  ogent-debug-test-timestamp-present (0.000066 sec)
+ogent debugging disabled
+   passed  133/188  ogent-debug-test-toggle-off (0.000053 sec)
+ogent debugging enabled (interpreted code only)
+   passed  134/188  ogent-debug-test-toggle-on (0.000056 sec)
+ogent debugging enabled (interpreted code only)
+ogent debugging disabled
+   passed  135/188  ogent-debug-test-toggle-round-trip (0.000054 sec)
+   passed  136/188  ogent-debug-test-tool-history-buffer-mode (0.000161 sec)
+   passed  137/188  ogent-debug-test-tool-history-help (0.000091 sec)
+   passed  138/188  ogent-debug-test-tool-history-mode-keymap (0.000109 sec)
+   passed  139/188  ogent-debug-test-tool-history-next (0.000156 sec)
+   passed  140/188  ogent-debug-test-tool-history-prev (0.000129 sec)
+   passed  141/188  ogent-debug-test-tool-history-refresh (0.000148 sec)
+   passed  142/188  ogent-debug-test-tool-history-revert (0.000098 sec)
+   passed  143/188  ogent-tool-process-bash-async-is-asynchronous (0.174322 sec)
+   passed  144/188  ogent-tool-process-bash-bounds-combined-channels (0.011624 sec)
+ogent: process callback failed: Callback failure
+   passed  145/188  ogent-tool-process-bash-callback-error-cleans-up (0.020839 sec)
+   passed  146/188  ogent-tool-process-bash-cancel-keeps-partial-output (0.031534 sec)
+   passed  147/188  ogent-tool-process-bash-cancel-kills-grandchild (0.021827 sec)
+   passed  148/188  ogent-tool-process-bash-invalid-utf8-remains-json-safe (0.011213 sec)
+   passed  149/188  ogent-tool-process-bash-separates-channels-and-exit (0.050998 sec)
+   passed  150/188  ogent-tool-process-bash-signal-is-distinct-from-cancel (0.051122 sec)
+   passed  151/188  ogent-tool-process-bash-startup-error-is-terminal (0.005723 sec)
+   passed  152/188  ogent-tool-process-bash-terminal-exit-bounds-descendant-drain (0.051285 sec)
+   passed  153/188  ogent-tool-process-bash-timeout-keeps-partial-output (0.131806 sec)
+   passed  154/188  ogent-tool-process-bash-validation-does-not-spawn (0.000300 sec)
+   passed  155/188  ogent-tool-process-bash-zero-output-budget (0.011290 sec)
+   passed  156/188  ogent-tool-process-grep-async-once (0.072085 sec)
+   passed  157/188  ogent-tool-process-grep-cancel-has-typed-error (0.052181 sec)
+   passed  158/188  ogent-tool-process-grep-context-includes-nearby-matches (0.051945 sec)
+   passed  159/188  ogent-tool-process-grep-deterministic-order (0.052424 sec)
+   passed  160/188  ogent-tool-process-grep-directory-spans-argument-batches (0.038900 sec)
+   passed  161/188  ogent-tool-process-grep-empty-gnu-candidates-validate-regex (0.154985 sec)
+   passed  162/188  ogent-tool-process-grep-empty-is-success (0.053368 sec)
+   passed  163/188  ogent-tool-process-grep-finds-hidden-and-ignored-files (0.052399 sec)
+   passed  164/188  ogent-tool-process-grep-glob-filter (0.052267 sec)
+   passed  165/188  ogent-tool-process-grep-gnu-binary-scope (0.103718 sec)
+   passed  166/188  ogent-tool-process-grep-gnu-component-filters (0.420885 sec)
+   passed  167/188  ogent-tool-process-grep-gnu-explicit-file-filter (0.155437 sec)
+   passed  168/188  ogent-tool-process-grep-gnu-unicode-filters (0.484520 sec)
+   passed  169/188  ogent-tool-process-grep-invalid-regex-error (0.052589 sec)
+   passed  170/188  ogent-tool-process-grep-oversized-wire-line-is-explicit (0.090828 sec)
+   passed  171/188  ogent-tool-process-grep-pages-all-matches (0.104295 sec)
+   passed  172/188  ogent-tool-process-grep-pattern-is-literal-process-argument (0.052231 sec)
+   passed  173/188  ogent-tool-process-grep-preserves-unusual-filenames (0.052362 sec)
+   passed  174/188  ogent-tool-process-grep-ripgrep-binary-scope (0.104349 sec)
+   passed  175/188  ogent-tool-process-grep-ripgrep-component-filters (0.415891 sec)
+   passed  176/188  ogent-tool-process-grep-ripgrep-explicit-file-filter (0.155075 sec)
+   passed  177/188  ogent-tool-process-grep-ripgrep-selected-groups-preserve-pages (0.094012 sec)
+   passed  178/188  ogent-tool-process-grep-ripgrep-selected-parent-order (0.156679 sec)
+   passed  179/188  ogent-tool-process-grep-ripgrep-unicode-filters (0.531753 sec)
+   passed  180/188  ogent-tool-process-grep-snapshot-changes-with-source (0.103957 sec)
+   passed  181/188  ogent-tool-process-grep-timeout-has-typed-error (0.053238 sec)
+   passed  182/188  ogent-tool-process-grep-truncation-keeps-count-and-page (0.052154 sec)
+   passed  183/188  ogent-tool-process-grep-validates-page-and-context (0.000430 sec)
+   passed  184/188  ogent-tool-process-grep-zero-budget-does-not-skip-matches (0.052327 sec)
+   passed  185/188  ogent-tool-process-results-serialize-as-json (0.103236 sec)
+   passed  186/188  ogent-tool-process-ripgrep-base64-text (0.000112 sec)
+   passed  187/188  ogent-tool-process-ripgrep-real-json-protocol (0.103235 sec)
+   passed  188/188  ogent-tool-process-ripgrep-searches-hidden-files (0.052587 sec)
+
+Ran 188 tests, 188 results as expected, 0 unexpected (2026-10-08 21:26:58+0000, 5.674493 sec)
+

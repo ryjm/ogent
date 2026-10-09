@@ -1,0 +1,10 @@
+{
+  "Makefile": {
+    "source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+    "sha256": "bc702483fd3d2639143abf65db30b942a07f2dc3317409cbba31c768f89c7cbe"
+  },
+  "makem.sh": {
+    "source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+    "sha256": "8492a15c695e9b80df1ba3e349a4157e78952db01eccd524f077192ca9794db4"
+  }
+}

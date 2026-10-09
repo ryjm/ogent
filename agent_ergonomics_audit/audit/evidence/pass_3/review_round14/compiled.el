@@ -1,0 +1,15 @@
+;;; compiled.el --- Round 14 owned bytecode checks -*- lexical-binding: t; -*-
+(require 'bytecomp)
+(let* ((directory (expand-file-name (concat "compiled/" emacs-version "/")
+                                   "/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round14/"))
+       (byte-compile-error-on-warn t)
+       (byte-compile-dest-file-function
+        (lambda (file) (expand-file-name (concat (file-name-base file) ".elc") directory))))
+  (make-directory directory t)
+  (dolist (file '("ogent-tool-contract" "ogent-tool-results" "ogent-tool-process" "ogent-tool-execution" "ogent-agent"))
+    (unless (byte-compile-file (concat "/work/lisp/" file ".el")) (error "Compile failed: %s" file)))
+  (dolist (file '("ogent-tool-contract" "ogent-tool-results" "ogent-tool-process" "ogent-tool-execution" "ogent-agent"))
+    (load (expand-file-name (concat file ".elc") directory) nil nil t)))
+(dolist (symbol '(ogent-tool-results-glob ogent-tool-process-grep-async ogent-tool-execution-call ogent-agent-call ogent-tool-execution-json))
+  (unless (byte-code-function-p (symbol-function symbol)) (error "Bytecode not loaded: %s" symbol)))
+(message "REVIEW14 5 warning-strict modules compiled; 5 explicit bytecode identities confirmed")

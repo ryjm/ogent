@@ -1,0 +1,4 @@
+{"format":"plist","async":false,"status":"ok","error_code":null,"representable":false,"next_count":1}
+{"format":"plist","async":true,"status":"ok","error_code":null,"representable":false,"next_count":1}
+{"format":"json","async":false,"status":"error","error_code":"unsupported_output","representable":true,"next_count":0}
+{"format":"json","async":true,"status":"error","error_code":"unsupported_output","representable":true,"next_count":0}

@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "bash",
+    "./makem.sh",
+    "--json",
+    "--emacs=/unavailable/emacs",
+    "tset"
+  ],
+  "host_cwd": "/workspace/ogent",
+  "start_utc": "2026-10-08T23:54:04.750107+00:00",
+  "end_utc": "2026-10-08T23:54:04.846280+00:00",
+  "elapsed_seconds": 0.09640335700169089,
+  "exit_code": 2,
+  "stdout": "build-invalid.stdout",
+  "stderr": "build-invalid.stderr"
+}

@@ -1,4 +1,54 @@
-# Agent ergonomics handoff
+# Agent ergonomics handoff: second implementation pass
+
+Eleven further tested upgrades turn tool investigation into a callable structured
+workflow: named execution, lossless file/search pagination, snapshot-guarded
+continuations, familiar exact verbs, real process results, callback-once async
+calls, fully preflighted read-only batches, live contracts/examples/schema,
+JSON model tools, and actual machine-readable build/test reporting.
+
+Baseline: `b3caf9300c7336ef812ed061158f851c5a47ccf7`.
+Verified production source: `5d07d807bc85a093725db24e33996b4af690ec0f`.
+Approval, edit review, cancellation, ledger and history retain their existing
+owners. This pass used local fixtures and actual dependencies without provider
+login or inference. It lands directly on master.
+
+[Second-pass handoff](final_handoff_pass_3.md) describes the contracts, limits,
+recommendation commits and verification. Every one of the eleven wrappers
+genuinely fails against archived baseline and passes against the exact final
+source; [proof](verification/pass_3/regression_proof.json) and
+[independent integrity check](verification/pass_3/regressions/integrity_check.json)
+pin source and fixture hashes and reject zero-selection, skips and timeouts.
+
+The paired nineteen-surface mean changes **605.3 → 656.2**, with median uplift
+**11** over all originals and **77.5** over ten changed originals. Nine original
+surfaces gain at least 100 on a dimension; six new APIs are measured separately.
+Eleven shipped behavior upgrades are not eleven independently attributable score
+gains. [Calibration](rubric_reconciliation_pass_3.md) preserves raw disagreements,
+reassesses the genuine baseline under matching criteria, and keeps historical
+pass 1/2 intact. Original independent judgments were retained after shared
+incremental verification of later repairs. Scores are qualitative same-model
+judgments, not measured agent success rates.
+
+The original fresh exercise completed nine of nine goals, seven on its first
+strategy. The exact-final-source repeated replay completes all nine; familiarity
+prevents claiming a new blind comparison or measured efficiency uplift. See
+[replay](agent_simulations/post_pass_3/final_freeze/report.org).
+
+Final gate status: intermediate freezes and their failures remain preserved.
+The current source includes fixes for search scope, ledger delivery/context,
+strict compiler warnings and Unicode reflected strings/transport. Independent
+rounds 14/15 are consecutively clean on this source. All eight native checks
+pass after those reviews: strict lint, full tests, store integrity and offline
+workflows against actual current/minimum dependencies. Both Emacs versions run
+3,236 tests with zero unexpected results; 18/19 platform-dependent skips remain.
+The audit/tracker commit preserves these production bytes. Exact pushed-SHA
+remote CI is checked before ending the session and recorded in the final response.
+
+## Historical first implementation pass
+
+The remaining text is the completed first-pass record. Its limitations describe
+that historical snapshot; the structured outputs and build-report followups
+are implemented in the second pass above.
 
 The focused pass implemented twelve tested recommendations on master. It
 adds JSON capabilities, a built-in agent guide, local triage, versioned JSON

@@ -1,0 +1,5 @@
+
+In toplevel form:
+lisp/scorer-fixture.el:12:33: Error: reference to free variable ‘missing-variable’
+ERROR (2026-10-08 22:33:26): Linting compilation failed.
+LOG (2026-10-08 22:33:26): Finished with 1 errors.

@@ -1,0 +1,60 @@
+[
+  {
+    "label": "emacs29",
+    "target_sha": "021cca4d28e7b20fba3617c57522cc5014f640f9",
+    "argv": [
+      "docker",
+      "exec",
+      "-w",
+      "/work",
+      "-e",
+      "REFRESH_ELPA=/tmp/ogent-ergonomics-elpa",
+      "-e",
+      "NO_COLOR=1",
+      "-e",
+      "CI=true",
+      "-e",
+      "TERM=dumb",
+      "ogent-fixes-29",
+      "emacs",
+      "-Q",
+      "--batch",
+      "-l",
+      "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/probe.el"
+    ],
+    "started_utc": "2026-10-08T23:07:49.414844+00:00",
+    "finished_utc": "2026-10-08T23:07:52.840208+00:00",
+    "exit_code": 0,
+    "stdout": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/emacs29.stdout.jsonl",
+    "stderr": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/emacs29.stderr"
+  },
+  {
+    "label": "emacs30",
+    "target_sha": "021cca4d28e7b20fba3617c57522cc5014f640f9",
+    "argv": [
+      "docker",
+      "exec",
+      "-w",
+      "/work",
+      "-e",
+      "REFRESH_ELPA=/tmp/ogent-fixdeps/30.2/elpa",
+      "-e",
+      "NO_COLOR=1",
+      "-e",
+      "CI=true",
+      "-e",
+      "TERM=dumb",
+      "ogent-fixes",
+      "emacs",
+      "-Q",
+      "--batch",
+      "-l",
+      "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/probe.el"
+    ],
+    "started_utc": "2026-10-08T23:07:49.415161+00:00",
+    "finished_utc": "2026-10-08T23:07:52.612566+00:00",
+    "exit_code": 255,
+    "stdout": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/emacs30.stdout.jsonl",
+    "stderr": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/emacs30.stderr"
+  }
+]

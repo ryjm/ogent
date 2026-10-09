@@ -1,0 +1,32 @@
+Running 1 tests (2026-10-08 22:33:28+0000, selector ‘t’)
+Test scorer-fixture-add backtrace:
+  signal(ert-test-failed (((should (= (scorer-fixture-add 1) 99)) :for
+  ert-fail(((should (= (scorer-fixture-add 1) 99)) :form (= 2 99) :val
+  (if (unwind-protect (setq value-155 (apply fn-153 args-154)) (setq f
+  (let (form-description-157) (if (unwind-protect (setq value-155 (app
+  (let ((value-155 'ert-form-evaluation-aborted-156)) (let (form-descr
+  (let* ((fn-153 #'=) (args-154 (condition-case err (list (scorer-fixt
+  #f(lambda () [t] (let* ((fn-153 #'=) (args-154 (condition-case err .
+  #f(compiled-function () #<bytecode 0xb1f2437a1de207e>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0xb1f2437a1de207e>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  ert-run-test(#s(ert-test :name scorer-fixture-add :documentation nil
+  ert-run-or-rerun-test(#s(ert--stats :selector t :tests [#s(ert-test 
+  ert-run-tests(t #f(compiled-function (event-type &rest event-args) #
+  ert-run-tests-batch(nil)
+  ert-run-tests-batch-and-exit()
+  command-line-1(("--eval" "(setq load-prefer-newer t)" "-L" "lisp" "-
+  command-line()
+  normal-top-level()
+Test scorer-fixture-add condition:
+    (ert-test-failed
+     ((should (= (scorer-fixture-add 1) 99)) :form (= 2 99) :value nil))
+   FAILED  1/1  scorer-fixture-add (0.000105 sec) at test/scorer-fixture-tests.el:4
+
+Ran 1 tests, 0 results as expected, 1 unexpected (2026-10-08 22:33:28+0000, 0.043361 sec)
+
+1 unexpected results:
+   FAILED  scorer-fixture-add
+
+ERROR (2026-10-08 22:33:28): ERT tests failed.
+LOG (2026-10-08 22:33:28): Finished with 1 errors.

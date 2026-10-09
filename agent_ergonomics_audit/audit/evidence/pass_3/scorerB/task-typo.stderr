@@ -1,0 +1,1 @@
+ERROR (2026-10-08 22:33:25): Unknown task 'compiel'. Try make compile; run make help or ./makem.sh --capabilities --json for the complete task list.

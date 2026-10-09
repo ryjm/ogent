@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "ogent-fixes",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-l",
+    "/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round11/fixture-encoding-diagnostic.el"
+  ],
+  "exit": 0
+}

@@ -1,0 +1,26 @@
+{
+  "label": "current-sdk-ogent-fixes",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "-e",
+    "TIEBREAKER_ELPA=/tmp/ogent-fixdeps/30.2/elpa",
+    "-e",
+    "NO_COLOR=1",
+    "-e",
+    "CI=true",
+    "-e",
+    "TERM=dumb",
+    "ogent-fixes",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-l",
+    "agent_ergonomics_audit/audit/evidence/pass_3/tiebreaker/paired-sdk.el"
+  ],
+  "exit_code": 0,
+  "stdout": "audit/evidence/pass_3/tiebreaker/current-sdk-ogent-fixes.stdout.log",
+  "stderr": "audit/evidence/pass_3/tiebreaker/current-sdk-ogent-fixes.stderr.log"
+}

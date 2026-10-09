@@ -1,0 +1,40 @@
+#+title: Final a2fa8ce known-task regression replay
+
+All nine known canonical tasks were actually replayed and passed against
+production SHA a2fa8ce0533b4a508fb641f343fa55b15fd6fc60, identical at execution
+start/end. This is a familiar repeated regression exercise, with no fresh-agent
+first-strategy or comparative-efficiency claim. Prior replays remain archived as
+../replay_90818f8/, ../replay_9ac13b2/, ../replay_967eb05/, and ../replay_10f86bb/. The original fresh exercise, transcripts,
+report, summary, and 94-trip metric remain unchanged.
+
+Named search discovery and async terminal support succeeded. README reconstructed
+exactly: 429 positioned lines, 62 seven-line pages, terminal done. Discovery found
+all 105 exact fixture .el paths once across three pages. Search retained all 250
+exact match locations and the original colon/newline filename across three pages.
+Empty/no-match versus invalid-regex outcomes were distinct in nonempty and empty
+directories. Shell/write approval calls had no prompts or mutation. Unsafe
+read+shell batch preflight rejected before reading. The three-tool batch used the
+common data envelope and completed all three calls successfully. Normal async
+completion and cancellation each delivered exactly one terminal callback.
+
+Actual production /work/makem.sh executed existing independent owned tracked Git
+fixture projects once each. Successful compile/ERT exited 0 with one expected
+test. Intentional malformed-source compile and intentional ERT assertion failure
+exited 1 with real compiler/test output. JSON parsed audit-build.el:14:1 and
+ERT test/audit-build-tests.el:4; ERT emitted no column, correctly null. The malformed
+fixture has an unmatched closing parenthesis; the ERT fixture expects 3 from an
+addition that returns 2. These are expected fixture failures, not replay failures.
+
+summary.json records exact execution timestamps/SHA, task outcomes, 89 regression
+roundtrips, and all error/root-cause evidence. Every command preserves complete
+argv/cwd/stdout/stderr/exit plus byte-complete companion files. SDK stdout
+preserves complete public forms/results/callbacks.
+
+The previously known public workflow, runtime discovery/help, and owned harness/
+fixtures were used without inspecting production/test/history/other audit
+implementation. No guide source was reread in this replay; canonical README
+pagination remains part of the requested task. Actual SDK source loaded through
+the protected helper, which may supply gptel doubles. Search used the observed
+GNU grep fallback. No provider calls, safety configuration changes, Git staging/
+commits, documentation/production edits, or broad project build/test/compile
+occurred. Canonical replay does not establish unexecuted branches.

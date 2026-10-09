@@ -1,0 +1,24 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 4 tests (2026-10-08 20:59:54+0000, selector `"ogent-agent-execution-batch-"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-6bgRI8/tools-rGxEwq (retained)
+   passed  1/4  ogent-agent-execution-batch-composes-read-tools (0.059126 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-6bgRI8/tools-nOctIs (retained)
+   passed  2/4  ogent-agent-execution-batch-continues-or-stops (0.002895 sec)
+   passed  3/4  ogent-agent-execution-batch-inplace-effects-change (0.000653 sec)
+   passed  4/4  ogent-agent-execution-batch-preflight-prevents-unsafe-prefix (0.000584 sec)
+
+Ran 4 tests, 4 results as expected, 0 unexpected (2026-10-08 20:59:54+0000, 0.063498 sec)
+

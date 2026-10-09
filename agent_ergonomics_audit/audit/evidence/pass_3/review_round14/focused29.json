@@ -1,0 +1,41 @@
+{
+  "argv": [
+    "docker",
+    "exec",
+    "-e",
+    "REVIEW_ELPA=/tmp/ogent-ergonomics-elpa",
+    "-e",
+    "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+    "-w",
+    "/work",
+    "ogent-fixes-29",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-L",
+    "/work/lisp",
+    "-L",
+    "/work/lisp/ui",
+    "-L",
+    "/work/test",
+    "-L",
+    "/work/test/ui",
+    "-l",
+    "/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round14/boot.el",
+    "-l",
+    "/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round14/focused.el"
+  ],
+  "cwd": "/workspace/ogent",
+  "start": "2026-10-08T23:46:24.987853+00:00",
+  "end": "2026-10-08T23:46:31.379184+00:00",
+  "elapsed_seconds": 6.391344774001482,
+  "exit": 0,
+  "stdout": "focused29.stdout",
+  "stderr": "focused29.stderr",
+  "ert": {
+    "selected": 18,
+    "expected": 18,
+    "unexpected": 0,
+    "skipped": 0
+  }
+}

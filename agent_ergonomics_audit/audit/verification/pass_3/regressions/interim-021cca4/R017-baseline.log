@@ -1,0 +1,91 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 2 tests (2026-10-08 22:34:38+0000, selector `"ogent-agent-execution-aliases-"')
+   passed  1/2  ogent-agent-execution-aliases-exact-and-ambiguous (0.000132 sec)
+Test ogent-agent-execution-aliases-share-policy backtrace:
+uncompressing help-fns.el.gz...
+uncompressing help-fns.el.gz...done
+uncompressing radix-tree.el.gz...
+uncompressing radix-tree.el.gz...done
+uncompressing derived.el.gz...
+uncompressing derived.el.gz...done
+uncompressing cl-print.el.gz...
+uncompressing cl-print.el.gz...done
+  signal(ert-test-failed (((should (eq (ogent-tool--name-symbol "read"
+  ert-fail(((should (eq (ogent-tool--name-symbol "read") 'read-file)) 
+  (if (unwind-protect (setq value-327 (apply fn-325 args-326)) (setq f
+  (let (form-description-329) (if (unwind-protect (setq value-327 (app
+  (let ((value-327 'ert-form-evaluation-aborted-328)) (let (form-descr
+  (let* ((fn-325 #'eq) (args-326 (condition-case err (list (ogent-tool
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (copy
+  #f(compiled-function () #<bytecode 0xbd2516f75ae6d4e>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0xbd2516f75ae6d4e>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-aliases-share-p
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-aliases-" #f(compiled-function 
+  ert-run-tests-batch("ogent-agent-execution-aliases-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-aliases-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-aliases-share-policy condition:
+    (ert-test-failed
+     ((should (eq (ogent-tool--name-symbol "read") 'read-file)) :form
+      (eq read read-file) :value nil))
+uncompressing vc-git.el.gz...
+uncompressing vc-git.el.gz...done
+uncompressing vc-dispatcher.el.gz...
+uncompressing vc-dispatcher.el.gz...done
+uncompressing vc.el.gz...
+uncompressing vc.el.gz...done
+uncompressing dired.el.gz...
+uncompressing dired.el.gz...done
+uncompressing autorevert.el.gz...
+uncompressing autorevert.el.gz...done
+uncompressing filenotify.el.gz...
+uncompressing filenotify.el.gz...done
+uncompressing dired-loaddefs.el.gz...
+uncompressing dired-loaddefs.el.gz...done
+uncompressing dnd.el.gz...
+uncompressing dnd.el.gz...done
+uncompressing files-x.el.gz...
+uncompressing files-x.el.gz...done
+uncompressing desktop.el.gz...
+uncompressing desktop.el.gz...done
+uncompressing frameset.el.gz...
+uncompressing frameset.el.gz...done
+uncompressing vc-dir.el.gz...
+uncompressing vc-dir.el.gz...done
+uncompressing diff-mode.el.gz...
+uncompressing diff-mode.el.gz...done
+uncompressing track-changes.el.gz...
+uncompressing track-changes.el.gz...done
+   FAILED  2/2  ogent-agent-execution-aliases-share-policy (0.000128 sec) at test/ogent-agent-execution-tests.el:146
+
+Ran 2 tests, 1 results as expected, 1 unexpected (2026-10-08 22:34:39+0000, 1.076508 sec)
+
+1 unexpected results:
+   FAILED  ogent-agent-execution-aliases-share-policy
+

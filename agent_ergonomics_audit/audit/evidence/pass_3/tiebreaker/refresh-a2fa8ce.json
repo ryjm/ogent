@@ -1,0 +1,30 @@
+{
+  "current_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+  "prior_current_sha": "10f86bb12a03f3122a60ba085be7289eb5277f5e",
+  "baseline_sha256": "aea30ac796d2cbe4bd640292ab3a404a07c903d0610a64ff7a472c3ce4dd5741",
+  "baseline_preserved_byte_for_byte": true,
+  "current_numerics_preserved": true,
+  "current_rows": 9,
+  "source_files_verified": 15,
+  "sdk_runtimes": [
+    "29.1",
+    "30.2"
+  ],
+  "actual_ledger_context_tests": {
+    "emacs29": {
+      "total": 4,
+      "unexpected": 0
+    },
+    "emacs30": {
+      "total": 4,
+      "unexpected": 0
+    }
+  },
+  "build_json_parsed": true,
+  "eof_diagnostic_owner_verified": true,
+  "broad_suite_duplicated": false,
+  "fixture_repacked": true,
+  "current_rows_sha256": "bc0824fe68d5d5cfbe8fb53e653d371634f459e5976d53de63dadac549585b81",
+  "source_identities_sha256": "20db62c5ceb1897cd95dceb7bb4a1747afba03f434bfe546b71af1d459b297b1",
+  "fixture_sha256": "09659279faf3e997f8da0dbfcecdda0a26a227d0e6273d593caf9c977075bc59"
+}

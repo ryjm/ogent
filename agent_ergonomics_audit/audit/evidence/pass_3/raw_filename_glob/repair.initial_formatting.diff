@@ -1,0 +1,516 @@
+diff --git a/lisp/ogent-doctor.el b/lisp/ogent-doctor.el
+index 32547fd..4daf324 100644
+--- a/lisp/ogent-doctor.el
++++ b/lisp/ogent-doctor.el
+@@ -19,6 +19,7 @@
+ (require 'org)
+ (require 'ogent-gptel)
+ (require 'ogent-models)
++(require 'ogent-tool-contract)
+ 
+ (declare-function gptel-request "ext:gptel-request")
+ (declare-function ogent-codex-oauth--auth-file "ogent-codex-oauth")
+@@ -724,8 +725,9 @@ Return 0 for ok/info, 1 for warnings, and 2 for errors."
+ (defun ogent-doctor-format-json (results)
+   "Return a JSON report string for doctor RESULTS.
+ Keep check order stable and encode missing remediation as JSON null."
+-  (concat (json-serialize (ogent-doctor-data results) :null-object :json-null)
+-          "\n"))
++  (ogent-tool-contract--json-text
++   (concat (json-serialize (ogent-doctor-data results) :null-object :json-null)
++           "\n")))
+ 
+ ;;; Commands
+ 
+diff --git a/lisp/ogent-tool-contract.el b/lisp/ogent-tool-contract.el
+index 0d8307f..a8d67e9 100644
+--- a/lisp/ogent-tool-contract.el
++++ b/lisp/ogent-tool-contract.el
+@@ -15,6 +15,12 @@
+   "Argument contracts for ogent tools."
+   :group 'ogent)
+ 
++(defun ogent-tool-contract--json-text (text)
++  "Return serialized JSON TEXT as Unicode characters for nested transport.
++Decode UTF-8 serializer bytes when Emacs returns an unibyte string."
++  (if (multibyte-string-p text) text
++    (decode-coding-string text 'utf-8 t)))
++
+ (defun ogent-tool-contract-name-hint (name names)
+   "Return a corrective lookup hint for unknown NAME among NAMES."
+   (let* ((input (format "%s" name))
+diff --git a/lisp/ogent-tool-execution.el b/lisp/ogent-tool-execution.el
+index e0c1191..970f1af 100644
+--- a/lisp/ogent-tool-execution.el
++++ b/lisp/ogent-tool-execution.el
+@@ -73,14 +73,15 @@ Include a typed error with CODE and MESSAGE when supplied."
+   "Serialize result DATA, returning a typed error for unsupported values.
+ Preserve callback delivery even when an extension returns non-JSON objects
+ or raw filename bytes that cannot be represented as Unicode."
+-  (condition-case nil
+-      (concat (json-serialize data :null-object :json-null :false-object :json-false) "\n")
+-    (error
+-     (concat (json-serialize
+-              (ogent-tool-execution-result
+-               "serialization" "error" nil "unsupported_output"
+-               "Result cannot be represented as JSON; use Unicode filenames and JSON-compatible tool values")
+-              :null-object :json-null :false-object :json-false) "\n"))))
++  (ogent-tool-contract--json-text
++   (condition-case nil
++       (concat (json-serialize data :null-object :json-null :false-object :json-false) "\n")
++     (error
++      (concat (json-serialize
++               (ogent-tool-execution-result
++                "serialization" "error" nil "unsupported_output"
++                "Result cannot be represented as JSON; use Unicode filenames and JSON-compatible tool values")
++               :null-object :json-null :false-object :json-false) "\n")))))
+ 
+ (defun ogent-tool-execution-process-error (data)
+   "Return the stable failure code for process DATA, or nil on success."
+diff --git a/lisp/ogent-tool-results.el b/lisp/ogent-tool-results.el
+index b97261c..62fea29 100644
+--- a/lisp/ogent-tool-results.el
++++ b/lisp/ogent-tool-results.el
+@@ -8,6 +8,7 @@
+ 
+ (require 'json)
+ (require 'ogent-tools)
++(require 'ogent-tool-contract)
+ 
+ (define-error 'ogent-tool-results-output-error "Unsupported file output" 'user-error)
+ 
+@@ -21,8 +22,9 @@
+   "Return DATA as a plist or serialize it according to FORMAT."
+   (pcase format
+     ('plist data)
+-    ('json (concat (json-serialize data :null-object :json-null
+-                                   :false-object :json-false) "\n"))
++    ('json (ogent-tool-contract--json-text
++            (concat (json-serialize data :null-object :json-null
++                                    :false-object :json-false) "\n")))
+     (_ (user-error "Use (quote plist) or (quote json) for structured tool results"))))
+ 
+ (defun ogent-tool-results-read (file-path &optional offset limit column)
+@@ -97,7 +99,7 @@ must not exceed 200.  Report the total count and a snapshot of file metadata."
+     (unless (and (integerp limit) (> limit 0) (<= limit 200))
+       (user-error "Use an integer limit between 1 and 200"))
+     (let* ((root (ogent-tools--resolve-path (or path ".")))
+-           (files (sort (ogent-tools--glob-files pattern root) #'string<))
++           (files (sort (ogent-tools--glob-files pattern root #'ogent-tool-results--unicode) #'string<))
+            (metadata (mapcar
+                       (lambda (file)
+                         (ogent-tool-results--unicode file)
+diff --git a/lisp/ogent-tools.el b/lisp/ogent-tools.el
+index e8d8c33..a17c2e5 100644
+--- a/lisp/ogent-tools.el
++++ b/lisp/ogent-tools.el
+@@ -359,8 +359,9 @@ When FORMAT is `plist' or `json', return structured lines and continuations."
+                  (puthash key value memo))))))
+       (match 0 0))))
+ 
+-(defun ogent-tools--glob-files (pattern path)
+-  "Return all regular files matching PATTERN under PATH, newest first."
++(defun ogent-tools--glob-files (pattern path &optional validate-path)
++  "Return all regular files matching PATTERN under PATH, newest first.
++Call VALIDATE-PATH on each matching path before filtering regular files."
+   (let* ((case-fold-search nil)
+          (dir (if path
+                   (ogent-tools--resolve-path path)
+@@ -383,6 +384,8 @@ When FORMAT is `plist' or `json', return structured lines and continuations."
+                  (lambda (file) (ogent-tools--glob-match-p relative-pattern (file-relative-name file base)))
+                  (directory-files-recursively base ".")))
+             (file-expand-wildcards pattern t)))
++    (when validate-path
++      (dolist (file files) (funcall validate-path file)))
+     (setq files (seq-filter #'file-regular-p files))
+     ;; Sort by mtime, newest first
+     (setq files
+diff --git a/test/offline/workflows.el.in b/test/offline/workflows.el.in
+index d1f4b91..c4871b8 100644
+--- a/test/offline/workflows.el.in
++++ b/test/offline/workflows.el.in
+@@ -37,6 +37,35 @@
+             (should (equal (plist-get (ogent-agent-next result) :status) "ok"))))
+       (delete-directory root t))))
+ 
++(ert-deftest ogent-offline-structured-unicode-tool-transport ()
++  "Embed Unicode tool results through the actual gptel request serializer."
++  (let* ((root (make-temp-file "ogent-offline-unicode-" t))
++         (file (expand-file-name "café.txt" root))
++         (ogent-tools-project-root root) (ogent-ledger-enabled nil)
++         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
++         (ogent-tools-result-format 'json)
++         (ogent--tools-registered nil) (ogent--tool-specs-registered nil)
++         (ogent--tool-formats-registered nil) (gptel--known-tools nil)
++         (backend (ogent-offline--backend 'chat)))
++    (unwind-protect
++        (progn
++          (with-temp-file file (insert "alpha λ 😀\n"))
++          (let* ((tool (ogent-tool-get "read_file"))
++                 (result (funcall (gptel-tool-function tool) file 1 1))
++                 (call (list :id "unicode-call" :name "read-file" :args (list :file_path file)))
++                 ;; Keep a second call pending so processing cannot advance HTTP.
++                 (pending (list :id "unicode-pending" :name "read-file"))
++                 (fsm (gptel-make-fsm :info (list :backend backend :tool-use (list call pending)))))
++            (gptel--process-tool-call fsm tool call result)
++            (let* ((messages (gptel--parse-tool-results backend (list call)))
++                   (request (gptel--json-encode (list :messages (vconcat messages))))
++                   (parsed (json-parse-string request :object-type 'plist))
++                   (content (plist-get (aref (plist-get parsed :messages) 0) :content))
++                   (data (plist-get (json-parse-string content :object-type 'plist) :data)))
++              (should (equal content result))
++              (should (equal (plist-get data :content) "alpha λ 😀")))))
++      (delete-directory root t))))
++
+ (defun ogent-offline--port ()
+   "Return the running loopback fixture port."
+   (with-temp-buffer
+@@ -85,7 +114,7 @@
+   "Resolve the exact Responses object and preserve the selected wire model."
+   (let ((gptel-backend (ogent-offline--backend 'responses)))
+     (should (eq gptel-backend (ogent-gptel-resolve-backend
+-                             (ogent-models-get "gpt-6.1-sol")))))
++                               (ogent-models-get "gpt-6.1-sol")))))
+   (dolist (endpoint '(chat responses))
+     (dolist (model '("gpt-6-astra" "gpt-6.1-sol" "gpt-6-luna" "gpt-4.1"))
+       (should (equal (plist-get (ogent-offline--wire model endpoint nil) :model) model)))))
+@@ -221,8 +250,8 @@
+   (let* ((ogent-tool-registry nil) (ogent--tools-registered nil)
+          (conn (make-ogent-mcp-connection :name "offline"))
+          (schema '((name . "read") (inputSchema . ((type . "object")
+-                    (properties . ((path . ((type . "string")))
+-                                   (flag . ((type . "boolean")))))))))
++						   (properties . ((path . ((type . "string")))
++								  (flag . ((type . "boolean")))))))))
+          params)
+     (ogent-mcp--register-tools conn (list schema))
+     (let ((tool (ogent-tool-get 'mcp-offline-read))
+@@ -248,65 +277,65 @@
+ (ert-deftest ogent-offline-armory-compose-run-resume-compact ()
+   "Compose external skills and attachments, run a fixture CLI, then continue."
+   (ogent-armory-runner-test-with-temp-dir root
+-    (ogent-armory-scaffold root "Offline journey" :kind "root" :create-editor nil)
+-    (ogent-armory-write-agent root '(:slug "worker" :name "Worker" :provider "codex") "Be concise.")
+-    (ogent-armory--write-file (expand-file-name ".codex/skills/audit/SKILL.md" root)
+-                              "---\nname: audit\ndescription: Offline review\n---\nInspect local artifacts.\n")
+-    (let* ((attachment (expand-file-name "input.txt" root))
+-           (fixture (ogent-armory-runner-test--make-executable
+-                     root "#!/bin/sh\ncat >/dev/null\nprintf 'fixture journey complete\\n'\n"))
+-           (ogent-armory-codex-executable fixture)
+-           (ogent-armory-runner-confirm-before-run nil)
+-           (ogent-armory-runner-ensure-beads-redirect nil)
+-           (ogent-armory-skill-include-user-roots nil))
+-      (ogent-armory--write-file attachment "Attached context.")
+-      (let* ((process (ogent-armory-compose
+-                       root "worker" "Review @skill:audit" :attachments (list attachment)
+-                       :runtime '(:runtime-mode terminal)))
+-             (plan (process-get process 'ogent-armory-plan))
+-             (id (plist-get plan :conversation-id)))
+-        (ogent-offline--wait (lambda () (not (process-live-p process))))
+-        (ogent-offline--wait
+-         (lambda () (equal (plist-get (ogent-armory-conversation-read root id) :status) "done")))
+-        (should (string-match-p "Inspect local artifacts" (plist-get plan :prompt)))
+-        (should (= (length (ogent-armory-conversation-read-turns root id)) 2))
+-        (should (string-match-p "fixture journey complete"
+-                                (ogent-armory-conversation-replay-prompt root id "Continue")))
+-        (let* ((continued (ogent-armory-runner-plan root "worker" :conversation-id id
+-                                                   :instruction "Continue offline."))
+-               (next (ogent-armory-runner-start continued)))
+-          (ogent-offline--wait (lambda () (not (process-live-p next))))
+-          (ogent-offline--wait (lambda () (= 4 (length (ogent-armory-conversation-read-turns root id))))))
+-        (ogent-armory-conversation-compact-record root id)
+-        (should (plist-get (ogent-armory-conversation-detail root id) :context-summary))
+-        (ogent-armory-conversation-update-properties root id '(("OGENT_ARCHIVED" . "t")))
+-        (should (plist-get (ogent-armory-conversation-read root id) :archived))
+-        (message "Offline Armory journey: id=%s turns=%d file=%s" id
+-                 (length (ogent-armory-conversation-read-turns root id))
+-                 (ogent-armory-conversation-file root id))))))
++					  (ogent-armory-scaffold root "Offline journey" :kind "root" :create-editor nil)
++					  (ogent-armory-write-agent root '(:slug "worker" :name "Worker" :provider "codex") "Be concise.")
++					  (ogent-armory--write-file (expand-file-name ".codex/skills/audit/SKILL.md" root)
++								    "---\nname: audit\ndescription: Offline review\n---\nInspect local artifacts.\n")
++					  (let* ((attachment (expand-file-name "input.txt" root))
++						 (fixture (ogent-armory-runner-test--make-executable
++							   root "#!/bin/sh\ncat >/dev/null\nprintf 'fixture journey complete\\n'\n"))
++						 (ogent-armory-codex-executable fixture)
++						 (ogent-armory-runner-confirm-before-run nil)
++						 (ogent-armory-runner-ensure-beads-redirect nil)
++						 (ogent-armory-skill-include-user-roots nil))
++					    (ogent-armory--write-file attachment "Attached context.")
++					    (let* ((process (ogent-armory-compose
++							     root "worker" "Review @skill:audit" :attachments (list attachment)
++							     :runtime '(:runtime-mode terminal)))
++						   (plan (process-get process 'ogent-armory-plan))
++						   (id (plist-get plan :conversation-id)))
++					      (ogent-offline--wait (lambda () (not (process-live-p process))))
++					      (ogent-offline--wait
++					       (lambda () (equal (plist-get (ogent-armory-conversation-read root id) :status) "done")))
++					      (should (string-match-p "Inspect local artifacts" (plist-get plan :prompt)))
++					      (should (= (length (ogent-armory-conversation-read-turns root id)) 2))
++					      (should (string-match-p "fixture journey complete"
++								      (ogent-armory-conversation-replay-prompt root id "Continue")))
++					      (let* ((continued (ogent-armory-runner-plan root "worker" :conversation-id id
++											  :instruction "Continue offline."))
++						     (next (ogent-armory-runner-start continued)))
++						(ogent-offline--wait (lambda () (not (process-live-p next))))
++						(ogent-offline--wait (lambda () (= 4 (length (ogent-armory-conversation-read-turns root id))))))
++					      (ogent-armory-conversation-compact-record root id)
++					      (should (plist-get (ogent-armory-conversation-detail root id) :context-summary))
++					      (ogent-armory-conversation-update-properties root id '(("OGENT_ARCHIVED" . "t")))
++					      (should (plist-get (ogent-armory-conversation-read root id) :archived))
++					      (message "Offline Armory journey: id=%s turns=%d file=%s" id
++						       (length (ogent-armory-conversation-read-turns root id))
++						       (ogent-armory-conversation-file root id))))))
+ 
+ (ert-deftest ogent-offline-scheduler-restart-durable-claim ()
+   "Persist a real scheduled conversation and deduplicate after scheduler restart."
+   (ogent-armory-schedule-test-with-temp-dir root
+-    (ogent-armory-schedule-tests--scheduler-job root)
+-    (let* ((fixture (ogent-armory-runner-test--make-executable
+-                     root "#!/bin/sh\ncat >/dev/null\nprintf 'scheduled fixture complete\\n'\n"))
+-           (ogent-armory-codex-executable fixture)
+-           (ogent-armory-runner-confirm-before-run nil)
+-           (ogent-armory-runner-ensure-beads-redirect nil)
+-           (ogent-armory-scheduler-roots (list root))
+-           (ogent-armory-scheduler-auto-run t)
+-           (ogent-armory-scheduler--fired (make-hash-table :test #'equal))
+-           (ogent-armory-scheduler--last-tick nil)
+-           (arm (ogent-armory-schedule-test--time 2026 5 4 8 59))
+-           (tick (ogent-armory-schedule-test--time 2026 5 4 9 1)))
+-      (ogent-armory-scheduler-tick arm)
+-      (should (= (length (ogent-armory-scheduler-tick tick)) 1))
+-      (ogent-offline--wait (lambda () (not (seq-some #'process-live-p ogent-armory-runner--processes))))
+-      (setq ogent-armory-scheduler--fired (make-hash-table :test #'equal)
+-            ogent-armory-scheduler--last-tick nil)
+-      (ogent-armory-scheduler-tick arm)
+-      (should-not (ogent-armory-scheduler-tick tick)))))
++					    (ogent-armory-schedule-tests--scheduler-job root)
++					    (let* ((fixture (ogent-armory-runner-test--make-executable
++							     root "#!/bin/sh\ncat >/dev/null\nprintf 'scheduled fixture complete\\n'\n"))
++						   (ogent-armory-codex-executable fixture)
++						   (ogent-armory-runner-confirm-before-run nil)
++						   (ogent-armory-runner-ensure-beads-redirect nil)
++						   (ogent-armory-scheduler-roots (list root))
++						   (ogent-armory-scheduler-auto-run t)
++						   (ogent-armory-scheduler--fired (make-hash-table :test #'equal))
++						   (ogent-armory-scheduler--last-tick nil)
++						   (arm (ogent-armory-schedule-test--time 2026 5 4 8 59))
++						   (tick (ogent-armory-schedule-test--time 2026 5 4 9 1)))
++					      (ogent-armory-scheduler-tick arm)
++					      (should (= (length (ogent-armory-scheduler-tick tick)) 1))
++					      (ogent-offline--wait (lambda () (not (seq-some #'process-live-p ogent-armory-runner--processes))))
++					      (setq ogent-armory-scheduler--fired (make-hash-table :test #'equal)
++						    ogent-armory-scheduler--last-tick nil)
++					      (ogent-armory-scheduler-tick arm)
++					      (should-not (ogent-armory-scheduler-tick tick)))))
+ 
+ (ert-deftest ogent-offline-mcp-http-json-shapes ()
+   "Send positional MCP calls over real HTTP with false, null and zero args."
+@@ -316,10 +345,10 @@
+                 :name "wire" :transport 'http :status 'ready
+                 :url (concat "http://127.0.0.1:" (ogent-offline--port) "/mcp")))
+          (schema '((name . "read") (inputSchema . ((type . "object")
+-                    (properties . ((path . ((type . "string")))
+-                                   (flag . ((type . "boolean")))
+-                                   (nullable . ((type . "null")))
+-                                   (payload . ((type . "object")))))))))
++						   (properties . ((path . ((type . "string")))
++								  (flag . ((type . "boolean")))
++								  (nullable . ((type . "null")))
++								  (payload . ((type . "object")))))))))
+          (zero '((name . "zero") (inputSchema . ((type . "object") (properties))))))
+     (ogent-mcp--register-tools conn (list schema zero))
+     (let ((result (json-parse-string
+@@ -360,35 +389,35 @@
+   "Run native conversations through actual gptel, including the iteration cap."
+   (dolist (cap '(1 3))
+     (ogent-armory-runner-test-with-temp-dir root
+-      (ogent-armory-scaffold root "Native fixture" :kind "root" :create-editor nil)
+-      (ogent-armory-write-agent root '(:slug "worker" :name "Worker" :provider "gptel") "Use fixture tools.")
+-      (let* ((gptel-backend (ogent-offline--backend 'responses))
+-             (gptel-use-curl t) (gptel-proxy "")
+-             (ogent-armory-native-max-iterations cap)
+-             (ogent-armory-runner-ensure-beads-redirect nil)
+-             (ogent-tools-enabled t)
+-             (ogent-offline--executions 0)
+-             (ogent--tools-registered nil)
+-             (ogent-tool-registry
+-              '((:name fixture-read :function ogent-offline--read :description "Fixture"
+-                       :args ((:name "text" :type string))
+-                       :effects ((:kind read :target file :scope workspace :risk low)))))
+-             (plan (ogent-armory-runner-plan root "worker" :adapter-id "gptel-native"
+-                                             :runtime-mode 'native :model "gpt-6.1-sol"
+-                                             :instruction "fixture-tool-cycle"))
+-             (state (ogent-armory-runner-start plan)))
+-        (let ((buffer (find-file-noselect (plist-get plan :conversation-file))))
+-          (unwind-protect
+-              (progn
+-                (with-current-buffer buffer (setq buffer-read-only t))
+-                (ogent-offline--wait (lambda () (plist-get state :finished)))
+-                (should-not (with-current-buffer buffer (buffer-modified-p))))
+-            (kill-buffer buffer)))
+-        (should (= ogent-offline--executions 1))
+-        (should (equal (plist-get (ogent-armory-conversation-read root (plist-get plan :conversation-id))
+-                                  :status)
+-                        (if (= cap 1) "failed" "done")))
+-        (should-not (gethash (plist-get plan :conversation-file) ogent-armory-native--runs))))))
++					    (ogent-armory-scaffold root "Native fixture" :kind "root" :create-editor nil)
++					    (ogent-armory-write-agent root '(:slug "worker" :name "Worker" :provider "gptel") "Use fixture tools.")
++					    (let* ((gptel-backend (ogent-offline--backend 'responses))
++						   (gptel-use-curl t) (gptel-proxy "")
++						   (ogent-armory-native-max-iterations cap)
++						   (ogent-armory-runner-ensure-beads-redirect nil)
++						   (ogent-tools-enabled t)
++						   (ogent-offline--executions 0)
++						   (ogent--tools-registered nil)
++						   (ogent-tool-registry
++						    '((:name fixture-read :function ogent-offline--read :description "Fixture"
++							     :args ((:name "text" :type string))
++							     :effects ((:kind read :target file :scope workspace :risk low)))))
++						   (plan (ogent-armory-runner-plan root "worker" :adapter-id "gptel-native"
++										   :runtime-mode 'native :model "gpt-6.1-sol"
++										   :instruction "fixture-tool-cycle"))
++						   (state (ogent-armory-runner-start plan)))
++					      (let ((buffer (find-file-noselect (plist-get plan :conversation-file))))
++						(unwind-protect
++						    (progn
++						      (with-current-buffer buffer (setq buffer-read-only t))
++						      (ogent-offline--wait (lambda () (plist-get state :finished)))
++						      (should-not (with-current-buffer buffer (buffer-modified-p))))
++						  (kill-buffer buffer)))
++					      (should (= ogent-offline--executions 1))
++					      (should (equal (plist-get (ogent-armory-conversation-read root (plist-get plan :conversation-id))
++									:status)
++							     (if (= cap 1) "failed" "done")))
++					      (should-not (gethash (plist-get plan :conversation-file) ogent-armory-native--runs))))))
+ 
+ (ert-deftest ogent-offline-cancel-targets-one-live-attempt ()
+   "Cancel one real curl request without aborting its sibling in the same buffer."
+@@ -411,23 +440,23 @@
+ (ert-deftest ogent-offline-native-stop-live-transport ()
+   "Stop a native run through the public conversation action before completion."
+   (ogent-armory-runner-test-with-temp-dir root
+-    (ogent-armory-scaffold root "Stop fixture" :kind "root" :create-editor nil)
+-    (ogent-armory-write-agent root '(:slug "worker" :name "Worker" :provider "gptel") "Fixture.")
+-    (let* ((gptel-backend (ogent-offline--backend 'responses))
+-           (gptel-use-curl t) (gptel-proxy "")
+-           (ogent-armory-runner-ensure-beads-redirect nil)
+-           (ogent-tools-enabled nil)
+-           (plan (ogent-armory-runner-plan root "worker" :adapter-id "gptel-native"
+-                                           :runtime-mode 'native :model "gpt-6.1-sol"
+-                                           :instruction "fixture-hang"))
+-           (state (ogent-armory-runner-start plan))
+-           (handle (plist-get state :handle)))
+-      (should (ogent-armory-runner-stop-conversation root (plist-get plan :conversation-id)))
+-      (should (plist-get state :finished))
+-      (should (equal (plist-get (ogent-armory-conversation-read root (plist-get plan :conversation-id))
+-                                :status) "cancelled"))
+-      (should-not (seq-find (lambda (entry) (eq (cadr entry) handle)) gptel--request-alist))
+-      (should-not (gethash (plist-get plan :conversation-file) ogent-armory-native--runs)))))
++					  (ogent-armory-scaffold root "Stop fixture" :kind "root" :create-editor nil)
++					  (ogent-armory-write-agent root '(:slug "worker" :name "Worker" :provider "gptel") "Fixture.")
++					  (let* ((gptel-backend (ogent-offline--backend 'responses))
++						 (gptel-use-curl t) (gptel-proxy "")
++						 (ogent-armory-runner-ensure-beads-redirect nil)
++						 (ogent-tools-enabled nil)
++						 (plan (ogent-armory-runner-plan root "worker" :adapter-id "gptel-native"
++										 :runtime-mode 'native :model "gpt-6.1-sol"
++										 :instruction "fixture-hang"))
++						 (state (ogent-armory-runner-start plan))
++						 (handle (plist-get state :handle)))
++					    (should (ogent-armory-runner-stop-conversation root (plist-get plan :conversation-id)))
++					    (should (plist-get state :finished))
++					    (should (equal (plist-get (ogent-armory-conversation-read root (plist-get plan :conversation-id))
++								      :status) "cancelled"))
++					    (should-not (seq-find (lambda (entry) (eq (cadr entry) handle)) gptel--request-alist))
++					    (should-not (gethash (plist-get plan :conversation-file) ogent-armory-native--runs)))))
+ 
+ (ert-deftest ogent-offline-provider-error-closes-org-request ()
+   "Handle a real HTTP failure with one terminal hook and no provider login."
+@@ -512,14 +541,14 @@
+                                              :args '((:name "text" :type string)))))
+          (responses (ogent-offline--backend 'responses))
+          (fsm (gptel-with-preset (list :backend responses)
+-                (ogent-gptel-request "Fixture preset" :dry-run t)))
++				 (ogent-gptel-request "Fixture preset" :dry-run t)))
+          (body (json-parse-string (gptel--json-encode (plist-get (gptel-fsm-info fsm) :data))
+                                   :object-type 'plist)))
+     (should (equal (plist-get body :model) "gpt-6-luna"))
+     (should (plist-get body :tools))
+     (should-not (plist-member body :reasoning_effort))
+     (should-error (gptel-with-preset '(:model gpt-6.1-sol)
+-                    (ogent-gptel-request "Fixture invalid preset" :dry-run t))
++				     (ogent-gptel-request "Fixture invalid preset" :dry-run t))
+                   :type 'user-error)))
+ 
+ (ert-deftest ogent-offline-tool-override-preserves-shared-model-props ()
+@@ -548,7 +577,7 @@
+           (let* ((gptel-tools nil)
+                  (fsm (ogent-gptel-request "Fixture tool-free" :dry-run t)))
+             (should (equal (plist-get (plist-get (gptel-fsm-info fsm) :data) :reasoning_effort)
+-                            "high"))))
++                           "high"))))
+       (setplist 'gpt-6-luna old))))
+ 
+ (provide 'ogent-offline-workflows)
+diff --git a/test/ogent-agent-execution-tests.el b/test/ogent-agent-execution-tests.el
+index 547fbed..bdedf22 100644
+--- a/test/ogent-agent-execution-tests.el
++++ b/test/ogent-agent-execution-tests.el
+@@ -103,6 +103,56 @@
+     (should (equal (ogent-tools--glob-files "**/foo/*.el" root) (list direct)))
+     (should-not (ogent-tools--glob-match-p "**/foo/[ -~]*.el" "foo/deep/nested.el"))))
+ 
++(ert-deftest ogent-agent-execution-glob-raw-filenames-error-before-filtering ()
++  "Reject matched raw filename bytes instead of silently omitting files."
++  (let* ((root (ogent-test--provision-store-directory 'tools))
++         (raw (concat root "/" (unibyte-string 255) ".txt"))
++         (valid (ogent-agent-execution-tests--file root "λ.el" "valid"))
++         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
++         (ogent-ledger-enabled nil))
++    (with-temp-file raw (insert "contents"))
++    (should (file-regular-p raw))
++    (dolist (pattern '("*.txt" "**/*.txt"))
++      (dolist (format '(plist json))
++        (let ((result (ogent-agent-call "files" (list :pattern pattern :path root) format)))
++          (when (eq format 'json)
++            (setq result (json-parse-string result :object-type 'plist)))
++          (should (equal (plist-get result :status) "error"))
++          (should (equal (plist-get (plist-get result :error) :code) "unsupported_output"))))
++      (let ((callbacks 0) result)
++        (ogent-agent-call-async
++         "files" (list :pattern pattern :path root)
++         (lambda (data) (cl-incf callbacks) (setq result data)) 'json)
++        (should (= callbacks 1))
++        (should (equal (plist-get (plist-get (json-parse-string result :object-type 'plist)
++                                             :error) :code) "unsupported_output"))))
++    (dolist (pattern '("*.el" "**/*.el"))
++      (let ((data (plist-get (ogent-agent-call "files" (list :pattern pattern :path root)) :data)))
++        (should (= (plist-get data :total_files) 1))
++        (should (equal (plist-get (aref (plist-get data :files) 0) :path) valid))))))
++
++(ert-deftest ogent-agent-execution-model-json-unicode-transport ()
++  "Preserve Unicode JSON text when embedding tool results in requests."
++  (let* ((root (ogent-test--provision-store-directory 'tools))
++         (text "alpha λ 😀")
++         (file (ogent-agent-execution-tests--file root "café.txt" text))
++         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
++         (ogent-ledger-enabled nil)
++         (results
++          (list (ogent-tool--read-file file 1 1 'json)
++                (ogent-agent-call "read" (list :file_path file) 'json)
++                (funcall (ogent-tool-execution-wrapper (ogent-tool-spec-get 'read-file) 'json)
++                         file 1 1)
++                (ogent-doctor-format-json
++                 (list (list :id 'unicode :label "Unicode" :category 'environment
++                             :status 'ok :detail text))))))
++    (dolist (result results)
++      (should (multibyte-string-p result))
++      (should (string-match-p (regexp-quote text) result))
++      (let* ((request (json-serialize (list :content result)))
++             (parsed (json-parse-string request :object-type 'plist)))
++        (should (equal (plist-get parsed :content) result))))))
++
+ (ert-deftest ogent-agent-execution-next-freezes-path-and-follows-json ()
+   "Continuation calls retain absolute targets when the working root changes."
+   (let* ((root (ogent-test--provision-store-directory 'tools))

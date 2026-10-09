@@ -1,0 +1,2 @@
+ERROR (2026-10-08 22:33:13): Unknown task 'recompiel'. Try make help; run make help or ./makem.sh --capabilities --json for the complete task list.
+make: *** [Makefile:141: recompiel] Error 2

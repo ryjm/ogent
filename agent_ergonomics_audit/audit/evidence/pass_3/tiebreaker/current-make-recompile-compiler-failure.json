@@ -1,0 +1,31 @@
+{
+  "label": "current-make-recompile-compiler-failure",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work/agent_ergonomics_audit/audit/evidence/pass_3/tiebreaker/fixture-current",
+    "-e",
+    "NO_COLOR=1",
+    "-e",
+    "CI=true",
+    "-e",
+    "TERM=dumb",
+    "-e",
+    "GIT_CONFIG_COUNT=1",
+    "-e",
+    "GIT_CONFIG_KEY_0=safe.directory",
+    "-e",
+    "GIT_CONFIG_VALUE_0=/work/agent_ergonomics_audit/audit/evidence/pass_3/tiebreaker/fixture-current",
+    "-e",
+    "SOURCE_DATE_EPOCH=1",
+    "ogent-fixes",
+    "make",
+    "--no-print-directory",
+    "recompile",
+    "format=json"
+  ],
+  "exit_code": 2,
+  "stdout": "audit/evidence/pass_3/tiebreaker/current-make-recompile-compiler-failure.stdout.log",
+  "stderr": "audit/evidence/pass_3/tiebreaker/current-make-recompile-compiler-failure.stderr.log"
+}

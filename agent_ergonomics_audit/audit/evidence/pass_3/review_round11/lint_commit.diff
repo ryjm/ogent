@@ -1,0 +1,41 @@
+commit 021cca4d28e7b20fba3617c57522cc5014f640f9
+Author:     Jake Miller <jraydermiller@gmail.com>
+AuthorDate: Thu Oct 8 23:02:04 2026 +0000
+Commit:     Jake Miller <jraydermiller@gmail.com>
+CommitDate: Thu Oct 8 23:02:04 2026 +0000
+
+    fix: keep tool validation warning clean
+
+diff --git a/lisp/ogent-agent.el b/lisp/ogent-agent.el
+index 9c82d12..f14d0e2 100644
+--- a/lisp/ogent-agent.el
++++ b/lisp/ogent-agent.el
+@@ -74,10 +74,11 @@ Cancel a returned process with `ogent-tool-process-cancel'."
+    name args (lambda (result) (funcall callback (ogent-agent--output result format)))))
+ 
+ (defun ogent-agent-batch (calls &optional format fail-fast)
+-  "Execute up to 20 explicitly read-only CALLS and return results in FORMAT.
+-Accept a list or vector of call plists containing :tool and :args.  Preflight
+-the entire batch before running any call.  Reject writes, shell commands and tools
+-without declared read effects.  Continue after errors unless FAIL-FAST is t.
++  "Execute a bounded, read-only batch and return its output in FORMAT.
++Accept up to 20 tool call plists in CALLS as a list or vector.
++Require :tool and :args in each plist.  Preflight the entire batch.
++Reject writes, shell commands and tools without declared read effects.
++Continue after errors unless FAIL-FAST is t.
+ For example, batch a glob, search and file read in one local SDK round trip."
+   (ogent-agent--output nil format)
+   (let ((phase "invalid_arguments") prepared results stopped)
+diff --git a/lisp/ogent-tool-results.el b/lisp/ogent-tool-results.el
+index 4e8cace..b97261c 100644
+--- a/lisp/ogent-tool-results.el
++++ b/lisp/ogent-tool-results.el
+@@ -13,7 +13,7 @@
+ 
+ (defun ogent-tool-results--unicode (text)
+   "Return TEXT when JSON can represent it as Unicode, otherwise signal."
+-  (condition-case nil (progn (json-serialize text) text)
++  (condition-case nil (when (json-serialize text) text)
+     (error (signal 'ogent-tool-results-output-error
+                    '("Use a Unicode filename and a supported text encoding; raw bytes cannot be represented in structured results")))))
+ 

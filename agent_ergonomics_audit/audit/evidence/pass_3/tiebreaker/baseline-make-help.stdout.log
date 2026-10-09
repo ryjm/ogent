@@ -1,0 +1,40 @@
+ogent Makefile targets:
+
+  make all          - Run all lints and tests
+  make lint         - Run all linters (checkdoc, compile, package-lint)
+  make test         - Run all tests
+  make test-isolation - Verify the suite never writes real user stores
+  make offline-test - Replay workflows with real dependencies (OGENT_ELPA_DIR required)
+  make compile      - Byte-compile source files
+  make recompile    - Clean and compile; failures remain nonzero
+  make clean        - Remove generated lisp/ and test/ bytecode
+  make bench        - Run performance benchmarks
+  make batch        - Run Emacs in batch mode with project loaded
+  make interactive  - Run Emacs interactively with project loaded
+  make sandbox      - Run interactive Emacs in clean sandbox
+  make sandbox-test - Run tests in clean sandbox environment
+  make sandbox-lint - Run all linters in clean sandbox
+  make demo         - Launch demo.org in minimal Emacs
+
+Options (pass as var=val):
+  v=1|2|3           - Verbosity level (-v, -vv, -vvv)
+  sandbox=1|DIR     - Run in sandbox mode
+  install-deps=1    - Auto-install package dependencies
+  install-linters=1 - Auto-install linting tools
+  debug=1           - Enable debug mode
+  EMACS=PATH        - Select the Emacs executable for every target
+
+Examples:
+  make test v=2                    - Run tests with verbose output
+  make lint sandbox=1              - Lint in clean sandbox
+  make all sandbox=1 install-deps=1 - Full CI-like run
+
+Additional makem.sh rules (use make <rule>):
+  lint-checkdoc, lint-compile, lint-declare, lint-indent,
+  lint-package, lint-regexps, test-ert, test-buttercup
+
+Agent discovery (after loading ogent; no provider requests):
+  (ogent-agent-capabilities 'json) - Live tool contracts and approval policy
+  (ogent-agent-guide)             - Paste-ready SDK handbook
+  (ogent-agent-triage 'json)       - Discovery plus local health and next actions
+  (ogent-doctor-batch nil 'json)   - JSON health; exit 0 ok/info, 1 warning, 2 error

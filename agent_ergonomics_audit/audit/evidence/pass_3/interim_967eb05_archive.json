@@ -1,0 +1,14 @@
+{
+  "source_sha": "967eb054e13104d05e818656a2b78f037cc0effd",
+  "reason": "Review7 ledger storage failure drops async callback; priorfullproof/scoring/replay validintermediate only",
+  "archives": [
+    {
+      "path": "evidence/pass_3/interim_967eb05_scoring.tar.gz",
+      "sha256": "afc5aa97e2ad57b51734eeefed105538b16bcbf341515d7fe60284b857689271"
+    },
+    {
+      "path": "evidence/pass_3/interim_967eb05_audit.tar.gz",
+      "sha256": "487e62ad8ddbce4967eaefa8026d441ae34cd86a30a4b2d1dfd35b625bc06e97"
+    }
+  ]
+}

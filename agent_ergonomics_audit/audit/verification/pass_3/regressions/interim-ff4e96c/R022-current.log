@@ -1,0 +1,30 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 10 tests (2026-10-08 23:22:37+0000, selector `"ogent-agent-execution-model-"')
+   passed   1/10  ogent-agent-execution-model-detects-object-schema-mutation (0.000574 sec)
+   passed   2/10  ogent-agent-execution-model-freezes-argument-strings (0.000900 sec)
+   passed   3/10  ogent-agent-execution-model-freezes-metadata-strings (0.000616 sec)
+   passed   4/10  ogent-agent-execution-model-freezes-object-arguments (0.001034 sec)
+   passed   5/10  ogent-agent-execution-model-inplace-change-during-approval (0.000703 sec)
+   passed   6/10  ogent-agent-execution-model-json-async-callback (0.000506 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-s8Ykmn/tools-WTVEj4 (retained)
+   passed   7/10  ogent-agent-execution-model-json-pages-and-cache-refresh (0.006074 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-s8Ykmn/tools-7OWXMN (retained)
+   passed   8/10  ogent-agent-execution-model-json-unicode-transport (0.043340 sec)
+   passed   9/10  ogent-agent-execution-model-refreshes-object-schema-cache (0.000581 sec)
+   passed  10/10  ogent-agent-execution-model-stale-after-approval (0.000741 sec)
+
+Ran 10 tests, 10 results as expected, 0 unexpected (2026-10-08 23:22:37+0000, 0.055502 sec)
+

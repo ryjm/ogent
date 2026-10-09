@@ -1,0 +1,15 @@
+{
+  "command": [
+    "docker",
+    "exec",
+    "ogent-fixes",
+    "python3",
+    "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/build_setup_container.py"
+  ],
+  "cwd": "/workspace/ogent",
+  "started_unix": 1791492040.1197705,
+  "duration_seconds": 0.09763860702514648,
+  "exit_code": 0,
+  "stdout": "[\n  {\n    \"command\": [\n      \"git\",\n      \"init\",\n      \"--quiet\",\n      \"/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/build_success_container\"\n    ],\n    \"stdout\": \"\",\n    \"stderr\": \"\",\n    \"exit_code\": 0\n  },\n  {\n    \"command\": [\n      \"git\",\n      \"-C\",\n      \"/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/build_success_container\",\n      \"add\",\n      \"audit-build.el\",\n      \"test/audit-build-tests.el\"\n    ],\n    \"stdout\": \"\",\n    \"stderr\": \"\",\n    \"exit_code\": 0\n  },\n  {\n    \"command\": [\n      \"git\",\n      \"init\",\n      \"--quiet\",\n      \"/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/build_compile_failure_container\"\n    ],\n    \"stdout\": \"\",\n    \"stderr\": \"\",\n    \"exit_code\": 0\n  },\n  {\n    \"command\": [\n      \"git\",\n      \"-C\",\n      \"/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/build_compile_failure_container\",\n      \"add\",\n      \"audit-build.el\",\n      \"test/audit-build-tests.el\"\n    ],\n    \"stdout\": \"\",\n    \"stderr\": \"\",\n    \"exit_code\": 0\n  },\n  {\n    \"command\": [\n      \"git\",\n      \"init\",\n      \"--quiet\",\n      \"/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/build_ert_failure_container\"\n    ],\n    \"stdout\": \"\",\n    \"stderr\": \"\",\n    \"exit_code\": 0\n  },\n  {\n    \"command\": [\n      \"git\",\n      \"-C\",\n      \"/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/build_ert_failure_container\",\n      \"add\",\n      \"audit-build.el\",\n      \"test/audit-build-tests.el\"\n    ],\n    \"stdout\": \"\",\n    \"stderr\": \"\",\n    \"exit_code\": 0\n  }\n]\n",
+  "stderr": ""
+}

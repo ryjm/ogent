@@ -1,0 +1,8 @@
+Removed all .elc files
+
+In toplevel form:
+lisp/independent-fixture.el: Error: Invalid read syntax: ")", 12, 1
+ERROR (2026-10-08 22:33:15): Compiling failed.
+LOG (2026-10-08 22:33:15): Finished with 1 errors.
+make[1]: *** [Makefile:97: compile] Error 1
+make: *** [Makefile:106: recompile] Error 2

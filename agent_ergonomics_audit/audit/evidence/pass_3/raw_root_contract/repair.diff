@@ -1,0 +1,101 @@
+diff --git a/lisp/ogent-tool-process.el b/lisp/ogent-tool-process.el
+index ef5a8ba..3ed5e04 100644
+--- a/lisp/ogent-tool-process.el
++++ b/lisp/ogent-tool-process.el
+@@ -12,6 +12,7 @@
+ (require 'seq)
+ (require 'subr-x)
+ (require 'ogent-tools)
++(require 'ogent-tool-results)
+ 
+ (define-error 'ogent-tool-process-start-failed "Local process could not start" 'user-error)
+ (define-error 'ogent-tool-process-search-failed "Local search failed" 'user-error)
+@@ -247,6 +248,8 @@ Retain partial output on a nonzero exit, timeout or cancellation."
+                 ogent-tool-process--max-limit))
+   (unless (and (numberp ogent-tools-grep-timeout) (> ogent-tools-grep-timeout 0))
+     (user-error "Invalid grep timeout; set ogent-tools-grep-timeout to positive seconds"))
++  (setq path (ogent-tool-results--unicode
++              (ogent-tools--resolve-path (or path (ogent-tools--project-root)))))
+   (condition-case err
+       (ogent-tools--grep-target path)
+     (error (user-error "%s; use glob to find an existing search path"
+diff --git a/lisp/ogent-tool-results.el b/lisp/ogent-tool-results.el
+index 62fea29..f4d39ad 100644
+--- a/lisp/ogent-tool-results.el
++++ b/lisp/ogent-tool-results.el
+@@ -98,7 +98,8 @@ must not exceed 200.  Report the total count and a snapshot of file metadata."
+       (user-error "Use a non-negative integer offset, starting at 0"))
+     (unless (and (integerp limit) (> limit 0) (<= limit 200))
+       (user-error "Use an integer limit between 1 and 200"))
+-    (let* ((root (ogent-tools--resolve-path (or path ".")))
++    (let* ((root (ogent-tool-results--unicode (ogent-tools--resolve-path (or path "."))))
++           (pattern (ogent-tool-results--unicode pattern))
+            (files (sort (ogent-tools--glob-files pattern root #'ogent-tool-results--unicode) #'string<))
+            (metadata (mapcar
+                       (lambda (file)
+diff --git a/test/ogent-agent-execution-tests.el b/test/ogent-agent-execution-tests.el
+index bdedf22..89ee95a 100644
+--- a/test/ogent-agent-execution-tests.el
++++ b/test/ogent-agent-execution-tests.el
+@@ -153,6 +153,61 @@
+              (parsed (json-parse-string request :object-type 'plist)))
+         (should (equal (plist-get parsed :content) result))))))
+ 
++(defun ogent-agent-execution-tests--raw-root-contract (tool)
++  "Check TOOL refuses explicit and default raw roots in every format."
++  (let* ((root (ogent-test--provision-store-directory 'tools))
++         (raw (expand-file-name (unibyte-string 255) root))
++         (valid (expand-file-name "λ-root" root))
++         (args (if (equal tool "files") '(:pattern "*.el")
++                 '(:pattern "needle" :glob_filter "*.el")))
++         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
++         (ogent-ledger-enabled nil))
++    (make-directory raw)
++    (make-directory valid)
++    (should (file-directory-p raw))
++    (dolist (state '(empty excluded))
++      (when (eq state 'excluded)
++        (ogent-agent-execution-tests--file raw "ignored.txt" "needle"))
++      (dolist (explicit '(nil t))
++        (let* ((ogent-tools-project-root raw)
++               (arguments (if explicit (append args (list :path raw)) args)))
++          (dolist (format '(plist json))
++            (let ((result (ogent-agent-call tool arguments format)))
++              (when (eq format 'json)
++                (setq result (json-parse-string result :object-type 'plist)))
++              (should (equal (plist-get result :status) "error"))
++              (should (equal (plist-get (plist-get result :error) :code) "unsupported_output")))
++            (let ((callbacks 0) result)
++              (ogent-agent-call-async
++               tool arguments (lambda (data) (cl-incf callbacks) (setq result data)) format)
++              (when (eq format 'json)
++                (setq result (json-parse-string result :object-type 'plist)))
++              (should (= callbacks 1))
++              (should (equal (plist-get result :status) "error"))
++              (should (equal (plist-get (plist-get result :error) :code) "unsupported_output")))))))
++    (ogent-agent-execution-tests--file valid "good.el" "needle")
++    (let* ((result (ogent-agent-call tool (append args (list :path valid))))
++           (data (plist-get result :data)))
++      (should (equal (plist-get result :status) "ok"))
++      (should (= (plist-get data (if (equal tool "files") :total_files :total_matches)) 1))
++      (should (json-serialize data :false-object :json-false :null-object :json-null)))))
++
++(ert-deftest ogent-agent-execution-glob-raw-root-contract ()
++  "Reject raw glob roots even when no selected file exposes their bytes."
++  (ogent-agent-execution-tests--raw-root-contract "files")
++  (let ((root (ogent-test--provision-store-directory 'tools))
++        (ogent-tool-registry (copy-tree ogent-tools-default-registry))
++        (ogent-ledger-enabled nil))
++    (dolist (format '(plist json))
++      (let ((result (ogent-agent-call "files" (list :pattern (unibyte-string 255) :path root) format)))
++        (when (eq format 'json)
++          (setq result (json-parse-string result :object-type 'plist)))
++        (should (equal (plist-get (plist-get result :error) :code) "unsupported_output"))))))
++
++(ert-deftest ogent-agent-execution-process-raw-root-contract ()
++  "Reject raw search roots before invoking a process or enumerating files."
++  (ogent-agent-execution-tests--raw-root-contract "search"))
++
+ (ert-deftest ogent-agent-execution-next-freezes-path-and-follows-json ()
+   "Continuation calls retain absolute targets when the working root changes."
+   (let* ((root (ogent-test--provision-store-directory 'tools))

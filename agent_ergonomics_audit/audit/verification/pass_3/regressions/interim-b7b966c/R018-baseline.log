@@ -1,0 +1,1861 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 51 tests (2026-10-08 23:32:14+0000, selector `"ogent-tool-process-"')
+Test ogent-tool-process-bash-async-is-asynchronous backtrace:
+uncompressing cl-print.el.gz...
+uncompressing cl-print.el.gz...done
+uncompressing help-fns.el.gz...
+uncompressing help-fns.el.gz...done
+uncompressing radix-tree.el.gz...
+uncompressing radix-tree.el.gz...done
+uncompressing derived.el.gz...
+uncompressing derived.el.gz...done
+  (ogent-tool-process-cancel process)
+  (unwind-protect (progn (setq process (ogent-tool-process-bash-async 
+  (let ((calls 0) result failure process) (unwind-protect (progn (setq
+  (progn (let ((calls 0) result failure process) (unwind-protect (prog
+  (unwind-protect (progn (let ((calls 0) result failure process) (unwi
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-bash-async-is-asyn
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-bash-async-is-asynchronous condition:
+    (void-function ogent-tool-process-cancel)
+uncompressing vc-git.el.gz...
+uncompressing vc-git.el.gz...done
+uncompressing vc-dispatcher.el.gz...
+uncompressing vc-dispatcher.el.gz...done
+uncompressing vc.el.gz...
+uncompressing vc.el.gz...done
+uncompressing dired.el.gz...
+uncompressing dired.el.gz...done
+uncompressing autorevert.el.gz...
+uncompressing autorevert.el.gz...done
+uncompressing filenotify.el.gz...
+uncompressing filenotify.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing dired-loaddefs.el.gz...
+uncompressing dired-loaddefs.el.gz...done
+uncompressing dnd.el.gz...
+uncompressing dnd.el.gz...done
+uncompressing files-x.el.gz...
+uncompressing files-x.el.gz...done
+uncompressing desktop.el.gz...
+uncompressing desktop.el.gz...done
+uncompressing frameset.el.gz...
+uncompressing frameset.el.gz...done
+uncompressing vc-dir.el.gz...
+uncompressing vc-dir.el.gz...done
+uncompressing diff-mode.el.gz...
+uncompressing diff-mode.el.gz...done
+uncompressing track-changes.el.gz...
+uncompressing track-changes.el.gz...done
+   FAILED   1/51  ogent-tool-process-bash-async-is-asynchronous (0.000324 sec) at test/ogent-tool-process-tests.el:284
+Test ogent-tool-process-bash-bounds-combined-channels backtrace:
+  (ogent-tool-process-bash "printf 'abcdefghij'; printf 'klmnopqrst' >
+  (let* ((ogent-tools-max-output-chars 7) (result (ogent-tool-process-
+  (progn (let* ((ogent-tools-max-output-chars 7) (result (ogent-tool-p
+  (unwind-protect (progn (let* ((ogent-tools-max-output-chars 7) (resu
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-bash-bounds-combin
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-bash-bounds-combined-channels condition:
+    (void-function ogent-tool-process-bash)
+   FAILED   2/51  ogent-tool-process-bash-bounds-combined-channels (0.000271 sec) at test/ogent-tool-process-tests.el:237
+Test ogent-tool-process-bash-callback-error-cleans-up backtrace:
+  (ogent-tool-process-bash-async "printf x" nil 1 #'(lambda (_data _er
+  (setq process (ogent-tool-process-bash-async "printf x" nil 1 #'(lam
+  (let ((calls 0) process) (setq process (ogent-tool-process-bash-asyn
+  (progn (let ((calls 0) process) (setq process (ogent-tool-process-ba
+  (unwind-protect (progn (let ((calls 0) process) (setq process (ogent
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-bash-callback-erro
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-bash-callback-error-cleans-up condition:
+    (void-function ogent-tool-process-bash-async)
+   FAILED   3/51  ogent-tool-process-bash-callback-error-cleans-up (0.000265 sec) at test/ogent-tool-process-tests.el:385
+Test ogent-tool-process-bash-cancel-keeps-partial-output backtrace:
+  (ogent-tool-process-cancel process)
+  (unwind-protect (progn (setq process (ogent-tool-process-bash-async 
+  (let ((calls 0) result process) (unwind-protect (progn (setq process
+  (progn (let ((calls 0) result process) (unwind-protect (progn (setq 
+  (unwind-protect (progn (let ((calls 0) result process) (unwind-prote
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-bash-cancel-keeps-
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-bash-cancel-keeps-partial-output condition:
+    (void-function ogent-tool-process-cancel)
+   FAILED   4/51  ogent-tool-process-bash-cancel-keeps-partial-output (0.000287 sec) at test/ogent-tool-process-tests.el:307
+Test ogent-tool-process-bash-cancel-kills-grandchild backtrace:
+  (ogent-tool-process-cancel process)
+  (unwind-protect (progn (setq process (ogent-tool-process-bash-async 
+  (let ((pid-file (expand-file-name "child.pid" directory)) process re
+  (progn (let ((pid-file (expand-file-name "child.pid" directory)) pro
+  (unwind-protect (progn (let ((pid-file (expand-file-name "child.pid"
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((fn-477 #'eq) (args-478 (condition-case err 
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-bash-cancel-kills-
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-bash-cancel-kills-grandchild condition:
+    (void-function ogent-tool-process-cancel)
+   FAILED   5/51  ogent-tool-process-bash-cancel-kills-grandchild (0.000283 sec) at test/ogent-tool-process-tests.el:327
+Test ogent-tool-process-bash-invalid-utf8-remains-json-safe backtrace:
+  (ogent-tool-process-bash "printf '\\377'")
+  (let ((result (ogent-tool-process-bash "printf '\\377'"))) (let* ((f
+  (progn (let ((result (ogent-tool-process-bash "printf '\\377'"))) (l
+  (unwind-protect (progn (let ((result (ogent-tool-process-bash "print
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-bash-invalid-utf8-
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-bash-invalid-utf8-remains-json-safe condition:
+    (void-function ogent-tool-process-bash)
+   FAILED   6/51  ogent-tool-process-bash-invalid-utf8-remains-json-safe (0.000281 sec) at test/ogent-tool-process-tests.el:257
+Test ogent-tool-process-bash-separates-channels-and-exit backtrace:
+  (ogent-tool-process-bash "printf 'out'; printf 'err' >&2; exit 42")
+  (let ((result (ogent-tool-process-bash "printf 'out'; printf 'err' >
+  (progn (let ((result (ogent-tool-process-bash "printf 'out'; printf 
+  (unwind-protect (progn (let ((result (ogent-tool-process-bash "print
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-bash-separates-cha
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-bash-separates-channels-and-exit condition:
+    (void-function ogent-tool-process-bash)
+   FAILED   7/51  ogent-tool-process-bash-separates-channels-and-exit (0.000264 sec) at test/ogent-tool-process-tests.el:225
+Test ogent-tool-process-bash-signal-is-distinct-from-cancel backtrace:
+  (ogent-tool-process-bash "printf ready; kill -TERM $$")
+  (let ((result (ogent-tool-process-bash "printf ready; kill -TERM $$"
+  (progn (let ((result (ogent-tool-process-bash "printf ready; kill -T
+  (unwind-protect (progn (let ((result (ogent-tool-process-bash "print
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-bash-signal-is-dis
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-bash-signal-is-distinct-from-cancel condition:
+    (void-function ogent-tool-process-bash)
+   FAILED   8/51  ogent-tool-process-bash-signal-is-distinct-from-cancel (0.000264 sec) at test/ogent-tool-process-tests.el:274
+Test ogent-tool-process-bash-startup-error-is-terminal backtrace:
+  ogent-tool-process-bash-async("printf x" nil 1 #f(lambda (_data erro
+  apply(ogent-tool-process-bash-async ("printf x" nil 1 #f(lambda (_da
+  (setq value-566 (apply fn-564 args-565))
+  (unwind-protect (setq value-566 (apply fn-564 args-565)) (setq form-
+  (not (unwind-protect (setq value-566 (apply fn-564 args-565)) (setq 
+  (if (not (unwind-protect (setq value-566 (apply fn-564 args-565)) (s
+  (let (form-description-568) (if (not (unwind-protect (setq value-566
+  (let ((value-566 'ert-form-evaluation-aborted-567)) (let (form-descr
+  (let* ((fn-564 #'ogent-tool-process-bash-async) (args-565 (condition
+  (progn (fset 'make-process vnew) (let* ((fn-564 #'ogent-tool-process
+  (unwind-protect (progn (fset 'make-process vnew) (let* ((fn-564 #'og
+  (let* ((vnew #'(lambda (&rest _args) (error "Launch failed"))) (old 
+  (let ((pipes-before (cl-remove-if-not #'(lambda (proc) (string-prefi
+  (progn (let ((pipes-before (cl-remove-if-not #'(lambda (proc) (strin
+  (unwind-protect (progn (let ((pipes-before (cl-remove-if-not #'(lamb
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-bash-startup-error
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-bash-startup-error-is-terminal condition:
+    (void-function ogent-tool-process-bash-async)
+   FAILED   9/51  ogent-tool-process-bash-startup-error-is-terminal (0.000307 sec) at test/ogent-tool-process-tests.el:411
+Test ogent-tool-process-bash-terminal-exit-bounds-descendant-drain backtrace:
+  (ogent-tool-process-bash (concat "printf parent; sleep 0.02; " "(whi
+  (let* ((start (float-time)) (ogent-tools-max-output-chars 1000) (res
+  (progn (let* ((start (float-time)) (ogent-tools-max-output-chars 100
+  (unwind-protect (progn (let* ((start (float-time)) (ogent-tools-max-
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((fn-497 #'eq) (args-498 (condition-case err 
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-bash-terminal-exit
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-bash-terminal-exit-bounds-descendant-drain condition:
+    (void-function ogent-tool-process-bash)
+   FAILED  10/51  ogent-tool-process-bash-terminal-exit-bounds-descendant-drain (0.000264 sec) at test/ogent-tool-process-tests.el:352
+Test ogent-tool-process-bash-timeout-keeps-partial-output backtrace:
+  (ogent-tool-process-bash "printf ready; sleep 4" nil 0.1)
+  (let ((result (ogent-tool-process-bash "printf ready; sleep 4" nil 0
+  (progn (let ((result (ogent-tool-process-bash "printf ready; sleep 4
+  (unwind-protect (progn (let ((result (ogent-tool-process-bash "print
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-bash-timeout-keeps
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-bash-timeout-keeps-partial-output condition:
+    (void-function ogent-tool-process-bash)
+   FAILED  11/51  ogent-tool-process-bash-timeout-keeps-partial-output (0.000251 sec) at test/ogent-tool-process-tests.el:266
+Test ogent-tool-process-bash-validation-does-not-spawn backtrace:
+  ogent-tool-process-bash-async("" nil 1 #f(lambda (data error-data) [
+  apply(ogent-tool-process-bash-async ("" nil 1 #f(lambda (data error-
+  (setq value-551 (apply fn-549 args-550))
+  (unwind-protect (setq value-551 (apply fn-549 args-550)) (setq form-
+  (not (unwind-protect (setq value-551 (apply fn-549 args-550)) (setq 
+  (if (not (unwind-protect (setq value-551 (apply fn-549 args-550)) (s
+  (let (form-description-553) (if (not (unwind-protect (setq value-551
+  (let ((value-551 'ert-form-evaluation-aborted-552)) (let (form-descr
+  (let* ((fn-549 #'ogent-tool-process-bash-async) (args-550 (condition
+  (progn (fset 'make-process vnew) (let* ((fn-549 #'ogent-tool-process
+  (unwind-protect (progn (fset 'make-process vnew) (let* ((fn-549 #'og
+  (let* ((vnew #'(lambda (&rest _args) (ert-fail "Unexpected process")
+  (let ((calls 0) failure) (let* ((vnew #'(lambda (&rest _args) (ert-f
+  (progn (let ((calls 0) failure) (let* ((vnew #'(lambda (&rest _args)
+  (unwind-protect (progn (let ((calls 0) failure) (let* ((vnew #'(lamb
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-bash-validation-do
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-bash-validation-does-not-spawn condition:
+    (void-function ogent-tool-process-bash-async)
+   FAILED  12/51  ogent-tool-process-bash-validation-does-not-spawn (0.000339 sec) at test/ogent-tool-process-tests.el:398
+Test ogent-tool-process-bash-zero-output-budget backtrace:
+  (ogent-tool-process-bash "printf x; printf y >&2")
+  (let* ((ogent-tools-max-output-chars 0) (result (ogent-tool-process-
+  (progn (let* ((ogent-tools-max-output-chars 0) (result (ogent-tool-p
+  (unwind-protect (progn (let* ((ogent-tools-max-output-chars 0) (resu
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-bash-zero-output-b
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-bash-zero-output-budget condition:
+    (void-function ogent-tool-process-bash)
+   FAILED  13/51  ogent-tool-process-bash-zero-output-budget (0.000246 sec) at test/ogent-tool-process-tests.el:248
+Test ogent-tool-process-grep-async-once backtrace:
+  (ogent-tool-process-cancel process)
+  (unwind-protect (progn (setq process (ogent-tool-process-grep-async 
+  (let ((calls 0) result failure process) (unwind-protect (progn (setq
+  (progn (ogent-tool-process-tests--write directory "a.txt" "needle\n"
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "a
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-async-once :d
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-async-once condition:
+    (void-function ogent-tool-process-cancel)
+   FAILED  14/51  ogent-tool-process-grep-async-once (0.000439 sec) at test/ogent-tool-process-tests.el:753
+Test ogent-tool-process-grep-cancel-has-typed-error backtrace:
+  (ogent-tool-process-grep-async "needle" nil nil 0 0 10 #'(lambda (da
+  (setq process (ogent-tool-process-grep-async "needle" nil nil 0 0 10
+  (let ((calls 0) failure process) (setq process (ogent-tool-process-g
+  (progn (ogent-tool-process-tests--write directory "a.txt" "needle\n"
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "a
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-cancel-has-ty
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-cancel-has-typed-error condition:
+    (void-function ogent-tool-process-grep-async)
+   FAILED  15/51  ogent-tool-process-grep-cancel-has-typed-error (0.000493 sec) at test/ogent-tool-process-tests.el:785
+Test ogent-tool-process-grep-context-includes-nearby-matches backtrace:
+  (ogent-tool-process-grep "needle" nil nil 1)
+  (let* ((result (ogent-tool-process-grep "needle" nil nil 1)) (matche
+  (progn (ogent-tool-process-tests--write directory "a.txt" "one\nneed
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "a
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-context-inclu
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-context-includes-nearby-matches condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  16/51  ogent-tool-process-grep-context-includes-nearby-matches (0.000443 sec) at test/ogent-tool-process-tests.el:495
+Test ogent-tool-process-grep-deterministic-order backtrace:
+  (ogent-tool-process-grep "needle")
+  (plist-get (ogent-tool-process-grep "needle") :matches)
+  (let ((matches (plist-get (ogent-tool-process-grep "needle") :matche
+  (progn (ogent-tool-process-tests--write directory "z.txt" "needle\n"
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "z
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-deterministic
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-deterministic-order condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  17/51  ogent-tool-process-grep-deterministic-order (0.000704 sec) at test/ogent-tool-process-tests.el:470
+Test ogent-tool-process-grep-directory-spans-argument-batches backtrace:
+  (ogent-tool-process-grep "needle" nil nil 0 120 40)
+  (let* ((result (ogent-tool-process-grep "needle" nil nil 0 120 40)) 
+  (progn (let ((upper-bound 180) (counter 0)) (while (< counter upper-
+  (unwind-protect (progn (let ((upper-bound 180) (counter 0)) (while (
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-directory-spa
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-directory-spans-argument-batches condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  18/51  ogent-tool-process-grep-directory-spans-argument-batches (0.019050 sec) at test/ogent-tool-process-tests.el:482
+Test ogent-tool-process-grep-empty-gnu-candidates-validate-regex backtrace:
+  signal(ert-test-failed (((should-error (ogent-tool-process-grep "[")
+  ert-fail(((should-error (ogent-tool-process-grep "[") :type 'ogent-t
+  ert--should-error-handle-error(#f(lambda () [(form-description-750 (
+  (condition-case -condition- (unwind-protect (setq value-748 (apply f
+  (let ((errorp751 nil) (form-description-fn-752 #'(lambda nil form-de
+  (let (form-description-750) (let ((errorp751 nil) (form-description-
+  (let ((value-748 'ert-form-evaluation-aborted-749)) (let (form-descr
+  (let* ((fn-746 #'ogent-tool-process-grep) (args-747 (condition-case 
+  (progn (fset 'executable-find vnew) (let* ((fn-746 #'ogent-tool-proc
+  (unwind-protect (progn (fset 'executable-find vnew) (let* ((fn-746 #
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (progn (let* ((vnew #'(lambda (name &optional remote) (if (equal nam
+  (unwind-protect (progn (let* ((vnew #'(lambda (name &optional remote
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  (let ((find-executable (symbol-function 'executable-find))) (let* ((
+  #f(lambda () [t] (let ((find-executable (symbol-function ...))) (let
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test ... :result
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-empty-gnu-can
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-empty-gnu-candidates-validate-regex condition:
+    (ert-test-failed
+     ((should-error (ogent-tool-process-grep "[") :type
+		    'ogent-tool-process-search-failed)
+      :form (ogent-tool-process-grep "[") :condition
+      (void-function ogent-tool-process-grep) :fail-reason
+      "the error signaled did not have the expected type"))
+   FAILED  19/51  ogent-tool-process-grep-empty-gnu-candidates-validate-regex (0.000360 sec) at test/ogent-tool-process-tests.el:523
+Test ogent-tool-process-grep-empty-is-success backtrace:
+  (ogent-tool-process-grep "needle")
+  (let ((result (ogent-tool-process-grep "needle"))) (let* ((fn-719 #'
+  (progn (ogent-tool-process-tests--write directory "a.txt" "unrelated
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "a
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-empty-is-succ
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-empty-is-success condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  20/51  ogent-tool-process-grep-empty-is-success (0.000505 sec) at test/ogent-tool-process-tests.el:507
+Test ogent-tool-process-grep-finds-hidden-and-ignored-files backtrace:
+  signal(void-function (ogent-tool-process-grep))
+  apply(signal (void-function (ogent-tool-process-grep)))
+  (setq value-922 (apply fn-920 args-921))
+  (unwind-protect (setq value-922 (apply fn-920 args-921)) (setq form-
+  (if (unwind-protect (setq value-922 (apply fn-920 args-921)) (setq f
+  (let (form-description-924) (if (unwind-protect (setq value-922 (app
+  (let ((value-922 'ert-form-evaluation-aborted-923)) (let (form-descr
+  (let* ((fn-920 #'=) (args-921 (condition-case err (list (plist-get (
+  (progn (ogent-tool-process-tests--write directory ".hidden" "needle\
+  (unwind-protect (progn (ogent-tool-process-tests--write directory ".
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-finds-hidden-
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-finds-hidden-and-ignored-files condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  21/51  ogent-tool-process-grep-finds-hidden-and-ignored-files (0.000931 sec) at test/ogent-tool-process-tests.el:685
+Test ogent-tool-process-grep-glob-filter backtrace:
+  (ogent-tool-process-grep "needle" nil "*.el")
+  (let ((result (ogent-tool-process-grep "needle" nil "*.el"))) (let* 
+  (progn (ogent-tool-process-tests--write directory "a.el" "needle\n")
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "a
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-glob-filter :
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-glob-filter condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  22/51  ogent-tool-process-grep-glob-filter (0.000612 sec) at test/ogent-tool-process-tests.el:546
+Test ogent-tool-process-grep-gnu-binary-scope backtrace:
+  signal(void-function (ogent-tool-process-grep))
+  apply(signal (void-function (ogent-tool-process-grep)))
+  (setq value-121 (apply fn-119 args-120))
+  (unwind-protect (setq value-121 (apply fn-119 args-120)) (setq form-
+  (if (unwind-protect (setq value-121 (apply fn-119 args-120)) (setq f
+  (let (form-description-123) (if (unwind-protect (setq value-121 (app
+  (let ((value-121 'ert-form-evaluation-aborted-122)) (let (form-descr
+  (let* ((fn-119 #'=) (args-120 (condition-case err (list (plist-get (
+  (let ((binary (ogent-tool-process-tests--write directory "binary.txt
+  (progn (let ((binary (ogent-tool-process-tests--write directory "bin
+  (unwind-protect (progn (let ((binary (ogent-tool-process-tests--writ
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  ogent-tool-process-tests--check-binary-scope()
+  (progn (fset 'executable-find vnew) (ogent-tool-process-tests--check
+  (unwind-protect (progn (fset 'executable-find vnew) (ogent-tool-proc
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (let* ((engine 'gnu) (find-executable (symbol-function 'executable-f
+  #f(lambda () [t] (let* ((engine 'gnu) (find-executable (symbol-funct
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-gnu-binary-sc
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-gnu-binary-scope condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  23/51  ogent-tool-process-grep-gnu-binary-scope (0.001470 sec) at test/ogent-tool-process-tests.el:566
+Test ogent-tool-process-grep-gnu-component-filters backtrace:
+  (ogent-tool-process-grep "needle" directory (car case))
+  (let* ((result (ogent-tool-process-grep "needle" directory (car case
+  (let ((case (car tail))) (let* ((result (ogent-tool-process-grep "ne
+  (while tail (let ((case (car tail))) (let* ((result (ogent-tool-proc
+  (let ((tail '(("src/*.txt" "src/direct.txt") ("src/**/*.txt" "src/de
+  (progn (let ((tail '("src/direct.txt" "src/deep/nested.txt" "top.txt
+  (unwind-protect (progn (let ((tail '("src/direct.txt" "src/deep/nest
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  ogent-tool-process-tests--check-component-filters()
+  (progn (fset 'executable-find vnew) (ogent-tool-process-tests--check
+  (unwind-protect (progn (fset 'executable-find vnew) (ogent-tool-proc
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (let* ((engine 'gnu) (find-executable (symbol-function 'executable-f
+  #f(lambda () [t] (let* ((engine 'gnu) (find-executable (symbol-funct
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-gnu-component
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-gnu-component-filters condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  24/51  ogent-tool-process-grep-gnu-component-filters (0.001288 sec) at test/ogent-tool-process-tests.el:576
+Test ogent-tool-process-grep-gnu-explicit-file-filter backtrace:
+  signal(void-function (ogent-tool-process-grep))
+  apply(signal (void-function (ogent-tool-process-grep)))
+  (setq value-104 (apply fn-102 args-103))
+  (unwind-protect (setq value-104 (apply fn-102 args-103)) (setq form-
+  (if (unwind-protect (setq value-104 (apply fn-102 args-103)) (setq f
+  (let (form-description-106) (if (unwind-protect (setq value-104 (app
+  (let ((value-104 'ert-form-evaluation-aborted-105)) (let (form-descr
+  (let* ((fn-102 #'=) (args-103 (condition-case err (list (plist-get (
+  (let ((file (ogent-tool-process-tests--write directory "data [1]!*.t
+  (progn (let ((file (ogent-tool-process-tests--write directory "data 
+  (unwind-protect (progn (let ((file (ogent-tool-process-tests--write 
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  ogent-tool-process-tests--check-explicit-filter()
+  (progn (fset 'executable-find vnew) (ogent-tool-process-tests--check
+  (unwind-protect (progn (fset 'executable-find vnew) (ogent-tool-proc
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (let* ((engine 'gnu) (find-executable (symbol-function 'executable-f
+  #f(lambda () [t] (let* ((engine 'gnu) (find-executable (symbol-funct
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-gnu-explicit-
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-gnu-explicit-file-filter condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  25/51  ogent-tool-process-grep-gnu-explicit-file-filter (0.000556 sec) at test/ogent-tool-process-tests.el:556
+Test ogent-tool-process-grep-gnu-symlink-scope backtrace:
+  (ogent-tool-process-grep "needle" directory filter 1)
+  (let* ((all (ogent-tool-process-grep "needle" directory filter 1)) (
+  (let ((filter (car tail))) (let* ((all (ogent-tool-process-grep "nee
+  (while tail (let ((filter (car tail))) (let* ((all (ogent-tool-proce
+  (let ((tail '(nil "*.txt" "link.txt" "l?nk.txt" "[ls]ink.txt"))) (wh
+  (progn (ogent-tool-process-tests--write directory "source.txt" "befo
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "s
+  (let ((outside (make-temp-file "ogent-process-outside-" t)) (link (e
+  (progn (let ((outside (make-temp-file "ogent-process-outside-" t)) (
+  (unwind-protect (progn (let ((outside (make-temp-file "ogent-process
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  ogent-tool-process-tests--check-symlink-scope()
+  (progn (fset 'executable-find vnew) (ogent-tool-process-tests--check
+  (unwind-protect (progn (fset 'executable-find vnew) (ogent-tool-proc
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (let* ((engine 'gnu) (find-executable (symbol-function 'executable-f
+  #f(lambda () [t] (let* ((engine 'gnu) (find-executable (symbol-funct
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-gnu-symlink-s
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-gnu-symlink-scope condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  26/51  ogent-tool-process-grep-gnu-symlink-scope (0.001170 sec) at test/ogent-tool-process-tests.el:601
+Test ogent-tool-process-grep-gnu-unicode-filters backtrace:
+  (ogent-tool-process-grep "needle" directory (car case))
+  (let* ((result (ogent-tool-process-grep "needle" directory (car case
+  (let ((case (car tail))) (let* ((result (ogent-tool-process-grep "ne
+  (while tail (let ((case (car tail))) (let* ((result (ogent-tool-proc
+  (let ((tail '(("?.txt" "a.txt" "é.txt" "Ω.txt" "目录/a.txt" "目录/é.txt"
+  (progn (let ((tail '("a.txt" "é.txt" "Ω.txt" "目录/é.txt" "目录/a.txt" "
+  (unwind-protect (progn (let ((tail '("a.txt" "é.txt" "Ω.txt" "目录/é.t
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  ogent-tool-process-tests--check-unicode-filters()
+  (progn (fset 'executable-find vnew) (ogent-tool-process-tests--check
+  (unwind-protect (progn (fset 'executable-find vnew) (ogent-tool-proc
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (let* ((engine 'gnu) (find-executable (symbol-function 'executable-f
+  #f(lambda () [t] (let* ((engine 'gnu) (find-executable (symbol-funct
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-gnu-unicode-f
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-gnu-unicode-filters condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  27/51  ogent-tool-process-grep-gnu-unicode-filters (0.009127 sec) at test/ogent-tool-process-tests.el:586
+Test ogent-tool-process-grep-gnu-unsupported-filenames backtrace:
+  signal(ert-test-failed (((should-error (ogent-tool-process-grep "nee
+  ert-fail(((should-error (ogent-tool-process-grep "needle" directory 
+  ert--should-error-handle-error(#f(lambda () [(form-description-282 (
+  (condition-case -condition- (unwind-protect (setq value-280 (apply f
+  (let ((errorp283 nil) (form-description-fn-284 #'(lambda nil form-de
+  (let (form-description-282) (let ((errorp283 nil) (form-description-
+  (let ((value-280 'ert-form-evaluation-aborted-281)) (let (form-descr
+  (let* ((fn-278 #'ogent-tool-process-grep) (args-279 (condition-case 
+  (let ((filter (car tail))) (let* ((fn-278 #'ogent-tool-process-grep)
+  (while tail (let ((filter (car tail))) (let* ((fn-278 #'ogent-tool-p
+  (let ((tail '(nil "*.txt" "?.txt"))) (while tail (let ((filter (car 
+  (let ((raw-name (concat (decode-coding-string (unibyte-string 255) '
+  (progn (let ((raw-name (concat (decode-coding-string (unibyte-string
+  (unwind-protect (progn (let ((raw-name (concat (decode-coding-string
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  ogent-tool-process-tests--check-unsupported-filenames()
+  (progn (fset 'executable-find vnew) (ogent-tool-process-tests--check
+  (unwind-protect (progn (fset 'executable-find vnew) (ogent-tool-proc
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (let* ((engine 'gnu) (find-executable (symbol-function 'executable-f
+  #f(lambda () [t] (let* ((engine 'gnu) (find-executable (symbol-funct
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test ... :result
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-gnu-unsupport
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-gnu-unsupported-filenames condition:
+    (ert-test-failed
+     ((should-error (ogent-tool-process-grep "needle" directory filter)
+		    :type 'ogent-tool-process-output-error)
+      :form
+      (ogent-tool-process-grep "needle" "/tmp/ogent-process-test-X2X4b6"
+			       nil)
+      :condition (void-function ogent-tool-process-grep) :fail-reason
+      "the error signaled did not have the expected type"))
+   FAILED  28/51  ogent-tool-process-grep-gnu-unsupported-filenames (0.000801 sec) at test/ogent-tool-process-tests.el:611
+Test ogent-tool-process-grep-invalid-regex-error backtrace:
+  signal(ert-test-failed (((should-error (ogent-tool-process-grep "[")
+  ert-fail(((should-error (ogent-tool-process-grep "[") :type 'user-er
+  ert--should-error-handle-error(#f(lambda () [(form-description-738 (
+  (condition-case -condition- (unwind-protect (setq value-736 (apply f
+  (let ((errorp739 nil) (form-description-fn-740 #'(lambda nil form-de
+  (let (form-description-738) (let ((errorp739 nil) (form-description-
+  (let ((value-736 'ert-form-evaluation-aborted-737)) (let (form-descr
+  (let* ((fn-734 #'ogent-tool-process-grep) (args-735 (condition-case 
+  (let ((failure (let* ((fn-734 #'ogent-tool-process-grep) (args-735 (
+  (progn (ogent-tool-process-tests--write directory "a.txt" "needle\n"
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "a
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-invalid-regex
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-invalid-regex-error condition:
+    (ert-test-failed
+     ((should-error (ogent-tool-process-grep "[") :type 'user-error) :form
+      (ogent-tool-process-grep "[") :condition
+      (void-function ogent-tool-process-grep) :fail-reason
+      "the error signaled did not have the expected type"))
+   FAILED  29/51  ogent-tool-process-grep-invalid-regex-error (0.000558 sec) at test/ogent-tool-process-tests.el:516
+Test ogent-tool-process-grep-oversized-wire-line-is-explicit backtrace:
+  signal(ert-test-failed (((should-error (ogent-tool-process-grep "nee
+  ert-fail(((should-error (ogent-tool-process-grep "needle") :type 'og
+  ert--should-error-handle-error(#f(lambda () [(form-description-1001 
+  (condition-case -condition- (unwind-protect (setq value-999 (apply f
+  (let ((errorp1002 nil) (form-description-fn-1003 #'(lambda nil form-
+  (let (form-description-1001) (let ((errorp1002 nil) (form-descriptio
+  (let ((value-999 'ert-form-evaluation-aborted-1000)) (let (form-desc
+  (let* ((fn-997 #'ogent-tool-process-grep) (args-998 (condition-case 
+  (let ((failure (let* ((fn-997 #'ogent-tool-process-grep) (args-998 (
+  (progn (ogent-tool-process-tests--write directory "a.txt" (concat "n
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "a
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-oversized-wir
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-oversized-wire-line-is-explicit condition:
+    (ert-test-failed
+     ((should-error (ogent-tool-process-grep "needle") :type
+		    'ogent-tool-process-output-error)
+      :form (ogent-tool-process-grep "needle") :condition
+      (void-function ogent-tool-process-grep) :fail-reason
+      "the error signaled did not have the expected type"))
+   FAILED  30/51  ogent-tool-process-grep-oversized-wire-line-is-explicit (0.007947 sec) at test/ogent-tool-process-tests.el:744
+Test ogent-tool-process-grep-pages-all-matches backtrace:
+  (ogent-tool-process-grep "needle" nil nil 0 0 200)
+  (let ((first (ogent-tool-process-grep "needle" nil nil 0 0 200)) (la
+  (progn (ogent-tool-process-tests--write directory "a.txt" (mapconcat
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "a
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-pages-all-mat
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-pages-all-matches condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  31/51  ogent-tool-process-grep-pages-all-matches (0.000576 sec) at test/ogent-tool-process-tests.el:438
+Test ogent-tool-process-grep-pattern-is-literal-process-argument backtrace:
+  (ogent-tool-process-grep "needle; touch injected")
+  (progn (ogent-tool-process-tests--write directory "a.txt" "needle\n"
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "a
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-pattern-is-li
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-pattern-is-literal-process-argument condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  32/51  ogent-tool-process-grep-pattern-is-literal-process-argument (0.000507 sec) at test/ogent-tool-process-tests.el:539
+Test ogent-tool-process-grep-preserves-unusual-filenames backtrace:
+  (ogent-tool-process-grep "needle" nil nil 1)
+  (let* ((file (ogent-tool-process-tests--write directory "a: b\n-c.tx
+  (progn (let* ((file (ogent-tool-process-tests--write directory "a: b
+  (unwind-protect (progn (let* ((file (ogent-tool-process-tests--write
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-preserves-unu
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-preserves-unusual-filenames condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  33/51  ogent-tool-process-grep-preserves-unusual-filenames (0.000455 sec) at test/ogent-tool-process-tests.el:455
+Test ogent-tool-process-grep-ripgrep-binary-scope backtrace:
+  signal(void-function (ogent-tool-process-grep))
+  apply(signal (void-function (ogent-tool-process-grep)))
+  (setq value-121 (apply fn-119 args-120))
+  (unwind-protect (setq value-121 (apply fn-119 args-120)) (setq form-
+  (if (unwind-protect (setq value-121 (apply fn-119 args-120)) (setq f
+  (let (form-description-123) (if (unwind-protect (setq value-121 (app
+  (let ((value-121 'ert-form-evaluation-aborted-122)) (let (form-descr
+  (let* ((fn-119 #'=) (args-120 (condition-case err (list (plist-get (
+  (let ((binary (ogent-tool-process-tests--write directory "binary.txt
+  (progn (let ((binary (ogent-tool-process-tests--write directory "bin
+  (unwind-protect (progn (let ((binary (ogent-tool-process-tests--writ
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  ogent-tool-process-tests--check-binary-scope()
+  (progn (fset 'executable-find vnew) (ogent-tool-process-tests--check
+  (unwind-protect (progn (fset 'executable-find vnew) (ogent-tool-proc
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (let* ((engine 'ripgrep) (find-executable (symbol-function 'executab
+  #f(lambda () [t] (let* ((engine 'ripgrep) (find-executable (symbol-f
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-ripgrep-binar
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-ripgrep-binary-scope condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  34/51  ogent-tool-process-grep-ripgrep-binary-scope (0.001534 sec) at test/ogent-tool-process-tests.el:571
+Test ogent-tool-process-grep-ripgrep-cancel-cleans-selected-script backtrace:
+  (ogent-tool-process-cancel process)
+  (unwind-protect (progn (setq process (ogent-tool-process-grep-async 
+  (let ((calls 0) failure process script) (unwind-protect (progn (setq
+  (progn (ogent-tool-process-tests--write directory "source.txt" "need
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "s
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  (progn (fset 'executable-find vnew) (let* ((directory (make-temp-fil
+  (unwind-protect (progn (fset 'executable-find vnew) (let* ((director
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (let* ((engine 'ripgrep) (find-executable (symbol-function 'executab
+  #f(lambda () [t] (let* ((engine 'ripgrep) (find-executable (symbol-f
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-ripgrep-cance
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-ripgrep-cancel-cleans-selected-script condition:
+    (void-function ogent-tool-process-cancel)
+   FAILED  35/51  ogent-tool-process-grep-ripgrep-cancel-cleans-selected-script (0.000636 sec) at test/ogent-tool-process-tests.el:621
+Test ogent-tool-process-grep-ripgrep-component-filters backtrace:
+  (ogent-tool-process-grep "needle" directory (car case))
+  (let* ((result (ogent-tool-process-grep "needle" directory (car case
+  (let ((case (car tail))) (let* ((result (ogent-tool-process-grep "ne
+  (while tail (let ((case (car tail))) (let* ((result (ogent-tool-proc
+  (let ((tail '(("src/*.txt" "src/direct.txt") ("src/**/*.txt" "src/de
+  (progn (let ((tail '("src/direct.txt" "src/deep/nested.txt" "top.txt
+  (unwind-protect (progn (let ((tail '("src/direct.txt" "src/deep/nest
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  ogent-tool-process-tests--check-component-filters()
+  (progn (fset 'executable-find vnew) (ogent-tool-process-tests--check
+  (unwind-protect (progn (fset 'executable-find vnew) (ogent-tool-proc
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (let* ((engine 'ripgrep) (find-executable (symbol-function 'executab
+  #f(lambda () [t] (let* ((engine 'ripgrep) (find-executable (symbol-f
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-ripgrep-compo
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-ripgrep-component-filters condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  36/51  ogent-tool-process-grep-ripgrep-component-filters (0.001364 sec) at test/ogent-tool-process-tests.el:581
+Test ogent-tool-process-grep-ripgrep-explicit-file-filter backtrace:
+  signal(void-function (ogent-tool-process-grep))
+  apply(signal (void-function (ogent-tool-process-grep)))
+  (setq value-104 (apply fn-102 args-103))
+  (unwind-protect (setq value-104 (apply fn-102 args-103)) (setq form-
+  (if (unwind-protect (setq value-104 (apply fn-102 args-103)) (setq f
+  (let (form-description-106) (if (unwind-protect (setq value-104 (app
+  (let ((value-104 'ert-form-evaluation-aborted-105)) (let (form-descr
+  (let* ((fn-102 #'=) (args-103 (condition-case err (list (plist-get (
+  (let ((file (ogent-tool-process-tests--write directory "data [1]!*.t
+  (progn (let ((file (ogent-tool-process-tests--write directory "data 
+  (unwind-protect (progn (let ((file (ogent-tool-process-tests--write 
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  ogent-tool-process-tests--check-explicit-filter()
+  (progn (fset 'executable-find vnew) (ogent-tool-process-tests--check
+  (unwind-protect (progn (fset 'executable-find vnew) (ogent-tool-proc
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (let* ((engine 'ripgrep) (find-executable (symbol-function 'executab
+  #f(lambda () [t] (let* ((engine 'ripgrep) (find-executable (symbol-f
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-ripgrep-expli
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-ripgrep-explicit-file-filter condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  37/51  ogent-tool-process-grep-ripgrep-explicit-file-filter (0.000549 sec) at test/ogent-tool-process-tests.el:561
+Test ogent-tool-process-grep-ripgrep-selected-groups-preserve-pages backtrace:
+  (ogent-tool-process-grep "needle" directory "[0-9]*.txt" 0 120 40)
+  (let* ((result (ogent-tool-process-grep "needle" directory "[0-9]*.t
+  (progn (let ((upper-bound 180) (counter 0)) (while (< counter upper-
+  (unwind-protect (progn (let ((upper-bound 180) (counter 0)) (while (
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  (progn (fset 'executable-find vnew) (let* ((directory (make-temp-fil
+  (unwind-protect (progn (fset 'executable-find vnew) (let* ((director
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (let* ((engine 'ripgrep) (find-executable (symbol-function 'executab
+  #f(lambda () [t] (let* ((engine 'ripgrep) (find-executable (symbol-f
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-ripgrep-selec
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-ripgrep-selected-groups-preserve-pages condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  38/51  ogent-tool-process-grep-ripgrep-selected-groups-preserve-pages (0.020694 sec) at test/ogent-tool-process-tests.el:648
+Test ogent-tool-process-grep-ripgrep-selected-parent-order backtrace:
+  (ogent-tool-process-grep "needle" directory "?.txt" 0 0 2)
+  (let ((first (ogent-tool-process-grep "needle" directory "?.txt" 0 0
+  (progn (let ((tail '("a.txt" "a/é.txt" "z.txt"))) (while tail (let (
+  (unwind-protect (progn (let ((tail '("a.txt" "a/é.txt" "z.txt"))) (w
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  (progn (fset 'executable-find vnew) (let* ((directory (make-temp-fil
+  (unwind-protect (progn (fset 'executable-find vnew) (let* ((director
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (let* ((engine 'ripgrep) (find-executable (symbol-function 'executab
+  #f(lambda () [t] (let* ((engine 'ripgrep) (find-executable (symbol-f
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-ripgrep-selec
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-ripgrep-selected-parent-order condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  39/51  ogent-tool-process-grep-ripgrep-selected-parent-order (0.001003 sec) at test/ogent-tool-process-tests.el:662
+Test ogent-tool-process-grep-ripgrep-symlink-scope backtrace:
+  (ogent-tool-process-grep "needle" directory filter 1)
+  (let* ((all (ogent-tool-process-grep "needle" directory filter 1)) (
+  (let ((filter (car tail))) (let* ((all (ogent-tool-process-grep "nee
+  (while tail (let ((filter (car tail))) (let* ((all (ogent-tool-proce
+  (let ((tail '(nil "*.txt" "link.txt" "l?nk.txt" "[ls]ink.txt"))) (wh
+  (progn (ogent-tool-process-tests--write directory "source.txt" "befo
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "s
+  (let ((outside (make-temp-file "ogent-process-outside-" t)) (link (e
+  (progn (let ((outside (make-temp-file "ogent-process-outside-" t)) (
+  (unwind-protect (progn (let ((outside (make-temp-file "ogent-process
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  ogent-tool-process-tests--check-symlink-scope()
+  (progn (fset 'executable-find vnew) (ogent-tool-process-tests--check
+  (unwind-protect (progn (fset 'executable-find vnew) (ogent-tool-proc
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (let* ((engine 'ripgrep) (find-executable (symbol-function 'executab
+  #f(lambda () [t] (let* ((engine 'ripgrep) (find-executable (symbol-f
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-ripgrep-symli
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-ripgrep-symlink-scope condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  40/51  ogent-tool-process-grep-ripgrep-symlink-scope (0.001493 sec) at test/ogent-tool-process-tests.el:606
+Test ogent-tool-process-grep-ripgrep-unicode-filters backtrace:
+  (ogent-tool-process-grep "needle" directory (car case))
+  (let* ((result (ogent-tool-process-grep "needle" directory (car case
+  (let ((case (car tail))) (let* ((result (ogent-tool-process-grep "ne
+  (while tail (let ((case (car tail))) (let* ((result (ogent-tool-proc
+  (let ((tail '(("?.txt" "a.txt" "é.txt" "Ω.txt" "目录/a.txt" "目录/é.txt"
+  (progn (let ((tail '("a.txt" "é.txt" "Ω.txt" "目录/é.txt" "目录/a.txt" "
+  (unwind-protect (progn (let ((tail '("a.txt" "é.txt" "Ω.txt" "目录/é.t
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  ogent-tool-process-tests--check-unicode-filters()
+  (progn (fset 'executable-find vnew) (ogent-tool-process-tests--check
+  (unwind-protect (progn (fset 'executable-find vnew) (ogent-tool-proc
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (let* ((engine 'ripgrep) (find-executable (symbol-function 'executab
+  #f(lambda () [t] (let* ((engine 'ripgrep) (find-executable (symbol-f
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-ripgrep-unico
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-ripgrep-unicode-filters condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  41/51  ogent-tool-process-grep-ripgrep-unicode-filters (0.008668 sec) at test/ogent-tool-process-tests.el:591
+Test ogent-tool-process-grep-ripgrep-unsupported-filenames backtrace:
+  signal(ert-test-failed (((should-error (ogent-tool-process-grep "nee
+  ert-fail(((should-error (ogent-tool-process-grep "needle" directory 
+  ert--should-error-handle-error(#f(lambda () [(form-description-282 (
+  (condition-case -condition- (unwind-protect (setq value-280 (apply f
+  (let ((errorp283 nil) (form-description-fn-284 #'(lambda nil form-de
+  (let (form-description-282) (let ((errorp283 nil) (form-description-
+  (let ((value-280 'ert-form-evaluation-aborted-281)) (let (form-descr
+  (let* ((fn-278 #'ogent-tool-process-grep) (args-279 (condition-case 
+  (let ((filter (car tail))) (let* ((fn-278 #'ogent-tool-process-grep)
+  (while tail (let ((filter (car tail))) (let* ((fn-278 #'ogent-tool-p
+  (let ((tail '(nil "*.txt" "?.txt"))) (while tail (let ((filter (car 
+  (let ((raw-name (concat (decode-coding-string (unibyte-string 255) '
+  (progn (let ((raw-name (concat (decode-coding-string (unibyte-string
+  (unwind-protect (progn (let ((raw-name (concat (decode-coding-string
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  ogent-tool-process-tests--check-unsupported-filenames()
+  (progn (fset 'executable-find vnew) (ogent-tool-process-tests--check
+  (unwind-protect (progn (fset 'executable-find vnew) (ogent-tool-proc
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (let* ((engine 'ripgrep) (find-executable (symbol-function 'executab
+  #f(lambda () [t] (let* ((engine 'ripgrep) (find-executable (symbol-f
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test ... :result
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-ripgrep-unsup
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-ripgrep-unsupported-filenames condition:
+    (ert-test-failed
+     ((should-error (ogent-tool-process-grep "needle" directory filter)
+		    :type 'ogent-tool-process-output-error)
+      :form
+      (ogent-tool-process-grep "needle" "/tmp/ogent-process-test-DrDBqk"
+			       nil)
+      :condition (void-function ogent-tool-process-grep) :fail-reason
+      "the error signaled did not have the expected type"))
+   FAILED  42/51  ogent-tool-process-grep-ripgrep-unsupported-filenames (0.000833 sec) at test/ogent-tool-process-tests.el:616
+Test ogent-tool-process-grep-snapshot-changes-with-source backtrace:
+  (ogent-tool-process-grep "needle")
+  (plist-get (ogent-tool-process-grep "needle") :snapshot)
+  (let ((before (plist-get (ogent-tool-process-grep "needle") :snapsho
+  (progn (ogent-tool-process-tests--write directory "a.txt" "needle1\n
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "a
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-snapshot-chan
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-snapshot-changes-with-source condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  43/51  ogent-tool-process-grep-snapshot-changes-with-source (0.000561 sec) at test/ogent-tool-process-tests.el:728
+Test ogent-tool-process-grep-timeout-has-typed-error backtrace:
+  signal(ert-test-failed (((should-error (ogent-tool-process-grep "nee
+  ert-fail(((should-error (ogent-tool-process-grep "needle") :type 'og
+  ert--should-error-handle-error(#f(lambda () [(form-description-1045 
+  (condition-case -condition- (unwind-protect (setq value-1043 (apply 
+  (let ((errorp1046 nil) (form-description-fn-1047 #'(lambda nil form-
+  (let (form-description-1045) (let ((errorp1046 nil) (form-descriptio
+  (let ((value-1043 'ert-form-evaluation-aborted-1044)) (let (form-des
+  (let* ((fn-1041 #'ogent-tool-process-grep) (args-1042 (condition-cas
+  (let ((failure (let* ((fn-1041 #'ogent-tool-process-grep) (args-1042
+  (let ((ogent-tools-grep-timeout 0.001)) (let ((failure (let* ((fn-10
+  (progn (ogent-tool-process-tests--write directory "a.txt" (apply #'c
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "a
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-timeout-has-t
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-timeout-has-typed-error condition:
+    (ert-test-failed
+     ((should-error (ogent-tool-process-grep "needle") :type
+		    'ogent-tool-process-search-timeout)
+      :form (ogent-tool-process-grep "needle") :condition
+      (void-function ogent-tool-process-grep) :fail-reason
+      "the error signaled did not have the expected type"))
+   FAILED  44/51  ogent-tool-process-grep-timeout-has-typed-error (0.001558 sec) at test/ogent-tool-process-tests.el:775
+Test ogent-tool-process-grep-truncation-keeps-count-and-page backtrace:
+  (ogent-tool-process-grep "needle" nil nil 1 0 1)
+  (let* ((ogent-tools-max-output-chars 5) (result (ogent-tool-process-
+  (progn (ogent-tool-process-tests--write directory "a.txt" "before\nn
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "a
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-truncation-ke
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-truncation-keeps-count-and-page condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  45/51  ogent-tool-process-grep-truncation-keeps-count-and-page (0.000491 sec) at test/ogent-tool-process-tests.el:694
+Test ogent-tool-process-grep-validates-page-and-context backtrace:
+  signal(ert-test-failed (((should-error (apply #'ogent-tool-process-g
+  ert-fail(((should-error (apply #'ogent-tool-process-grep "needle" ni
+  ert--should-error-handle-error(#f(lambda () [(form-description-994 (
+  (condition-case -condition- (unwind-protect (setq value-992 (apply f
+  (let ((errorp995 nil) (form-description-fn-996 #'(lambda nil form-de
+  (let (form-description-994) (let ((errorp995 nil) (form-description-
+  (let ((value-992 'ert-form-evaluation-aborted-993)) (let (form-descr
+  (let* ((fn-990 #'apply) (args-991 (condition-case err (list #'ogent-
+  (let ((args (car tail))) (let* ((fn-990 #'apply) (args-991 (conditio
+  (while tail (let ((args (car tail))) (let* ((fn-990 #'apply) (args-9
+  (let ((tail '((0 -1 10) (0 0 0) (0 0 201) (21 0 10) (-1 0 10)))) (wh
+  (progn (let ((tail '((0 -1 10) (0 0 0) (0 0 201) (21 0 10) (-1 0 10)
+  (unwind-protect (progn (let ((tail '((0 -1 10) (0 0 0) (0 0 201) (21
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-validates-pag
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-validates-page-and-context condition:
+    (ert-test-failed
+     ((should-error
+       (apply #'ogent-tool-process-grep "needle" nil nil args) :type
+       'user-error)
+      :form (apply ogent-tool-process-grep "needle" nil nil (0 -1 10))
+      :condition (void-function ogent-tool-process-grep) :fail-reason
+      "the error signaled did not have the expected type"))
+   FAILED  46/51  ogent-tool-process-grep-validates-page-and-context (0.000336 sec) at test/ogent-tool-process-tests.el:737
+Test ogent-tool-process-grep-zero-budget-does-not-skip-matches backtrace:
+  (ogent-tool-process-grep "needle" nil nil 0 0 2)
+  (let* ((ogent-tools-max-output-chars 0) (result (ogent-tool-process-
+  (progn (ogent-tool-process-tests--write directory "a.txt" "needle1\n
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "a
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-grep-zero-budget-d
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-grep-zero-budget-does-not-skip-matches condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  47/51  ogent-tool-process-grep-zero-budget-does-not-skip-matches (0.000674 sec) at test/ogent-tool-process-tests.el:711
+Test ogent-tool-process-results-serialize-as-json backtrace:
+  (ogent-tool-process-bash "printf x")
+  (list (ogent-tool-process-bash "printf x") (ogent-tool-process-grep 
+  (let ((tail (list (ogent-tool-process-bash "printf x") (ogent-tool-p
+  (progn (ogent-tool-process-tests--write directory "a.txt" "needle\n"
+  (unwind-protect (progn (ogent-tool-process-tests--write directory "a
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  #f(lambda () [t] (let* ((directory (make-temp-file "ogent-process-te
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-results-serialize-
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-results-serialize-as-json condition:
+    (void-function ogent-tool-process-bash)
+   FAILED  48/51  ogent-tool-process-results-serialize-as-json (0.000540 sec) at test/ogent-tool-process-tests.el:802
+Test ogent-tool-process-ripgrep-base64-text backtrace:
+  signal(void-function (ogent-tool-process--json-text))
+  apply(signal (void-function (ogent-tool-process--json-text)))
+  (setq value-1092 (apply fn-1090 args-1091))
+  (unwind-protect (setq value-1092 (apply fn-1090 args-1091)) (setq fo
+  (if (unwind-protect (setq value-1092 (apply fn-1090 args-1091)) (set
+  (let (form-description-1094) (if (unwind-protect (setq value-1092 (a
+  (let ((value-1092 'ert-form-evaluation-aborted-1093)) (let (form-des
+  (let* ((fn-1090 #'equal) (args-1091 (condition-case err (list (ogent
+  #f(lambda () [t] (let* ((fn-1090 #'equal) (args-1091 (condition-case
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-ripgrep-base64-tex
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-ripgrep-base64-text condition:
+    (void-function ogent-tool-process--json-text)
+   FAILED  49/51  ogent-tool-process-ripgrep-base64-text (0.000139 sec) at test/ogent-tool-process-tests.el:813
+Test ogent-tool-process-ripgrep-real-json-protocol backtrace:
+  (ogent-tool-process-grep "needle" nil nil 1 0 1)
+  (let* ((result (ogent-tool-process-grep "needle" nil nil 1 0 1)) (ma
+  (progn (fset 'executable-find vnew) (let* ((result (ogent-tool-proce
+  (unwind-protect (progn (fset 'executable-find vnew) (let* ((result (
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (let ((file (ogent-tool-process-tests--write directory "a:\nb.txt" "
+  (progn (let ((file (ogent-tool-process-tests--write directory "a:\nb
+  (unwind-protect (progn (let ((file (ogent-tool-process-tests--write 
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  (let ((rg (or (getenv "OGENT_PROCESS_TEST_RG") (executable-find "rg"
+  #f(lambda () [t] (let ((rg (or ... ...)) (find-executable (symbol-fu
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-ripgrep-real-json-
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-ripgrep-real-json-protocol condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  50/51  ogent-tool-process-ripgrep-real-json-protocol (0.000569 sec) at test/ogent-tool-process-tests.el:819
+Test ogent-tool-process-ripgrep-searches-hidden-files backtrace:
+  signal(void-function (ogent-tool-process-grep))
+  apply(signal (void-function (ogent-tool-process-grep)))
+  (setq value-1126 (apply fn-1124 args-1125))
+  (unwind-protect (setq value-1126 (apply fn-1124 args-1125)) (setq fo
+  (if (unwind-protect (setq value-1126 (apply fn-1124 args-1125)) (set
+  (let (form-description-1128) (if (unwind-protect (setq value-1126 (a
+  (let ((value-1126 'ert-form-evaluation-aborted-1127)) (let (form-des
+  (let* ((fn-1124 #'=) (args-1125 (condition-case err (list (plist-get
+  (progn (fset 'executable-find vnew) (let* ((fn-1124 #'=) (args-1125 
+  (unwind-protect (progn (fset 'executable-find vnew) (let* ((fn-1124 
+  (let* ((vnew #'(lambda (name &optional remote) (if (equal name "rg")
+  (progn (ogent-tool-process-tests--write directory ".hidden" "needle\
+  (unwind-protect (progn (ogent-tool-process-tests--write directory ".
+  (let* ((directory (make-temp-file "ogent-process-test-" t)) (ogent-t
+  (let ((rg (or (getenv "OGENT_PROCESS_TEST_RG") (executable-find "rg"
+  #f(lambda () [t] (let ((rg (or ... ...)) (find-executable (symbol-fu
+  #f(compiled-function () #<bytecode 0x141a0e6b6a413dbd>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x141a0e6b6a413dbd
+  ert--run-test-internal(#s(ert--test-execution-info :test ... :result
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-tool-process-ripgrep-searches-h
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-tool-process-" 
+  ert-run-tests("ogent-tool-process-" #f(compiled-function (event-type
+  ert-run-tests-batch("ogent-tool-process-")
+  ert-run-tests-batch-and-exit("ogent-tool-process-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-tool-process-ripgrep-searches-hidden-files condition:
+    (void-function ogent-tool-process-grep)
+   FAILED  51/51  ogent-tool-process-ripgrep-searches-hidden-files (0.001162 sec) at test/ogent-tool-process-tests.el:842
+
+Ran 51 tests, 0 results as expected, 51 unexpected (2026-10-08 23:34:06+0000, 112.381264 sec)
+
+51 unexpected results:
+   FAILED  ogent-tool-process-bash-async-is-asynchronous
+   FAILED  ogent-tool-process-bash-bounds-combined-channels
+   FAILED  ogent-tool-process-bash-callback-error-cleans-up
+   FAILED  ogent-tool-process-bash-cancel-keeps-partial-output
+   FAILED  ogent-tool-process-bash-cancel-kills-grandchild
+   FAILED  ogent-tool-process-bash-invalid-utf8-remains-json-safe
+   FAILED  ogent-tool-process-bash-separates-channels-and-exit
+   FAILED  ogent-tool-process-bash-signal-is-distinct-from-cancel
+   FAILED  ogent-tool-process-bash-startup-error-is-terminal
+   FAILED  ogent-tool-process-bash-terminal-exit-bounds-descendant-drain
+   FAILED  ogent-tool-process-bash-timeout-keeps-partial-output
+   FAILED  ogent-tool-process-bash-validation-does-not-spawn
+   FAILED  ogent-tool-process-bash-zero-output-budget
+   FAILED  ogent-tool-process-grep-async-once
+   FAILED  ogent-tool-process-grep-cancel-has-typed-error
+   FAILED  ogent-tool-process-grep-context-includes-nearby-matches
+   FAILED  ogent-tool-process-grep-deterministic-order
+   FAILED  ogent-tool-process-grep-directory-spans-argument-batches
+   FAILED  ogent-tool-process-grep-empty-gnu-candidates-validate-regex
+   FAILED  ogent-tool-process-grep-empty-is-success
+   FAILED  ogent-tool-process-grep-finds-hidden-and-ignored-files
+   FAILED  ogent-tool-process-grep-glob-filter
+   FAILED  ogent-tool-process-grep-gnu-binary-scope
+   FAILED  ogent-tool-process-grep-gnu-component-filters
+   FAILED  ogent-tool-process-grep-gnu-explicit-file-filter
+   FAILED  ogent-tool-process-grep-gnu-symlink-scope
+   FAILED  ogent-tool-process-grep-gnu-unicode-filters
+   FAILED  ogent-tool-process-grep-gnu-unsupported-filenames
+   FAILED  ogent-tool-process-grep-invalid-regex-error
+   FAILED  ogent-tool-process-grep-oversized-wire-line-is-explicit
+   FAILED  ogent-tool-process-grep-pages-all-matches
+   FAILED  ogent-tool-process-grep-pattern-is-literal-process-argument
+   FAILED  ogent-tool-process-grep-preserves-unusual-filenames
+   FAILED  ogent-tool-process-grep-ripgrep-binary-scope
+   FAILED  ogent-tool-process-grep-ripgrep-cancel-cleans-selected-script
+   FAILED  ogent-tool-process-grep-ripgrep-component-filters
+   FAILED  ogent-tool-process-grep-ripgrep-explicit-file-filter
+   FAILED  ogent-tool-process-grep-ripgrep-selected-groups-preserve-pages
+   FAILED  ogent-tool-process-grep-ripgrep-selected-parent-order
+   FAILED  ogent-tool-process-grep-ripgrep-symlink-scope
+   FAILED  ogent-tool-process-grep-ripgrep-unicode-filters
+   FAILED  ogent-tool-process-grep-ripgrep-unsupported-filenames
+   FAILED  ogent-tool-process-grep-snapshot-changes-with-source
+   FAILED  ogent-tool-process-grep-timeout-has-typed-error
+   FAILED  ogent-tool-process-grep-truncation-keeps-count-and-page
+   FAILED  ogent-tool-process-grep-validates-page-and-context
+   FAILED  ogent-tool-process-grep-zero-budget-does-not-skip-matches
+   FAILED  ogent-tool-process-results-serialize-as-json
+   FAILED  ogent-tool-process-ripgrep-base64-text
+   FAILED  ogent-tool-process-ripgrep-real-json-protocol
+   FAILED  ogent-tool-process-ripgrep-searches-hidden-files
+

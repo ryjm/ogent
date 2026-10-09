@@ -1,0 +1,26 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 4 tests (2026-10-08 22:21:18+0000, selector `"ogent-agent-execution-read-"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-SDkruf/tools-dB5Pha (retained)
+   passed  1/4  ogent-agent-execution-read-empty-and-invalid (0.001480 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-SDkruf/tools-oc7CeC (retained)
+   passed  2/4  ogent-agent-execution-read-long-line-continuation (0.000421 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-SDkruf/tools-6qxqUG (retained)
+   passed  3/4  ogent-agent-execution-read-respects-configured-default (0.001427 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-SDkruf/tools-0TuU8t (retained)
+   passed  4/4  ogent-agent-execution-read-structured-pages (0.001062 sec)
+
+Ran 4 tests, 4 results as expected, 0 unexpected (2026-10-08 22:21:18+0000, 0.004598 sec)
+

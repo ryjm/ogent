@@ -1,0 +1,25 @@
+{
+  "check": "emacs30-lint",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "ogent-fixes",
+    "make",
+    "lint",
+    "sandbox=/tmp/ogent-fixdeps",
+    "format=json"
+  ],
+  "exit_code": 2,
+  "source_sha": "a820ac0dc03738e90b2a2dbec5efe64e875bc3f4",
+  "started_at": "2026-10-08T20:33:41.215679+00:00",
+  "completed_at": "2026-10-08T20:36:04.535606+00:00",
+  "summary": [
+    "Actual makem JSON: error; exit=1",
+    "GNU Make returns its own failure exit; helper code retained in JSON"
+  ],
+  "stdout": "audit/verification/pass_3/native_initial/emacs30-lint.stdout.log.gz",
+  "stderr": "audit/verification/pass_3/native_initial/emacs30-lint.stderr.log.gz",
+  "note": "Initial integration check, before review corrections; not final source-freeze evidence."
+}

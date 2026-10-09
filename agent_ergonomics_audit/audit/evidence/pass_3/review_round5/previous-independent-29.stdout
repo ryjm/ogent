@@ -1,0 +1,23 @@
+OBJECT PREVIEW text "safe"
+OBJECT EXECUTION text "safe"
+OBJECT PREVIEW json "safe"
+OBJECT EXECUTION json "{\"contract_version\":\"1\",\"tool\":\"object-fixture\",\"status\":\"ok\",\"data\":{\"value\":\"safe\"},\"error\":null,\"next\":[]}
+"
+BATCH OBJECT EXECUTION (:contract_version "1" :tool "batch" :status "ok" :data (:results [(:contract_version "1" :tool "first-read" :status "ok" :data (:value "first") :error :json-null :next []) (:contract_version "1" :tool "second-read" :status "ok" :data (:value "safe") :error :json-null :next [])] :requested 2 :completed 2 :stopped :json-false) :error :json-null :next [])
+GLOB PARITY "*.txt" ((gnu "!.txt" "!foo/bar.txt" ".hidden.txt" "0.txt" "[a].txt" "a.txt" "a\\b.txt" "b.txt" "c.txt" "dir[x]/item.txt" "dir{a,b}/item.txt" "src/a.txt" "src/deep/b.txt" "{a,b}.txt" "é.txt") (rg "!.txt" "!foo/bar.txt" ".hidden.txt" "0.txt" "[a].txt" "a.txt" "a\\b.txt" "b.txt" "c.txt" "dir[x]/item.txt" "dir{a,b}/item.txt" "src/a.txt" "src/deep/b.txt" "{a,b}.txt" "é.txt"))
+GLOB PARITY "**/*.txt" ((gnu "!.txt" "!foo/bar.txt" ".hidden.txt" "0.txt" "[a].txt" "a.txt" "a\\b.txt" "b.txt" "c.txt" "dir[x]/item.txt" "dir{a,b}/item.txt" "src/a.txt" "src/deep/b.txt" "{a,b}.txt" "é.txt") (rg "!.txt" "!foo/bar.txt" ".hidden.txt" "0.txt" "[a].txt" "a.txt" "a\\b.txt" "b.txt" "c.txt" "dir[x]/item.txt" "dir{a,b}/item.txt" "src/a.txt" "src/deep/b.txt" "{a,b}.txt" "é.txt"))
+GLOB PARITY "src/*.txt" ((gnu "src/a.txt") (rg "src/a.txt"))
+GLOB PARITY "src/**/*.txt" ((gnu "src/a.txt" "src/deep/b.txt") (rg "src/a.txt" "src/deep/b.txt"))
+GLOB PARITY "[a-c].txt" ((gnu "a.txt" "b.txt" "c.txt" "src/a.txt" "src/deep/b.txt") (rg "a.txt" "b.txt" "c.txt" "src/a.txt" "src/deep/b.txt"))
+GLOB PARITY "[!a].txt" ((gnu "!.txt" "0.txt" "b.txt" "c.txt" "src/deep/b.txt" "é.txt") (rg "!.txt" "0.txt" "b.txt" "c.txt" "src/deep/b.txt" "é.txt"))
+GLOB PARITY "[^a].txt" ((gnu "a.txt" "src/a.txt") (rg "a.txt" "src/a.txt"))
+GLOB PARITY "[[]a].txt" ((gnu "[a].txt") (rg "[a].txt"))
+GLOB PARITY "?.txt" ((gnu "!.txt" "0.txt" "a.txt" "b.txt" "c.txt" "src/a.txt" "src/deep/b.txt" "é.txt") (rg "!.txt" "0.txt" "a.txt" "b.txt" "c.txt" "src/a.txt" "src/deep/b.txt" "é.txt"))
+GLOB PARITY "{a,b}.txt" ((gnu "{a,b}.txt") (rg "{a,b}.txt"))
+GLOB PARITY "a\\b.txt" ((gnu "a\\b.txt") (rg "a\\b.txt"))
+GLOB PARITY "!foo/*.txt" ((gnu "!foo/bar.txt") (rg "!foo/bar.txt"))
+GLOB PARITY "dir[[]x]/item.txt" ((gnu "dir[x]/item.txt") (rg "dir[x]/item.txt"))
+GLOB PARITY "dir{a,b}/*.txt" ((gnu "dir{a,b}/item.txt") (rg "dir{a,b}/item.txt"))
+GLOB PARITY "**" ((gnu "!.txt" "!foo/bar.txt" ".hidden.txt" "0.txt" "[a].txt" "a.txt" "a\\b.txt" "b.txt" "c.txt" "dir[x]/item.txt" "dir{a,b}/item.txt" "src/a.txt" "src/deep/b.txt" "{a,b}.txt" "é.txt") (rg "!.txt" "!foo/bar.txt" ".hidden.txt" "0.txt" "[a].txt" "a.txt" "a\\b.txt" "b.txt" "c.txt" "dir[x]/item.txt" "dir{a,b}/item.txt" "src/a.txt" "src/deep/b.txt" "{a,b}.txt" "é.txt"))
+GLOB PARITY "src/**" ((gnu "src/a.txt" "src/deep/b.txt") (rg "src/a.txt" "src/deep/b.txt"))
+GLOB PARITY ".*.txt" ((gnu ".hidden.txt") (rg ".hidden.txt"))

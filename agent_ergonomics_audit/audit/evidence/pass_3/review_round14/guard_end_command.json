@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "python3",
+    "agent_ergonomics_audit/audit/evidence/pass_3/review_round14/record.py",
+    "guard",
+    "guard-end"
+  ],
+  "cwd": "/workspace/ogent",
+  "start": "2026-10-08T23:48:18.111518+00:00",
+  "end": "2026-10-08T23:48:18.207892+00:00",
+  "elapsed_seconds": 0.09637922899855766,
+  "exit": 0,
+  "stdout": "guard_end_command.stdout",
+  "stderr": "guard_end_command.stderr"
+}

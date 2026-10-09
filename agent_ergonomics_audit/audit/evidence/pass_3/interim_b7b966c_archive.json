@@ -1,0 +1,14 @@
+{
+  "source_sha": "b7b966c6ac5acc15d15c8ea0c70d81653072cae9",
+  "reason": "raw search fields enter continuation args and make native/JSON formats disagree",
+  "archives": {
+    "scoring": {
+      "path": "audit/evidence/pass_3/interim_b7b966c_scoring.tar.gz",
+      "sha256": "931c8036c2dca00b133239ecba9b2836ce56a883eae3d853e218c5edf3b04bf3"
+    },
+    "audit": {
+      "path": "audit/evidence/pass_3/interim_b7b966c_audit.tar.gz",
+      "sha256": "882c319de5cb25f5bf31d156195473a3af92d3e0488bd54e56e25723b67f0a20"
+    }
+  }
+}

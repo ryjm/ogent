@@ -1,0 +1,35 @@
+{
+  "check": "emacs30-lint",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "-e",
+    "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+    "ogent-fixes",
+    "make",
+    "lint",
+    "sandbox=/tmp/ogent-fixdeps",
+    "format=json"
+  ],
+  "exit_code": 0,
+  "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+  "started_at": "2026-10-08T23:56:08.463871+00:00",
+  "completed_at": "2026-10-08T23:58:34.032874+00:00",
+  "summary": [
+    "Actual makem JSON: success; exit=0"
+  ],
+  "stdout": "audit/verification/pass_3/native/emacs30-lint.stdout.log.gz",
+  "stderr": "audit/verification/pass_3/native/emacs30-lint.stderr.log.gz",
+  "transcript_hashes": {
+    "stdout": {
+      "raw_sha256": "87d8444e63d719c2434c9aedebb44dcc1da709cd708e7c9a2e3e9f4af8d6ccb0",
+      "gzip_sha256": "4ecbc3cd79dc4e06587f942d5734d644cda0c74943e3f949a8514fc438e4aacd"
+    },
+    "stderr": {
+      "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "gzip_sha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec"
+    }
+  }
+}

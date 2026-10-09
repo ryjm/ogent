@@ -1,0 +1,2 @@
+symlink-directory-gnu=("link.txt" "source.txt")
+symlink-directory-ripgrep=("source.txt")

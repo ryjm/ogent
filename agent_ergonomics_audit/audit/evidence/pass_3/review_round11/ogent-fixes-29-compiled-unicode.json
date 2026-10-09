@@ -1,0 +1,37 @@
+{
+  "container": "ogent-fixes-29",
+  "label": "compiled-unicode",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "-e",
+    "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+    "ogent-fixes-29",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-L",
+    "/work/lisp",
+    "-L",
+    "/work/lisp/ui",
+    "-L",
+    "/work/test",
+    "-L",
+    "/work/test/ui",
+    "-l",
+    "/work/test/ogent-test-helper.el",
+    "-l",
+    "/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round11/compiled-unicode-probe.el"
+  ],
+  "started": "2026-10-08T23:06:52.309977+00:00",
+  "elapsed_seconds": 2.042349204999482,
+  "exit": 1,
+  "counts": {
+    "selected": 4,
+    "expected": 3,
+    "unexpected": 1,
+    "skipped": 0
+  }
+}

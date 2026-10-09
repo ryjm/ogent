@@ -1,0 +1,25 @@
+{
+  "current_sha": "967eb054e13104d05e818656a2b78f037cc0effd",
+  "prior_current_sha": "9ac13b23032f40eccb9a627a824be45656292056",
+  "baseline_sha256": "aea30ac796d2cbe4bd640292ab3a404a07c903d0610a64ff7a472c3ce4dd5741",
+  "baseline_preserved_byte_for_byte": true,
+  "current_numerics_preserved": true,
+  "current_rows": 9,
+  "source_files_verified": 13,
+  "sdk_runtimes": [
+    "29.1",
+    "30.2"
+  ],
+  "actual_search_scope_tests": {
+    "emacs29": {
+      "total": 4,
+      "unexpected": 0
+    },
+    "emacs30": {
+      "total": 4,
+      "unexpected": 0
+    }
+  },
+  "build_json_parsed": true,
+  "eof_diagnostic_owner_verified": true
+}

@@ -1,0 +1,36 @@
+{
+  "verdict": "CLEAN",
+  "substantive_findings": 0,
+  "trivial_findings": 0,
+  "source_edits": 0,
+  "source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+  "baseline_sha": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "branch": "master",
+  "final_counts": {
+    "selected": 218,
+    "expected": 218,
+    "unexpected": 0,
+    "skipped": 0
+  },
+  "complete_execution_history_counts": {
+    "selected": 220,
+    "expected": 218,
+    "unexpected": 2,
+    "skipped": 0
+  },
+  "distinct_tests": 109,
+  "initial_probe_failures": "Reviewer fixture used an unsupported wildcard tool-name allow rule; corrected evidence-only fixture to exact bash name. Source unchanged.",
+  "consecutive_clean_rounds": [
+    9,
+    10
+  ],
+  "source_guard_comparison": {
+    "head_unchanged": true,
+    "branch_unchanged": true,
+    "worktree_source_diff_empty": true,
+    "staged_source_diff_empty": true,
+    "all_source_hashes_unchanged": true,
+    "tracked_source_hash_count": 224,
+    "interrupted_evidence_preserved": true
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "check": "validate-scorecard",
+  "argv": [
+    "bash",
+    "/home/agent/.claude/skills/agent-ergonomics-and-intuitiveness-maximization-for-cli-tools/tools/validate_scorecard.sh",
+    "/workspace/ogent/agent_ergonomics_audit/audit/agent_surfaces.jsonl"
+  ],
+  "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+  "started_at": "2026-10-08T23:51:42.452140+00:00",
+  "completed_at": "2026-10-08T23:51:48.661324+00:00",
+  "exit_code": 0,
+  "stdout": {
+    "path": "agent_ergonomics_audit/audit/verification/pass_3/artifact_validation/validate-scorecard.stdout",
+    "sha256": "99b04d696b7f387a4cb27c4dac4a694fc3742c7f2ca79cd3971fb91f696a3a01"
+  },
+  "stderr": {
+    "path": "agent_ergonomics_audit/audit/verification/pass_3/artifact_validation/validate-scorecard.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

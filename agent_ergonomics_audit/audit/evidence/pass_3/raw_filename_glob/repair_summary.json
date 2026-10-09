@@ -1,0 +1,23 @@
+{
+  "source_sha": "ff4e96c21d5fb3ffe79843fbce8392390d1c8bf4",
+  "baseline_source_for_reproductions": "021cca4d28e7b20fba3617c57522cc5014f640f9",
+  "scoped_strict_checks": [
+    "compilation_warning_strict",
+    "checkdoc",
+    "canonical_indentation",
+    "compiled_Unicode_boundary"
+  ],
+  "selected_ERT_per_runtime": 5,
+  "expected_ERT_per_runtime": 5,
+  "unexpected_ERT": 0,
+  "skipped_ERT": 0,
+  "runtimes": [
+    "30.2",
+    "29.1"
+  ],
+  "provider_requests": false,
+  "initial_scope_validation_failure": "newtest indentation; evidence preserved",
+  "actual_raw_filename_before_exit_per_runtime": 1,
+  "source_after_validated_before_commit": "same six source/test files as final freeze; offline fixture restored original surrounding formatting",
+  "recorded_at": "2026-10-08T23:17:32.674178+00:00"
+}

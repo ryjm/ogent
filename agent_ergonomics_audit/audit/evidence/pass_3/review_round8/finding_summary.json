@@ -1,0 +1,30 @@
+{
+  "finding": "F8-1",
+  "verdict": "NOT_CLEAN",
+  "runs": [
+    {
+      "container": "ogent-fixes",
+      "callbacks": 1,
+      "status": "ok",
+      "stdout": "complete",
+      "exit_code": 0,
+      "origin_start_events": 1,
+      "origin_finish_events": 0,
+      "other_start_events": 0,
+      "other_finish_events": 1,
+      "active_processes": 0
+    },
+    {
+      "container": "ogent-fixes-29",
+      "callbacks": 1,
+      "status": "ok",
+      "stdout": "complete",
+      "exit_code": 0,
+      "origin_start_events": 1,
+      "origin_finish_events": 0,
+      "other_start_events": 0,
+      "other_finish_events": 1,
+      "active_processes": 0
+    }
+  ]
+}

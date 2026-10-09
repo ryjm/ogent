@@ -1,0 +1,37 @@
+{
+  "current_sha": "967eb054e13104d05e818656a2b78f037cc0effd",
+  "baseline_sha": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "score_files": [
+    {
+      "file": "audit/partial/scores_pass4_current_scorerB.jsonl",
+      "rows": 19,
+      "target_sha": "967eb054e13104d05e818656a2b78f037cc0effd",
+      "high_score_evidence_valid": true
+    },
+    {
+      "file": "audit/evidence/pass_3/scorerB/new_api_scores.jsonl",
+      "rows": 6,
+      "target_sha": "967eb054e13104d05e818656a2b78f037cc0effd",
+      "high_score_evidence_valid": true
+    },
+    {
+      "file": "audit/evidence/pass_3/scorerB/baseline_paired_scores.jsonl",
+      "rows": 19,
+      "target_sha": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "high_score_evidence_valid": true
+    }
+  ],
+  "current_primary_runtime_rows": 70,
+  "current_real_gptel_registry_rows": 4,
+  "current_object_input_cache_runtime_rows": 3,
+  "current_binary_selection_runtime_rows": 5,
+  "baseline_paired_artifacts_byte_identical": true,
+  "current_real_build_commands": 18,
+  "current_json_build_reports": 13,
+  "baseline_runtime_rows": 40,
+  "baseline_real_build_commands": 12,
+  "unchanged_source_forms": 9,
+  "source_hashes_validated": 197,
+  "final_edge_assertions": "all passed",
+  "numeric_scores_are_qualitative": true
+}

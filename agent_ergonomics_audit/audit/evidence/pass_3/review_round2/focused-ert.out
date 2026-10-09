@@ -1,0 +1,105 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 66 tests (2026-10-08 20:45:15+0000, selector `"ogent-\\(agent-execution\\|tool-process\\)"')
+   passed   1/66  ogent-agent-execution-aliases-exact-and-ambiguous (0.000194 sec)
+   passed   2/66  ogent-agent-execution-aliases-share-policy (0.000530 sec)
+   passed   3/66  ogent-agent-execution-async-and-sync-failures-in-ledger (0.103508 sec)
+   passed   4/66  ogent-agent-execution-async-custom-once-and-sync-rejection (0.000653 sec)
+   passed   5/66  ogent-agent-execution-async-denial-and-cancel (0.052122 sec)
+   passed   6/66  ogent-agent-execution-async-real-process-and-ledger (0.152917 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-NCDgx3/tools-dLeLMK (retained)
+   passed   7/66  ogent-agent-execution-batch-composes-read-tools (0.054647 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-NCDgx3/tools-6bUVWb (retained)
+   passed   8/66  ogent-agent-execution-batch-continues-or-stops (0.002170 sec)
+   passed   9/66  ogent-agent-execution-batch-preflight-prevents-unsafe-prefix (0.000497 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-NCDgx3/tools-Z6IO7E (retained)
+   passed  10/66  ogent-agent-execution-denial-and-approval-required (0.000598 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-NCDgx3/tools-2gyzlq (retained)
+   passed  11/66  ogent-agent-execution-discovery-example-executes (0.001056 sec)
+   passed  12/66  ogent-agent-execution-discovery-exposes-real-call-shapes (0.000499 sec)
+   passed  13/66  ogent-agent-execution-discovery-schema-and-purity (0.000538 sec)
+   passed  14/66  ogent-agent-execution-failures-recorded (0.000323 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-NCDgx3/tools-AL55eh (retained)
+   passed  15/66  ogent-agent-execution-glob-complete-pagination (0.039364 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-NCDgx3/tools-UVdVJJ (retained)
+   passed  16/66  ogent-agent-execution-glob-json-empty-and-weird-paths (0.000713 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-NCDgx3/tools-A57vok (retained)
+   passed  17/66  ogent-agent-execution-glob-star-stays-in-component (0.000642 sec)
+   passed  18/66  ogent-agent-execution-model-json-async-callback (0.000796 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-NCDgx3/tools-BCs1du (retained)
+   passed  19/66  ogent-agent-execution-model-json-pages-and-cache-refresh (0.003755 sec)
+   passed  20/66  ogent-agent-execution-model-stale-after-approval (0.000610 sec)
+   passed  21/66  ogent-agent-execution-named-call-and-json (0.000301 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-NCDgx3/tools-KZZD8o (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-NCDgx3/tools-qXQ4j6 (retained)
+   passed  22/66  ogent-agent-execution-next-freezes-path-and-follows-json (0.002332 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-NCDgx3/tools-vhVYK3 (retained)
+   passed  23/66  ogent-agent-execution-next-refuses-changed-snapshot (0.001505 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-NCDgx3/tools-euhrwK (retained)
+   passed  24/66  ogent-agent-execution-next-retains-long-line-characters (0.002120 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-NCDgx3/tools-8oHU29 (retained)
+   passed  25/66  ogent-agent-execution-process-grep-integration (0.156499 sec)
+   passed  26/66  ogent-agent-execution-process-shell-failures-retain-data (0.183634 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-NCDgx3/tools-0frgQe (retained)
+   passed  27/66  ogent-agent-execution-read-empty-and-invalid (0.001424 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-NCDgx3/tools-WtFlh7 (retained)
+   passed  28/66  ogent-agent-execution-read-long-line-continuation (0.000411 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-NCDgx3/tools-Zaqhtb (retained)
+   passed  29/66  ogent-agent-execution-read-structured-pages (0.000960 sec)
+   passed  30/66  ogent-agent-execution-validates-before-policy (0.000237 sec)
+   passed  31/66  ogent-tool-process-bash-async-is-asynchronous (0.172054 sec)
+   passed  32/66  ogent-tool-process-bash-bounds-combined-channels (0.011600 sec)
+ogent: process callback failed: Callback failure
+   passed  33/66  ogent-tool-process-bash-callback-error-cleans-up (0.020885 sec)
+   passed  34/66  ogent-tool-process-bash-cancel-keeps-partial-output (0.031667 sec)
+   passed  35/66  ogent-tool-process-bash-cancel-kills-grandchild (0.021528 sec)
+   passed  36/66  ogent-tool-process-bash-invalid-utf8-remains-json-safe (0.011293 sec)
+   passed  37/66  ogent-tool-process-bash-separates-channels-and-exit (0.011162 sec)
+   passed  38/66  ogent-tool-process-bash-signal-is-distinct-from-cancel (0.050848 sec)
+   passed  39/66  ogent-tool-process-bash-startup-error-is-terminal (0.005700 sec)
+   passed  40/66  ogent-tool-process-bash-terminal-exit-bounds-descendant-drain (0.051293 sec)
+   passed  41/66  ogent-tool-process-bash-timeout-keeps-partial-output (0.131699 sec)
+   passed  42/66  ogent-tool-process-bash-validation-does-not-spawn (0.000279 sec)
+   passed  43/66  ogent-tool-process-bash-zero-output-budget (0.011402 sec)
+   passed  44/66  ogent-tool-process-grep-async-once (0.072175 sec)
+   passed  45/66  ogent-tool-process-grep-cancel-has-typed-error (0.052342 sec)
+   passed  46/66  ogent-tool-process-grep-context-includes-nearby-matches (0.015776 sec)
+   passed  47/66  ogent-tool-process-grep-deterministic-order (0.016686 sec)
+   passed  48/66  ogent-tool-process-grep-directory-spans-argument-batches (0.038654 sec)
+   passed  49/66  ogent-tool-process-grep-empty-gnu-candidates-validate-regex (0.154872 sec)
+   passed  50/66  ogent-tool-process-grep-empty-is-success (0.052113 sec)
+   passed  51/66  ogent-tool-process-grep-finds-hidden-and-ignored-files (0.052465 sec)
+   passed  52/66  ogent-tool-process-grep-glob-filter (0.052235 sec)
+   passed  53/66  ogent-tool-process-grep-invalid-regex-error (0.053617 sec)
+   passed  54/66  ogent-tool-process-grep-oversized-wire-line-is-explicit (0.083617 sec)
+   passed  55/66  ogent-tool-process-grep-pages-all-matches (0.103885 sec)
+   passed  56/66  ogent-tool-process-grep-pattern-is-literal-process-argument (0.052116 sec)
+   passed  57/66  ogent-tool-process-grep-preserves-unusual-filenames (0.052156 sec)
+   passed  58/66  ogent-tool-process-grep-snapshot-changes-with-source (0.104097 sec)
+   passed  59/66  ogent-tool-process-grep-timeout-has-typed-error (0.076922 sec)
+   passed  60/66  ogent-tool-process-grep-truncation-keeps-count-and-page (0.052017 sec)
+   passed  61/66  ogent-tool-process-grep-validates-page-and-context (0.000525 sec)
+   passed  62/66  ogent-tool-process-grep-zero-budget-does-not-skip-matches (0.052441 sec)
+   passed  63/66  ogent-tool-process-results-serialize-as-json (0.103227 sec)
+   passed  64/66  ogent-tool-process-ripgrep-base64-text (0.000130 sec)
+  skipped  65/66  ogent-tool-process-ripgrep-real-json-protocol (0.000153 sec)
+  skipped  66/66  ogent-tool-process-ripgrep-searches-hidden-files (0.000125 sec)
+
+Ran 66 tests, 64 results as expected, 0 unexpected, 2 skipped (2026-10-08 20:45:17+0000, 2.543301 sec)
+
+2 skipped results:
+  SKIPPED  ogent-tool-process-ripgrep-real-json-protocol
+  SKIPPED  ogent-tool-process-ripgrep-searches-hidden-files
+

@@ -1,0 +1,115 @@
+{
+  "source_sha": "021cca4d28e7b20fba3617c57522cc5014f640f9",
+  "state": "interim invalidated by independent glob discovery and actual gptel transport failure; no scorer row refresh performed",
+  "shared_probe_processes_exited_zero": 2,
+  "shared_assertion_records_emitted": 26,
+  "passing_Emacs29_valid_JSON_records": 13,
+  "Emacs30_13_assertions_returned_but_outer_logger_UTF8_invalid": true,
+  "source_end_guard": "source_end_guard.json",
+  "source_end_guard_verified_files": 194,
+  "original_numeric_vectors_modified": false,
+  "source_citations_modified": false,
+  "new_blind_full_readings": 0,
+  "new_build_commands": 0,
+  "runs": [
+    {
+      "label": "emacs29",
+      "target_sha": "021cca4d28e7b20fba3617c57522cc5014f640f9",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "REFRESH_ELPA=/tmp/ogent-ergonomics-elpa",
+        "-e",
+        "NO_COLOR=1",
+        "-e",
+        "CI=true",
+        "-e",
+        "TERM=dumb",
+        "ogent-fixes-29",
+        "emacs",
+        "-Q",
+        "--batch",
+        "-l",
+        "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/probe.el"
+      ],
+      "started_utc": "2026-10-08T23:07:49.414844+00:00",
+      "finished_utc": "2026-10-08T23:07:52.840208+00:00",
+      "exit_code": 0,
+      "stdout": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/emacs29.stdout.jsonl",
+      "stderr": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/emacs29.stderr",
+      "assertion_records_emitted": 13,
+      "valid_UTF8_JSON_records": 13,
+      "output_fully_valid_UTF8_JSON": true,
+      "probe_source": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/probe.el.initial_utf8_logger",
+      "probe_sha256": "b6d7af613a012e97cf41ac6545553c230ce635aa9605ad5f688e70756e72cb58",
+      "stdout_sha256": "e86058c214b3b1a448bf1c5695c95d8691ee6050d5b12af07b97dd013950f6bc",
+      "stderr_sha256": "b2466ed5a05d8ecf03abc99f0f123030066ee12a399b5f055fe3821fa8e57858"
+    },
+    {
+      "label": "emacs30",
+      "target_sha": "021cca4d28e7b20fba3617c57522cc5014f640f9",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "REFRESH_ELPA=/tmp/ogent-fixdeps/30.2/elpa",
+        "-e",
+        "NO_COLOR=1",
+        "-e",
+        "CI=true",
+        "-e",
+        "TERM=dumb",
+        "ogent-fixes",
+        "emacs",
+        "-Q",
+        "--batch",
+        "-l",
+        "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/probe.el"
+      ],
+      "started_utc": "2026-10-08T23:08:50.915121+00:00",
+      "finished_utc": "2026-10-08T23:08:53.713419+00:00",
+      "exit_code": 0,
+      "stdout": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/emacs30.stdout.jsonl",
+      "stderr": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/emacs30.stderr",
+      "assertion_records_emitted": 13,
+      "valid_UTF8_JSON_records": 6,
+      "output_fully_valid_UTF8_JSON": false,
+      "probe_source": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/probe.el.internal_bytes_logger",
+      "probe_sha256": "bdc13e8444957293f093dd70df4953eab8dc1fb1b2a95d2fd8c7d4dbf5def343",
+      "stdout_sha256": "1781f86efdae275fa985e08076d9ad169b070e77bcba6fccbdd0b04312ad7fb1",
+      "stderr_sha256": "87b970ffdd55ce68bc10fccbc1cc8a5af6e4882812068b9866fb1b10104b500e"
+    }
+  ],
+  "transport_checks": [
+    {
+      "runtime": "emacs29",
+      "artifact": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/emacs29.gptel-encoding.stdout.jsonl",
+      "sha256": "88f856849aa4887f49f7c07916b2db73f92cc7512b70c60688036a57f8a9b4a3",
+      "actual_serializer": {
+        "status": "encoded",
+        "content_preserved": true
+      },
+      "provider_requests": 0
+    },
+    {
+      "runtime": "emacs30",
+      "artifact": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/emacs30.gptel-encoding.stdout.jsonl",
+      "sha256": "6660258fe2ffda257601289570afa836995bf9c7af572e79ca5f5dcc6e9ec446",
+      "actual_serializer": {
+        "status": "error",
+        "condition": "wrong-type-argument",
+        "condition_type": "json-value-p"
+      },
+      "provider_requests": 0
+    }
+  ],
+  "both_Emacs30_logger_attempts_preserved": true,
+  "logger_repaired_for_final_rerun": true,
+  "providers_called": false,
+  "final_provenance_claim": false
+}

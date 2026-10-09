@@ -1,0 +1,259 @@
+{
+  "recommendation_id": "R020",
+  "test_path": "agent_ergonomics_audit/audit/regression_tests/R020__read_only_batches.test.sh",
+  "test_inputs_sha256": {
+    "agent_ergonomics_audit/audit/regression_tests/R020__read_only_batches.test.sh": "5f3eb7af02b253f69bc7887a7ef4026db2d7c96bfaad3ce009f7730ad5c306fe",
+    "agent_ergonomics_audit/tools/run-ert.sh": "a9e618a585ad6496b8f3947e0ca14b0a90e8c5be1e7bdcfcf19e1387437bc4af",
+    "test/ogent-test-helper.el": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+    "test/ogent-agent-execution-tests.el": "65a1ae6ca73569bef74b0ae699c5785b30e27439c9314398496c1e06f603dce3"
+  },
+  "contract": {
+    "kind": "ert",
+    "runs": [
+      {
+        "selector": "ogent-agent-execution-batch-",
+        "test_file": "test/ogent-agent-execution-tests.el",
+        "expected_count": 7,
+        "expected_names": [
+          "ogent-agent-execution-batch-composes-read-tools",
+          "ogent-agent-execution-batch-continues-or-stops",
+          "ogent-agent-execution-batch-freezes-calls-and-argument-strings",
+          "ogent-agent-execution-batch-freezes-canonical-alias-target",
+          "ogent-agent-execution-batch-freezes-nested-object-values",
+          "ogent-agent-execution-batch-inplace-effects-change",
+          "ogent-agent-execution-batch-preflight-prevents-unsafe-prefix"
+        ]
+      }
+    ],
+    "expected_count": 7,
+    "count_unit": "ERT tests"
+  },
+  "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "baseline": {
+    "argv": [
+      "docker",
+      "exec",
+      "ogent-fixes",
+      "env",
+      "-u",
+      "OGENT_AUDIT_SOURCE",
+      "-u",
+      "MAKEM_UNDER_TEST",
+      "-u",
+      "BASH_ENV",
+      "MAKEM_UNDER_TEST=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+      "OGENT_AUDIT_SOURCE=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+      "timeout",
+      "--kill-after=5",
+      "90",
+      "bash",
+      "/work/agent_ergonomics_audit/audit/regression_tests/R020__read_only_batches.test.sh"
+    ],
+    "environment_overrides": {
+      "MAKEM_UNDER_TEST": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+      "OGENT_AUDIT_SOURCE": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+    },
+    "started_at": "2026-10-08T21:30:21.149879+00:00",
+    "duration_seconds": 6.984,
+    "exit_code": 1,
+    "timed_out": false,
+    "timeout_seconds": 90,
+    "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/interim-9ac13b2/R020-baseline.log",
+    "log_sha256": "df070a966ed553b95ab1eb02c67a6c0fe1e95df4ebbdb48878eaf061fc9aadb9",
+    "source": {
+      "revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "source_root": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "source_root_in_container": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "tracked_source_clean": true,
+      "verified_git_archive": true,
+      "source_fingerprint_sha256": "307043b8873701e3bc746b75a7c1c5235001dc9517fbb9c15f9cf5ca32baf22c",
+      "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/interim-9ac13b2/baseline-source.json",
+      "manifest_sha256": "35ed30d194153dd7833a63a4e3c160d6b6c5510b35fa98053bacc31542922fe5"
+    },
+    "selected_count": 7,
+    "completed_count": 7,
+    "executed_count": 7,
+    "skipped_count": 0,
+    "unexpected_count": 7,
+    "runs": [
+      {
+        "selected": 7,
+        "completed": 7,
+        "expected": 0,
+        "unexpected": 7,
+        "skipped": 0,
+        "results": [
+          {
+            "status": "FAILED",
+            "index": 1,
+            "selected_total": 7,
+            "name": "ogent-agent-execution-batch-composes-read-tools"
+          },
+          {
+            "status": "FAILED",
+            "index": 2,
+            "selected_total": 7,
+            "name": "ogent-agent-execution-batch-continues-or-stops"
+          },
+          {
+            "status": "FAILED",
+            "index": 3,
+            "selected_total": 7,
+            "name": "ogent-agent-execution-batch-freezes-calls-and-argument-strings"
+          },
+          {
+            "status": "FAILED",
+            "index": 4,
+            "selected_total": 7,
+            "name": "ogent-agent-execution-batch-freezes-canonical-alias-target"
+          },
+          {
+            "status": "FAILED",
+            "index": 5,
+            "selected_total": 7,
+            "name": "ogent-agent-execution-batch-freezes-nested-object-values"
+          },
+          {
+            "status": "FAILED",
+            "index": 6,
+            "selected_total": 7,
+            "name": "ogent-agent-execution-batch-inplace-effects-change"
+          },
+          {
+            "status": "FAILED",
+            "index": 7,
+            "selected_total": 7,
+            "name": "ogent-agent-execution-batch-preflight-prevents-unsafe-prefix"
+          }
+        ],
+        "summary": "Ran 7 tests, 0 results as expected, 7 unexpected"
+      }
+    ],
+    "unexecuted_selectors": [],
+    "evidence_errors": [],
+    "proven": true,
+    "runtime": {
+      "emacs_version": "GNU Emacs 30.2",
+      "process_test_rg": {
+        "path": "/tmp/ogent-test-rg",
+        "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+        "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+      }
+    }
+  },
+  "proven": true,
+  "current": {
+    "argv": [
+      "docker",
+      "exec",
+      "ogent-fixes",
+      "env",
+      "-u",
+      "OGENT_AUDIT_SOURCE",
+      "-u",
+      "MAKEM_UNDER_TEST",
+      "-u",
+      "BASH_ENV",
+      "MAKEM_UNDER_TEST=/work/makem.sh",
+      "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+      "timeout",
+      "--kill-after=5",
+      "90",
+      "bash",
+      "/work/agent_ergonomics_audit/audit/regression_tests/R020__read_only_batches.test.sh"
+    ],
+    "environment_overrides": {
+      "MAKEM_UNDER_TEST": "/work/makem.sh",
+      "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+    },
+    "started_at": "2026-10-08T21:30:51.059328+00:00",
+    "duration_seconds": 0.466,
+    "exit_code": 0,
+    "timed_out": false,
+    "timeout_seconds": 90,
+    "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/interim-9ac13b2/R020-current.log",
+    "log_sha256": "abe913685817a09e8b775255a714de417bd788d3533021fdbb9456d27b48986d",
+    "source": {
+      "revision": "9ac13b23032f40eccb9a627a824be45656292056",
+      "source_root": "/workspace/ogent",
+      "source_root_in_container": "/work",
+      "tracked_source_clean": true,
+      "verified_git_archive": false,
+      "source_fingerprint_sha256": "a9a380e1107c50b925cc58743a33b16bb8c16c134f13e0fdc39d5b7a097b32a1",
+      "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/interim-9ac13b2/current-source.json",
+      "manifest_sha256": "15f6a127d69024b2a2bcf0d4bc29fedc2d77d5361cb8f4eaa741f4d071057d97"
+    },
+    "selected_count": 7,
+    "completed_count": 7,
+    "executed_count": 7,
+    "skipped_count": 0,
+    "unexpected_count": 0,
+    "runs": [
+      {
+        "selected": 7,
+        "completed": 7,
+        "expected": 7,
+        "unexpected": 0,
+        "skipped": 0,
+        "results": [
+          {
+            "status": "passed",
+            "index": 1,
+            "selected_total": 7,
+            "name": "ogent-agent-execution-batch-composes-read-tools"
+          },
+          {
+            "status": "passed",
+            "index": 2,
+            "selected_total": 7,
+            "name": "ogent-agent-execution-batch-continues-or-stops"
+          },
+          {
+            "status": "passed",
+            "index": 3,
+            "selected_total": 7,
+            "name": "ogent-agent-execution-batch-freezes-calls-and-argument-strings"
+          },
+          {
+            "status": "passed",
+            "index": 4,
+            "selected_total": 7,
+            "name": "ogent-agent-execution-batch-freezes-canonical-alias-target"
+          },
+          {
+            "status": "passed",
+            "index": 5,
+            "selected_total": 7,
+            "name": "ogent-agent-execution-batch-freezes-nested-object-values"
+          },
+          {
+            "status": "passed",
+            "index": 6,
+            "selected_total": 7,
+            "name": "ogent-agent-execution-batch-inplace-effects-change"
+          },
+          {
+            "status": "passed",
+            "index": 7,
+            "selected_total": 7,
+            "name": "ogent-agent-execution-batch-preflight-prevents-unsafe-prefix"
+          }
+        ],
+        "summary": "Ran 7 tests, 7 results as expected, 0 unexpected"
+      }
+    ],
+    "unexecuted_selectors": [],
+    "evidence_errors": [],
+    "proven": true,
+    "runtime": {
+      "emacs_version": "GNU Emacs 30.2",
+      "process_test_rg": {
+        "path": "/tmp/ogent-test-rg",
+        "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+        "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+      }
+    }
+  }
+}

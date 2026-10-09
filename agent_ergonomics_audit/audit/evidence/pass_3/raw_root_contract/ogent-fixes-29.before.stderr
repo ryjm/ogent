@@ -1,0 +1,152 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing inline.el.gz...
+uncompressing inline.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 2 tests (2026-10-08 23:27:21+0000, selector `"^ogent-agent-execution-.*-raw-root-contract$"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-T5Q0wQ/tools-brXI2Q (retained)
+Test ogent-agent-execution-glob-raw-root-contract backtrace:
+uncompressing help-fns.el.gz...
+uncompressing help-fns.el.gz...done
+uncompressing radix-tree.el.gz...
+uncompressing radix-tree.el.gz...done
+uncompressing derived.el.gz...
+uncompressing derived.el.gz...done
+uncompressing cl-print.el.gz...
+uncompressing cl-print.el.gz...done
+  signal(ert-test-failed (((should (equal (plist-get result :status) "
+  ert-fail(((should (equal (plist-get result :status) "error")) :form 
+  (if (unwind-protect (setq value-388 (apply fn-386 args-387)) (setq f
+  (let (form-description-390) (if (unwind-protect (setq value-388 (app
+  (let ((value-388 'ert-form-evaluation-aborted-389)) (let (form-descr
+  (let* ((fn-386 #'equal) (args-387 (condition-case err (let ((signal-
+  (let ((result (ogent-agent-call tool arguments format))) (if (eq for
+  (let ((format (car tail))) (let ((result (ogent-agent-call tool argu
+  (while tail (let ((format (car tail))) (let ((result (ogent-agent-ca
+  (let ((tail '(plist json))) (while tail (let ((format (car tail))) (
+  (let* ((ogent-tools-project-root raw) (arguments (if explicit (appen
+  (let ((explicit (car tail))) (let* ((ogent-tools-project-root raw) (
+  (while tail (let ((explicit (car tail))) (let* ((ogent-tools-project
+  (let ((tail '(nil t))) (while tail (let ((explicit (car tail))) (let
+  (let ((state (car tail))) (if (eq state 'excluded) (progn (ogent-age
+  (while tail (let ((state (car tail))) (if (eq state 'excluded) (prog
+  (let ((tail '(empty excluded))) (while tail (let ((state (car tail))
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (raw (e
+  ogent-agent-execution-tests--raw-root-contract("files")
+  (closure (gptel--known-tools t) nil (ogent-agent-execution-tests--ra
+  ert--run-test-internal(#s(ert--test-execution-info :test ... :result
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (progn (or (progn (and (memq ... cl-
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-glob-raw-root-c
+  ert-run-or-rerun-test(#s(ert--stats :selector "^ogent-agent-e..." :t
+  ert-run-tests("^ogent-agent-execution-.*-raw-root-contract$" #f(comp
+  ert-run-tests-batch("^ogent-agent-execution-.*-raw-root-contract$")
+  ert-run-tests-batch-and-exit("^ogent-agent-execution-.*-raw-root-con
+  eval((ert-run-tests-batch-and-exit "^ogent-agent-execution-.*-raw-ro
+  command-line-1(("-L" "lisp" "-L" "lisp/ui" "-L" "test" "-L" "test/ui
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-glob-raw-root-contract condition:
+    (ert-test-failed
+     ((should
+       (equal
+	(plist-get result :status)
+	"error"))
+      :form
+      (equal "ok" "error")
+      :value nil :explanation
+      (arrays-of-different-length 2 5 "ok" "error" first-mismatch-at 0)))
+uncompressing vc-git.el.gz...
+uncompressing vc-git.el.gz...done
+uncompressing vc-dispatcher.el.gz...
+uncompressing vc-dispatcher.el.gz...done
+uncompressing vc.el.gz...
+uncompressing vc.el.gz...done
+uncompressing dired.el.gz...
+uncompressing dired.el.gz...done
+uncompressing dired-loaddefs.el.gz...
+uncompressing dired-loaddefs.el.gz...done
+uncompressing dnd.el.gz...
+uncompressing dnd.el.gz...done
+uncompressing desktop.el.gz...
+uncompressing desktop.el.gz...done
+uncompressing frameset.el.gz...
+uncompressing frameset.el.gz...done
+uncompressing vc-dir.el.gz...
+uncompressing vc-dir.el.gz...done
+uncompressing diff-mode.el.gz...
+uncompressing diff-mode.el.gz...done
+   FAILED  1/2  ogent-agent-execution-glob-raw-root-contract (0.001349 sec) at test/ogent-agent-execution-tests.el:195
+ogent-test: provisioned tools store at /tmp/ogent-test-store-T5Q0wQ/tools-TVK3gC (retained)
+Test ogent-agent-execution-process-raw-root-contract backtrace:
+  signal(ert-test-failed (((should (equal (plist-get result :status) "
+  ert-fail(((should (equal (plist-get result :status) "error")) :form 
+  (if (unwind-protect (setq value-388 (apply fn-386 args-387)) (setq f
+  (let (form-description-390) (if (unwind-protect (setq value-388 (app
+  (let ((value-388 'ert-form-evaluation-aborted-389)) (let (form-descr
+  (let* ((fn-386 #'equal) (args-387 (condition-case err (let ((signal-
+  (let ((result (ogent-agent-call tool arguments format))) (if (eq for
+  (let ((format (car tail))) (let ((result (ogent-agent-call tool argu
+  (while tail (let ((format (car tail))) (let ((result (ogent-agent-ca
+  (let ((tail '(plist json))) (while tail (let ((format (car tail))) (
+  (let* ((ogent-tools-project-root raw) (arguments (if explicit (appen
+  (let ((explicit (car tail))) (let* ((ogent-tools-project-root raw) (
+  (while tail (let ((explicit (car tail))) (let* ((ogent-tools-project
+  (let ((tail '(nil t))) (while tail (let ((explicit (car tail))) (let
+  (let ((state (car tail))) (if (eq state 'excluded) (progn (ogent-age
+  (while tail (let ((state (car tail))) (if (eq state 'excluded) (prog
+  (let ((tail '(empty excluded))) (while tail (let ((state (car tail))
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (raw (e
+  ogent-agent-execution-tests--raw-root-contract("search")
+  (closure (gptel--known-tools t) nil (ogent-agent-execution-tests--ra
+  ert--run-test-internal(#s(ert--test-execution-info :test ... :result
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (progn (or (progn (and (memq ... cl-
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-process-raw-roo
+  ert-run-or-rerun-test(#s(ert--stats :selector "^ogent-agent-e..." :t
+  ert-run-tests("^ogent-agent-execution-.*-raw-root-contract$" #f(comp
+  ert-run-tests-batch("^ogent-agent-execution-.*-raw-root-contract$")
+  ert-run-tests-batch-and-exit("^ogent-agent-execution-.*-raw-root-con
+  eval((ert-run-tests-batch-and-exit "^ogent-agent-execution-.*-raw-ro
+  command-line-1(("-L" "lisp" "-L" "lisp/ui" "-L" "test" "-L" "test/ui
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-process-raw-root-contract condition:
+    (ert-test-failed
+     ((should
+       (equal
+	(plist-get result :status)
+	"error"))
+      :form
+      (equal "ok" "error")
+      :value nil :explanation
+      (arrays-of-different-length 2 5 "ok" "error" first-mismatch-at 0)))
+   FAILED  2/2  ogent-agent-execution-process-raw-root-contract (0.058813 sec) at test/ogent-agent-execution-tests.el:199
+
+Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 23:27:24+0000, 3.328126 sec)
+
+2 unexpected results:
+   FAILED  ogent-agent-execution-glob-raw-root-contract
+   FAILED  ogent-agent-execution-process-raw-root-contract
+

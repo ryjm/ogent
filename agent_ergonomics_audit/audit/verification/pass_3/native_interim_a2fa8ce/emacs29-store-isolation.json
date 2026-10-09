@@ -1,0 +1,34 @@
+{
+  "check": "emacs29-store-isolation",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "-e",
+    "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+    "ogent-fixes-29",
+    "make",
+    "test-isolation"
+  ],
+  "exit_code": 0,
+  "source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+  "started_at": "2026-10-08T22:51:23.006371+00:00",
+  "completed_at": "2026-10-08T22:51:53.137174+00:00",
+  "summary": [
+    "STORE-INTEGRITY: clean - no real-store drift across the suite run",
+    "Ran 3231 tests, 3212 results as expected, 0 unexpected, 19 skipped (2026-10-08 22:51:53+0000, 26.430479 sec)"
+  ],
+  "stdout": "audit/verification/pass_3/native_interim_a2fa8ce/emacs29-store-isolation.stdout.log.gz",
+  "stderr": "audit/verification/pass_3/native_interim_a2fa8ce/emacs29-store-isolation.stderr.log.gz",
+  "transcript_hashes": {
+    "stdout": {
+      "raw_sha256": "190411ac451a767c1688001800d29419372efe364e5cbe32b7347a86480e9a5c",
+      "gzip_sha256": "f86f3a25401a54578293f8c2d741aeaccd5681c99599705edca1b7a6b5427286"
+    },
+    "stderr": {
+      "raw_sha256": "a4abd69601e2ac3c4cdc88eb60562c816bcad34fb78dd1bee1da1006740928d8",
+      "gzip_sha256": "7960a2c3a9d6cb86925f6449f2424345fc35ab163d611ec4e42289844cbf7685"
+    }
+  }
+}

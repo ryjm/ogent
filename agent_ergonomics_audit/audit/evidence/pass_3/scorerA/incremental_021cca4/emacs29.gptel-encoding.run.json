@@ -1,0 +1,26 @@
+{
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "-e",
+    "REFRESH_ELPA=/tmp/ogent-ergonomics-elpa",
+    "-e",
+    "NO_COLOR=1",
+    "-e",
+    "CI=true",
+    "-e",
+    "TERM=dumb",
+    "ogent-fixes-29",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-l",
+    "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/gptel-encoding.el"
+  ],
+  "exit_code": 0,
+  "utc": "2026-10-08T23:12:28.575681+00:00",
+  "source_sha_at_launch": "021cca4d28e7b20fba3617c57522cc5014f640f9",
+  "probe_sha256": "bed25f86bee15355cee45f6983089742e791d00f4783bcd55a1448845727aa38"
+}

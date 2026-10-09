@@ -1,0 +1,27 @@
+ M agent_ergonomics_audit/.gitignore
+ M agent_ergonomics_audit/audit/agent_surfaces.jsonl
+ M agent_ergonomics_audit/audit/manifest.json
+ M agent_ergonomics_audit/audit/scorecard.md
+ M agent_ergonomics_audit/tools/verify_native.py
+?? agent_ergonomics_audit/audit/agent_simulations/post_pass_3/
+?? agent_ergonomics_audit/audit/ambition_bar_pass_3.md
+?? agent_ergonomics_audit/audit/applied_changes_pass_3.jsonl
+?? agent_ergonomics_audit/audit/evidence/pass_3/
+?? agent_ergonomics_audit/audit/final_handoff_pass_3.md
+?? agent_ergonomics_audit/audit/heatmap_pass_4.svg
+?? agent_ergonomics_audit/audit/new_api_scorecard_pass_4.md
+?? agent_ergonomics_audit/audit/new_api_surfaces_pass_4.jsonl
+?? agent_ergonomics_audit/audit/phase7_pass_3_review_initial.md
+?? agent_ergonomics_audit/audit/phase7_pass_3_review_round2.md
+?? agent_ergonomics_audit/audit/phase7_pass_3_review_round3.md
+?? agent_ergonomics_audit/audit/phase7_pass_3_review_round4.md
+?? agent_ergonomics_audit/audit/phase7_pass_3_review_round5.md
+?? agent_ergonomics_audit/audit/playbook_pass_3.md
+?? agent_ergonomics_audit/audit/recommendation_hunks_pass_3.md
+?? agent_ergonomics_audit/audit/recommendations_pass_3.jsonl
+?? agent_ergonomics_audit/audit/scorecard_pass_3.md
+?? agent_ergonomics_audit/audit/scorecard_pass_4.md
+?? agent_ergonomics_audit/audit/uplift_diff_pass_3.md
+?? agent_ergonomics_audit/audit/verification/pass_3/
+?? agent_ergonomics_audit/tools/reconcile_pass3_scores.py
+?? agent_ergonomics_audit/tools/verify_pass3_regressions.py

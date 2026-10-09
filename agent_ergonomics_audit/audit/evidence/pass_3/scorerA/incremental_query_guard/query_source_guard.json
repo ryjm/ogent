@@ -1,0 +1,14 @@
+{
+  "previous_source_sha": "b7b966c6ac5acc15d15c8ea0c70d81653072cae9",
+  "current_source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+  "path": "lisp/ogent-tool-process.el",
+  "previous_sha256": "891b9f9ad11e79817f7bd50992b5769146861a6336218e0663258e5c2b896881",
+  "current_sha256": "cf6b84a41a70827f7d283efc91f9c72683814a748f54a443c451eba221e21850",
+  "only_change_two_additive_unicode_guards": true,
+  "inserted_forms": [
+    "(ogent-tool-results--unicode pattern)",
+    "(when glob-filter (ogent-tool-results--unicode glob-filter))"
+  ],
+  "previous_rest_of_module_byte_identical": true,
+  "reuse_basis": "Valid ASCII query arguments in the old b7 root probes pass the additive guards; all previous path/root validation and target-classification bytes remain identical. Old results retain b7 execution identity."
+}

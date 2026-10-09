@@ -1,0 +1,228 @@
+diff --git a/lisp/ogent-doctor.el b/lisp/ogent-doctor.el
+index 32547fd..4daf324 100644
+--- a/lisp/ogent-doctor.el
++++ b/lisp/ogent-doctor.el
+@@ -19,6 +19,7 @@
+ (require 'org)
+ (require 'ogent-gptel)
+ (require 'ogent-models)
++(require 'ogent-tool-contract)
+ 
+ (declare-function gptel-request "ext:gptel-request")
+ (declare-function ogent-codex-oauth--auth-file "ogent-codex-oauth")
+@@ -724,8 +725,9 @@ Return 0 for ok/info, 1 for warnings, and 2 for errors."
+ (defun ogent-doctor-format-json (results)
+   "Return a JSON report string for doctor RESULTS.
+ Keep check order stable and encode missing remediation as JSON null."
+-  (concat (json-serialize (ogent-doctor-data results) :null-object :json-null)
+-          "\n"))
++  (ogent-tool-contract--json-text
++   (concat (json-serialize (ogent-doctor-data results) :null-object :json-null)
++           "\n")))
+ 
+ ;;; Commands
+ 
+diff --git a/lisp/ogent-tool-contract.el b/lisp/ogent-tool-contract.el
+index 0d8307f..a8d67e9 100644
+--- a/lisp/ogent-tool-contract.el
++++ b/lisp/ogent-tool-contract.el
+@@ -15,6 +15,12 @@
+   "Argument contracts for ogent tools."
+   :group 'ogent)
+ 
++(defun ogent-tool-contract--json-text (text)
++  "Return serialized JSON TEXT as Unicode characters for nested transport.
++Decode UTF-8 serializer bytes when Emacs returns an unibyte string."
++  (if (multibyte-string-p text) text
++    (decode-coding-string text 'utf-8 t)))
++
+ (defun ogent-tool-contract-name-hint (name names)
+   "Return a corrective lookup hint for unknown NAME among NAMES."
+   (let* ((input (format "%s" name))
+diff --git a/lisp/ogent-tool-execution.el b/lisp/ogent-tool-execution.el
+index e0c1191..970f1af 100644
+--- a/lisp/ogent-tool-execution.el
++++ b/lisp/ogent-tool-execution.el
+@@ -73,14 +73,15 @@ Include a typed error with CODE and MESSAGE when supplied."
+   "Serialize result DATA, returning a typed error for unsupported values.
+ Preserve callback delivery even when an extension returns non-JSON objects
+ or raw filename bytes that cannot be represented as Unicode."
+-  (condition-case nil
+-      (concat (json-serialize data :null-object :json-null :false-object :json-false) "\n")
+-    (error
+-     (concat (json-serialize
+-              (ogent-tool-execution-result
+-               "serialization" "error" nil "unsupported_output"
+-               "Result cannot be represented as JSON; use Unicode filenames and JSON-compatible tool values")
+-              :null-object :json-null :false-object :json-false) "\n"))))
++  (ogent-tool-contract--json-text
++   (condition-case nil
++       (concat (json-serialize data :null-object :json-null :false-object :json-false) "\n")
++     (error
++      (concat (json-serialize
++               (ogent-tool-execution-result
++                "serialization" "error" nil "unsupported_output"
++                "Result cannot be represented as JSON; use Unicode filenames and JSON-compatible tool values")
++               :null-object :json-null :false-object :json-false) "\n")))))
+ 
+ (defun ogent-tool-execution-process-error (data)
+   "Return the stable failure code for process DATA, or nil on success."
+diff --git a/lisp/ogent-tool-results.el b/lisp/ogent-tool-results.el
+index b97261c..62fea29 100644
+--- a/lisp/ogent-tool-results.el
++++ b/lisp/ogent-tool-results.el
+@@ -8,6 +8,7 @@
+ 
+ (require 'json)
+ (require 'ogent-tools)
++(require 'ogent-tool-contract)
+ 
+ (define-error 'ogent-tool-results-output-error "Unsupported file output" 'user-error)
+ 
+@@ -21,8 +22,9 @@
+   "Return DATA as a plist or serialize it according to FORMAT."
+   (pcase format
+     ('plist data)
+-    ('json (concat (json-serialize data :null-object :json-null
+-                                   :false-object :json-false) "\n"))
++    ('json (ogent-tool-contract--json-text
++            (concat (json-serialize data :null-object :json-null
++                                    :false-object :json-false) "\n")))
+     (_ (user-error "Use (quote plist) or (quote json) for structured tool results"))))
+ 
+ (defun ogent-tool-results-read (file-path &optional offset limit column)
+@@ -97,7 +99,7 @@ must not exceed 200.  Report the total count and a snapshot of file metadata."
+     (unless (and (integerp limit) (> limit 0) (<= limit 200))
+       (user-error "Use an integer limit between 1 and 200"))
+     (let* ((root (ogent-tools--resolve-path (or path ".")))
+-           (files (sort (ogent-tools--glob-files pattern root) #'string<))
++           (files (sort (ogent-tools--glob-files pattern root #'ogent-tool-results--unicode) #'string<))
+            (metadata (mapcar
+                       (lambda (file)
+                         (ogent-tool-results--unicode file)
+diff --git a/lisp/ogent-tools.el b/lisp/ogent-tools.el
+index e8d8c33..a17c2e5 100644
+--- a/lisp/ogent-tools.el
++++ b/lisp/ogent-tools.el
+@@ -359,8 +359,9 @@ When FORMAT is `plist' or `json', return structured lines and continuations."
+                  (puthash key value memo))))))
+       (match 0 0))))
+ 
+-(defun ogent-tools--glob-files (pattern path)
+-  "Return all regular files matching PATTERN under PATH, newest first."
++(defun ogent-tools--glob-files (pattern path &optional validate-path)
++  "Return all regular files matching PATTERN under PATH, newest first.
++Call VALIDATE-PATH on each matching path before filtering regular files."
+   (let* ((case-fold-search nil)
+          (dir (if path
+                   (ogent-tools--resolve-path path)
+@@ -383,6 +384,8 @@ When FORMAT is `plist' or `json', return structured lines and continuations."
+                  (lambda (file) (ogent-tools--glob-match-p relative-pattern (file-relative-name file base)))
+                  (directory-files-recursively base ".")))
+             (file-expand-wildcards pattern t)))
++    (when validate-path
++      (dolist (file files) (funcall validate-path file)))
+     (setq files (seq-filter #'file-regular-p files))
+     ;; Sort by mtime, newest first
+     (setq files
+diff --git a/test/offline/workflows.el.in b/test/offline/workflows.el.in
+index d1f4b91..709053e 100644
+--- a/test/offline/workflows.el.in
++++ b/test/offline/workflows.el.in
+@@ -37,6 +37,35 @@
+             (should (equal (plist-get (ogent-agent-next result) :status) "ok"))))
+       (delete-directory root t))))
+ 
++(ert-deftest ogent-offline-structured-unicode-tool-transport ()
++  "Embed Unicode tool results through the actual gptel request serializer."
++  (let* ((root (make-temp-file "ogent-offline-unicode-" t))
++         (file (expand-file-name "café.txt" root))
++         (ogent-tools-project-root root) (ogent-ledger-enabled nil)
++         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
++         (ogent-tools-result-format 'json)
++         (ogent--tools-registered nil) (ogent--tool-specs-registered nil)
++         (ogent--tool-formats-registered nil) (gptel--known-tools nil)
++         (backend (ogent-offline--backend 'chat)))
++    (unwind-protect
++        (progn
++          (with-temp-file file (insert "alpha λ 😀\n"))
++          (let* ((tool (ogent-tool-get "read_file"))
++                 (result (funcall (gptel-tool-function tool) file 1 1))
++                 (call (list :id "unicode-call" :name "read-file" :args (list :file_path file)))
++                 ;; Keep a second call pending so processing cannot advance HTTP.
++                 (pending (list :id "unicode-pending" :name "read-file"))
++                 (fsm (gptel-make-fsm :info (list :backend backend :tool-use (list call pending)))))
++            (gptel--process-tool-call fsm tool call result)
++            (let* ((messages (gptel--parse-tool-results backend (list call)))
++                   (request (gptel--json-encode (list :messages (vconcat messages))))
++                   (parsed (json-parse-string request :object-type 'plist))
++                   (content (plist-get (aref (plist-get parsed :messages) 0) :content))
++                   (data (plist-get (json-parse-string content :object-type 'plist) :data)))
++              (should (equal content result))
++              (should (equal (plist-get data :content) "alpha λ 😀")))))
++      (delete-directory root t))))
++
+ (defun ogent-offline--port ()
+   "Return the running loopback fixture port."
+   (with-temp-buffer
+diff --git a/test/ogent-agent-execution-tests.el b/test/ogent-agent-execution-tests.el
+index 547fbed..bdedf22 100644
+--- a/test/ogent-agent-execution-tests.el
++++ b/test/ogent-agent-execution-tests.el
+@@ -103,6 +103,56 @@
+     (should (equal (ogent-tools--glob-files "**/foo/*.el" root) (list direct)))
+     (should-not (ogent-tools--glob-match-p "**/foo/[ -~]*.el" "foo/deep/nested.el"))))
+ 
++(ert-deftest ogent-agent-execution-glob-raw-filenames-error-before-filtering ()
++  "Reject matched raw filename bytes instead of silently omitting files."
++  (let* ((root (ogent-test--provision-store-directory 'tools))
++         (raw (concat root "/" (unibyte-string 255) ".txt"))
++         (valid (ogent-agent-execution-tests--file root "λ.el" "valid"))
++         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
++         (ogent-ledger-enabled nil))
++    (with-temp-file raw (insert "contents"))
++    (should (file-regular-p raw))
++    (dolist (pattern '("*.txt" "**/*.txt"))
++      (dolist (format '(plist json))
++        (let ((result (ogent-agent-call "files" (list :pattern pattern :path root) format)))
++          (when (eq format 'json)
++            (setq result (json-parse-string result :object-type 'plist)))
++          (should (equal (plist-get result :status) "error"))
++          (should (equal (plist-get (plist-get result :error) :code) "unsupported_output"))))
++      (let ((callbacks 0) result)
++        (ogent-agent-call-async
++         "files" (list :pattern pattern :path root)
++         (lambda (data) (cl-incf callbacks) (setq result data)) 'json)
++        (should (= callbacks 1))
++        (should (equal (plist-get (plist-get (json-parse-string result :object-type 'plist)
++                                             :error) :code) "unsupported_output"))))
++    (dolist (pattern '("*.el" "**/*.el"))
++      (let ((data (plist-get (ogent-agent-call "files" (list :pattern pattern :path root)) :data)))
++        (should (= (plist-get data :total_files) 1))
++        (should (equal (plist-get (aref (plist-get data :files) 0) :path) valid))))))
++
++(ert-deftest ogent-agent-execution-model-json-unicode-transport ()
++  "Preserve Unicode JSON text when embedding tool results in requests."
++  (let* ((root (ogent-test--provision-store-directory 'tools))
++         (text "alpha λ 😀")
++         (file (ogent-agent-execution-tests--file root "café.txt" text))
++         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
++         (ogent-ledger-enabled nil)
++         (results
++          (list (ogent-tool--read-file file 1 1 'json)
++                (ogent-agent-call "read" (list :file_path file) 'json)
++                (funcall (ogent-tool-execution-wrapper (ogent-tool-spec-get 'read-file) 'json)
++                         file 1 1)
++                (ogent-doctor-format-json
++                 (list (list :id 'unicode :label "Unicode" :category 'environment
++                             :status 'ok :detail text))))))
++    (dolist (result results)
++      (should (multibyte-string-p result))
++      (should (string-match-p (regexp-quote text) result))
++      (let* ((request (json-serialize (list :content result)))
++             (parsed (json-parse-string request :object-type 'plist)))
++        (should (equal (plist-get parsed :content) result))))))
++
+ (ert-deftest ogent-agent-execution-next-freezes-path-and-follows-json ()
+   "Continuation calls retain absolute targets when the working root changes."
+   (let* ((root (ogent-test--provision-store-directory 'tools))

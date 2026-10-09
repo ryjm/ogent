@@ -1,0 +1,119 @@
+(:probe "runtime-source-identities" :value (:emacs "30.2" :gptel "/tmp/ogent-fixdeps/30.2/elpa/gptel-20261007.432/gptel-request.el" :helper "/work/test/ogent-test-helper.el" :write "/work/lisp/ogent-tools.el" :edit "/work/lisp/ogent-tools.el" :get "/work/lisp/ogent-models.el" :wrapper "/work/lisp/ogent-tool-execution.el" :ui "/work/lisp/ui/ogent-ui-toolcalls.el"))
+(:probe "actual-in-tool-discovery" :value (:contract_version "1" :tools ("bash" "edit-file" "glob" "grep" "read-file" "write-file") :result_contract (:tool_results "ogent-agent-call returns versioned status/data/error/next envelopes; legacy functions default to text" :schema "(ogent-agent-schema 'json)" :continuation "(ogent-agent-next RESULT) follows the next page and guards snapshots" :batch "ogent-agent-batch accepts up to 20 declared read-only calls" :async_sdk "ogent-agent-call-async returns a process and invokes one terminal callback" :async_events ["stdout" "stderr" "done" "error"] :doctor_exit_codes (:ok 0 :warning 1 :error 2)) :guide "ogent agent guide (contract 1)
+Load ogent normally, then inspect (ogent-agent-capabilities 'json).
+This reads the live registry; an empty tools array means no tools are installed.
+(ogent-tools-install-defaults) explicitly installs built-in specs if wanted.
+Use canonical hyphen names or registered underscore aliases; typos get hints, never execution.
+Use (ogent-agent-describe \"read\" 'json) for exact call_arguments and examples.
+Call (ogent-agent-call \"read\" '(:file_path \"README.org\" :limit 40) 'json).
+Named calls reject unknown/duplicate keys before approval.
+Native boolean false is nil or :json-false; zero and nested objects are preserved.
+MCP calls use :json-false for explicit false; optional nil means omit the argument.
+Named calls return contract_version 1, tool, status, data, error and next.
+Status ok means success, even for empty files or no matches; error includes code/message/recovery.
+Legacy ogent-tool-- functions still default to text; optional plist/json selects structured data.
+Read data: lines[number,column,text,partial], content, ends_with_newline, total_lines, snapshot.
+Glob data: files[path,size,modified], total_files and snapshot; stable path ordering.
+Search data: matches[path,line,text,context_before,context_after,truncated], total_matches and snapshot.
+Search text can be truncated while retaining every returned match's path and line.
+Read offsets/columns start at 1; search/glob offsets start at 0. Follow (ogent-agent-next RESULT).
+Continuations freeze absolute targets and refuse changed snapshots. Do not combine different snapshots.
+A long read line continues at its exact column, retaining all characters over successive pages.
+Search pages cap at 200 matches and context at 20 lines; GNU fallback uses ERE syntax.
+(ogent-agent-batch '[(:tool \"files\" :args (:pattern \"**/*.el\")) (:tool \"read\" :args (:file_path \"README.org\"))]) batches reads only.
+(ogent-agent-call-async \"shell\" '(:command \"pwd\") #'YOUR-CALLBACK) returns a process with one terminal result.
+Cancel that process with ogent-tool-process-cancel; timeout/cancel retains partial output.
+(ogent-agent-schema 'json) exports the result envelope JSON Schema.
+Read: (ogent-tool--read-file \"/path/file\" 1 200); follow the exact next offset in its footer.
+Search: (ogent-tool--glob \"**/*.el\" \"/path/project\") includes every depth.
+Grep: (ogent-tool--grep \"-needle\" \"/path/project\"); no matches is success, invalid regex is an error.
+Edit: old_string must be nonempty and unique; set replace_all to t only for intentional repeated replacement.
+Read-only tools need no confirmation by default. Writes and shell execution require approval.
+Programmatic calls never prompt or grant approval: approval_required directs you to the user review flow.
+Direct ogent-tool-- functions are low-level APIs; use registered execution wrappers for approval enforcement.
+Shell: use a positive timeout in seconds and an existing working_directory.
+Shell stdout/stderr may be truncated; the final exit code is preserved.
+Structured shell data has stdout, stderr, exit_code, signal, timed_out, cancelled and truncated.
+Nonzero exits have status error; inspect retained data. encoding_loss marks UTF-8 replacements.
+Local health: (ogent-agent-triage 'json), no provider requests or MCP handshakes.
+Batch health: (ogent-doctor-batch nil 'json), exit 0=ok/info, 1=warning, 2=error.
+Check readiness offline: make test; make test-isolation; make offline-test with OGENT_ELPA_DIR.
+Build/test reports: make test format=json; make lint format=json. Diagnostics stay on stderr.
+Discover actual build tasks and exits: ./makem.sh --capabilities --json.
+"))
+(:probe "raw-write-first-and-repeat" :value (:first "Wrote 11 characters to /tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt" :second "Wrote 11 characters to /tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt" :same-bytes t))
+(:probe "raw-write-overwrites-without-approval" :value "alpha beta")
+(:probe "raw-write-invalid-path" :signal user-error :message "Invalid write_file file_path; use a non-empty file path string")
+(:probe "raw-write-invalid-content" :signal user-error :message "Invalid write_file content; use text or an empty string")
+(:probe "raw-edit-first" :value "Replaced 1 occurrence(s) in /tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt")
+(:probe "raw-edit-not-found" :signal user-error :message "Old_string not found in file: /tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt; read_file and copy exact old_string context")
+(:probe "raw-edit-ambiguous" :signal user-error :message "Ambiguous edit_file old_string matches 2 occurrences in /tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt; include unique surrounding context or explicitly set replace_all true")
+(:probe "raw-edit-ambiguity-preserved-content" :value "repeat repeat")
+(:probe "raw-edit-invalid-boolean" :signal user-error :message "edit_file replace_all must be a boolean; use true or false")
+(:probe "raw-edit-repeat-identical-initial-content" :value (:first "Replaced 2 occurrence(s) in /tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt" :second "Replaced 2 occurrence(s) in /tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt" :same-bytes t))
+(:probe "raw-helper-method-aliases" :value ((ogent-tool--write-file . t) (ogent-tool--write_file) (ogent-tool--write) (ogent-tool--edit-file . t) (ogent-tool--edit_file) (ogent-tool--edit)))
+(:probe "registry-first-symbol-string-underscore-alias-typo" :value (:actual-object t :symbol-and-string-same t :underscore-same t :read-alias-same t :cat-alias-same t :typo nil :unknown nil))
+(:probe "sdk-docstrings" :value ((ogent-tool--write-file . "Write CONTENT to FILE-PATH, overwriting if exists.") (ogent-tool--edit-file . "Replace OLD-STRING with NEW-STRING in FILE-PATH.
+If REPLACE-ALL is non-nil, replace all occurrences.") (ogent-tool-get . "Return the gptel tool object for NAME (symbol or string), or nil.") (ogent-tool-execution-wrapper . "Return a gptel function enforcing policy and ledger recording for SPEC.
+Adapt gptel's callback-first convention to ogent's callback-last async specs.
+Reject stale tool objects after registry removal or schema replacement.
+Capture RESULT-FORMAT, defaulting to `ogent-tools-result-format'.")))
+(:probe "raw-read-first-repeat-and-pagination" :value (:first "     1	alpha
+
+[More lines available. Next call: read_file(file_path=\"/tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt\", offset=2, limit=1)]" :second "     1	alpha
+
+[More lines available. Next call: read_file(file_path=\"/tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt\", offset=2, limit=1)]" :same-bytes t))
+(:probe "raw-read-invalid-offset" :signal user-error :message "Invalid read_file offset; use a positive line number, such as offset=1")
+(:probe "raw-read-method-aliases" :value ((ogent-tool--read-file . t) (ogent-tool--read_file) (ogent-tool--read)))
+(:probe "raw-glob-first-and-repeat" :value (:first "/tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt" :second "/tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt" :same-bytes t))
+(:probe "raw-glob-invalid-path" :signal user-error :message "Invalid glob path: /tmp/ogent-test-store-GEbK5R/tools-qlcUgr/missing is not a directory; set path to an existing directory")
+(:probe "raw-grep-first-and-repeat" :value (:first "1:alpha
+
+
+[1 result lines]" :second "1:alpha
+
+
+[1 result lines]" :same-bytes t))
+(:probe "raw-grep-invalid-regex" :signal user-error :message "grep failed (exit 2): grep: Invalid regular expression. Check pattern syntax and path; retry grep with a valid pattern, such as needle")
+(:probe "read-side-sdk-docstrings" :value ((ogent-tool--read-file . "Return a numbered page of text from FILE-PATH.
+OFFSET is the starting line number (1-indexed, default 1).
+LIMIT is the max lines to read (default `ogent-tools-max-file-lines').
+Name the next offset when more lines remain; mark truncated long lines.
+When FORMAT is `plist' or `json', return structured lines and continuations.") (ogent-tool--glob . "Find files matching glob PATTERN under PATH, defaulting to project root.
+Return up to 100 paths, newest first, with an explicit truncation notice.
+When FORMAT is `plist' or `json', return a page sorted by path, starting at
+zero-based OFFSET and containing at most LIMIT files (default 100).") (ogent-tool--grep . "Search for PATTERN in files with streaming progress.
+PATH is file or directory to search (default project root).
+GLOB-FILTER limits to matching files (e.g., \"*.el\").
+CONTEXT-LINES shows N lines before/after matches.
+Output is streamed incrementally via `ogent-tools-stream-callback'.
+When FORMAT is `plist' or `json', return match objects with zero-based OFFSET
+and page LIMIT, including exact paths, positions, context and counts.")))
+(:probe "raw-read-json-repeat" :value (:first "{\"path\":\"/tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt\",\"snapshot\":\"e49c81e2d2f84e259d40e2fb8192f3bcd198b355184845d76d8f58807d0d78ee\",\"total_lines\":2,\"offset\":1,\"column\":1,\"limit\":1,\"lines\":[{\"number\":1,\"column\":1,\"text\":\"alpha\",\"partial\":false}],\"content\":\"alpha\",\"ends_with_newline\":true,\"has_more\":true,\"next_offset\":2,\"next_column\":1}
+" :second "{\"path\":\"/tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt\",\"snapshot\":\"e49c81e2d2f84e259d40e2fb8192f3bcd198b355184845d76d8f58807d0d78ee\",\"total_lines\":2,\"offset\":1,\"column\":1,\"limit\":1,\"lines\":[{\"number\":1,\"column\":1,\"text\":\"alpha\",\"partial\":false}],\"content\":\"alpha\",\"ends_with_newline\":true,\"has_more\":true,\"next_offset\":2,\"next_column\":1}
+" :same-bytes t))
+(:probe "raw-glob-json-repeat" :value (:first "{\"path\":\"/tmp/ogent-test-store-GEbK5R/tools-qlcUgr/\",\"pattern\":\"*.txt\",\"offset\":0,\"limit\":1,\"files\":[{\"path\":\"/tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt\",\"size\":11,\"modified\":\"(27336 6700 168532 621000)\"}],\"total_files\":1,\"snapshot\":\"c7f0546d884dc51086ebe7f42264b8efd850cd749c150d189fac7950c5a00b9e\",\"has_more\":false,\"next_offset\":null}
+" :second "{\"path\":\"/tmp/ogent-test-store-GEbK5R/tools-qlcUgr/\",\"pattern\":\"*.txt\",\"offset\":0,\"limit\":1,\"files\":[{\"path\":\"/tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt\",\"size\":11,\"modified\":\"(27336 6700 168532 621000)\"}],\"total_files\":1,\"snapshot\":\"c7f0546d884dc51086ebe7f42264b8efd850cd749c150d189fac7950c5a00b9e\",\"has_more\":false,\"next_offset\":null}
+" :same-bytes t))
+(:probe "raw-grep-json-repeat" :value (:first "{\"path\":\"/tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt\",\"matches\":[{\"path\":\"/tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt\",\"line\":1,\"text\":\"alpha\",\"truncated\":false,\"context_before\":[],\"context_after\":[]}],\"offset\":0,\"limit\":1,\"total_matches\":1,\"has_more\":false,\"next_offset\":null,\"truncated\":false,\"encoding_loss\":false,\"snapshot\":\"438705a8e70168c15f57a912171ea309674df7c28f1ff47a07e55fcec63891c8\",\"engine\":\"gnu-grep-null\"}
+" :second "{\"path\":\"/tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt\",\"matches\":[{\"path\":\"/tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt\",\"line\":1,\"text\":\"alpha\",\"truncated\":false,\"context_before\":[],\"context_after\":[]}],\"offset\":0,\"limit\":1,\"total_matches\":1,\"has_more\":false,\"next_offset\":null,\"truncated\":false,\"encoding_loss\":false,\"snapshot\":\"438705a8e70168c15f57a912171ea309674df7c28f1ff47a07e55fcec63891c8\",\"engine\":\"gnu-grep-null\"}
+" :same-bytes t))
+(:probe "wrapper-first-and-repeat" :value (:format json :first "{\"contract_version\":\"1\",\"tool\":\"read-file\",\"status\":\"ok\",\"data\":{\"path\":\"/tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt\",\"snapshot\":\"e49c81e2d2f84e259d40e2fb8192f3bcd198b355184845d76d8f58807d0d78ee\",\"total_lines\":2,\"offset\":1,\"column\":1,\"limit\":2,\"lines\":[{\"number\":1,\"column\":1,\"text\":\"alpha\",\"partial\":false},{\"number\":2,\"column\":1,\"text\":\"beta\",\"partial\":false}],\"content\":\"alpha\\nbeta\",\"ends_with_newline\":true,\"has_more\":false,\"next_offset\":null,\"next_column\":null},\"error\":null,\"next\":[]}
+" :second "{\"contract_version\":\"1\",\"tool\":\"read-file\",\"status\":\"ok\",\"data\":{\"path\":\"/tmp/ogent-test-store-GEbK5R/tools-qlcUgr/score.txt\",\"snapshot\":\"e49c81e2d2f84e259d40e2fb8192f3bcd198b355184845d76d8f58807d0d78ee\",\"total_lines\":2,\"offset\":1,\"column\":1,\"limit\":2,\"lines\":[{\"number\":1,\"column\":1,\"text\":\"alpha\",\"partial\":false},{\"number\":2,\"column\":1,\"text\":\"beta\",\"partial\":false}],\"content\":\"alpha\\nbeta\",\"ends_with_newline\":true,\"has_more\":false,\"next_offset\":null,\"next_column\":null},\"error\":null,\"next\":[]}
+" :same-bytes t))
+(:probe "wrapper-wrong-order" :value "{\"contract_version\":\"1\",\"tool\":\"read-file\",\"status\":\"error\",\"data\":null,\"error\":{\"code\":\"invalid_arguments\",\"message\":\"read-file argument file_path requires string; provide file_path with that type\",\"recovery\":\"Call (ogent-agent-describe \\\"read-file\\\") for the declared arguments\"},\"next\":[]}
+")
+(:probe "wrapper-missing-required" :value "{\"contract_version\":\"1\",\"tool\":\"read-file\",\"status\":\"error\",\"data\":null,\"error\":{\"code\":\"invalid_arguments\",\"message\":\"read-file argument file_path requires string; provide file_path with that type\",\"recovery\":\"Call (ogent-agent-describe \\\"read-file\\\") for the declared arguments\"},\"next\":[]}
+")
+(:probe "wrapper-excess" :value "{\"contract_version\":\"1\",\"tool\":\"read-file\",\"status\":\"error\",\"data\":null,\"error\":{\"code\":\"invalid_arguments\",\"message\":\"read-file received 5 arguments but accepts 4; use its declared argument names\",\"recovery\":\"Call (ogent-agent-describe \\\"read-file\\\") for the declared arguments\"},\"next\":[]}
+")
+(:probe "wrapper-no-method-alias" :value (:arglist (spec &optional result-format) :typo-method-exists nil :alias-method-exists nil))
+(:probe "wrapper-stale" :value "{\"contract_version\":\"1\",\"tool\":\"read-file\",\"status\":\"error\",\"data\":null,\"error\":{\"code\":\"unavailable\",\"message\":\"Tool registry entry changed; rediscover before retrying\",\"recovery\":\"Inspect the error message and tool contract before retrying\"},\"next\":[]}
+")
+(:probe "wrapper-actual-policy-denial" :value (:result "{\"contract_version\":\"1\",\"tool\":\"write-file\",\"status\":\"denied\",\"data\":null,\"error\":{\"code\":\"denied\",\"message\":\"Current approval policy denies this tool; ask the user to review the decision\",\"recovery\":\"Use the normal user approval/review flow; do not retry with relaxed policy\"},\"next\":[]}
+" :file-content "alpha
+beta
+"))
+(:probe "wrapper-edit-review-keeps-file" :value (:result "Edit proposed for user review" :file-content "alpha
+beta
+"))

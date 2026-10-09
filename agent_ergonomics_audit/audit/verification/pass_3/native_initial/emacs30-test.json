@@ -1,0 +1,25 @@
+{
+  "check": "emacs30-test",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "ogent-fixes",
+    "make",
+    "test",
+    "sandbox=/tmp/ogent-fixdeps",
+    "format=json"
+  ],
+  "exit_code": 0,
+  "source_sha": "a820ac0dc03738e90b2a2dbec5efe64e875bc3f4",
+  "started_at": "2026-10-08T20:36:04.537058+00:00",
+  "completed_at": "2026-10-08T20:38:35.718665+00:00",
+  "summary": [
+    "Actual makem JSON: success; exit=0",
+    "ERT: {'total': 3185, 'expected': 3165, 'unexpected': 0, 'skipped': 20}"
+  ],
+  "stdout": "audit/verification/pass_3/native_initial/emacs30-test.stdout.log.gz",
+  "stderr": "audit/verification/pass_3/native_initial/emacs30-test.stderr.log.gz",
+  "note": "Initial integration check, before review corrections; not final source-freeze evidence."
+}

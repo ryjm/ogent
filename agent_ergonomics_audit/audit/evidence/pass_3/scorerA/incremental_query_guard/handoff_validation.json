@@ -1,0 +1,22 @@
+{
+  "target_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+  "current_vectors_verified": 59,
+  "all_numeric_vectors_unchanged": true,
+  "source_citations_verified": 219,
+  "retained_runtime_citations_verified": 353,
+  "B_baseline_hash_objects_unchanged": 184,
+  "T_baseline_hash_objects_unchanged": true,
+  "A_baseline_manifest_verified": 196,
+  "old_build_reports_reparsed": 27,
+  "new_build_commands": 0,
+  "fresh_successful_processes": 2,
+  "failed_harness_processes": 2,
+  "actual_process_attempts": 4,
+  "fresh_records": 20,
+  "behavior_records": 16,
+  "identity_guard_records": 4,
+  "reused_b7_records": 18,
+  "reused_ff4_records": 34,
+  "handoff_source_files": 194,
+  "source_handoff_all_match": true
+}

@@ -1,0 +1,116 @@
+{
+  "verdict": "CLEAN",
+  "frozen_head": "5d07d807bc85a093725db24e33996b4af690ec0f",
+  "baseline": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "round": 14,
+  "substantive_findings": 0,
+  "trivial_findings": 0,
+  "production_edits": 0,
+  "streak_clean_count": 1,
+  "guard_start": "2026-10-08T23:43:02.121802+00:00",
+  "guard_end": "2026-10-08T23:48:18.162099+00:00",
+  "tracked_hash_count": 241,
+  "preservation": {
+    "head": true,
+    "branch": true,
+    "hashes": true,
+    "staged_paths": true,
+    "unstaged_paths": true
+  },
+  "ert_totals": {
+    "selected": 54,
+    "expected": 54,
+    "unexpected": 0,
+    "skipped": 0
+  },
+  "records": {
+    "boundary30": {
+      "exit": 0,
+      "ert": {
+        "selected": 4,
+        "expected": 4,
+        "unexpected": 0,
+        "skipped": 0
+      },
+      "start": "2026-10-08T23:45:42.556551+00:00",
+      "end": "2026-10-08T23:45:46.364452+00:00"
+    },
+    "boundary29": {
+      "exit": 0,
+      "ert": {
+        "selected": 4,
+        "expected": 4,
+        "unexpected": 0,
+        "skipped": 0
+      },
+      "start": "2026-10-08T23:45:42.560976+00:00",
+      "end": "2026-10-08T23:45:46.816100+00:00"
+    },
+    "focused30": {
+      "exit": 0,
+      "ert": {
+        "selected": 18,
+        "expected": 18,
+        "unexpected": 0,
+        "skipped": 0
+      },
+      "start": "2026-10-08T23:46:24.984837+00:00",
+      "end": "2026-10-08T23:46:30.976386+00:00"
+    },
+    "focused29": {
+      "exit": 0,
+      "ert": {
+        "selected": 18,
+        "expected": 18,
+        "unexpected": 0,
+        "skipped": 0
+      },
+      "start": "2026-10-08T23:46:24.987853+00:00",
+      "end": "2026-10-08T23:46:31.379184+00:00"
+    },
+    "compiled30": {
+      "exit": 0,
+      "ert": {
+        "selected": 4,
+        "expected": 4,
+        "unexpected": 0,
+        "skipped": 0
+      },
+      "start": "2026-10-08T23:46:46.845427+00:00",
+      "end": "2026-10-08T23:46:51.887189+00:00"
+    },
+    "compiled29": {
+      "exit": 0,
+      "ert": {
+        "selected": 4,
+        "expected": 4,
+        "unexpected": 0,
+        "skipped": 0
+      },
+      "start": "2026-10-08T23:46:46.864134+00:00",
+      "end": "2026-10-08T23:46:52.067348+00:00"
+    },
+    "minimum30": {
+      "exit": 0,
+      "ert": {
+        "selected": 1,
+        "expected": 1,
+        "unexpected": 0,
+        "skipped": 0
+      },
+      "start": "2026-10-08T23:46:46.872470+00:00",
+      "end": "2026-10-08T23:46:51.001726+00:00"
+    },
+    "minimum29": {
+      "exit": 0,
+      "ert": {
+        "selected": 1,
+        "expected": 1,
+        "unexpected": 0,
+        "skipped": 0
+      },
+      "start": "2026-10-08T23:46:46.851728+00:00",
+      "end": "2026-10-08T23:46:51.394627+00:00"
+    }
+  }
+}

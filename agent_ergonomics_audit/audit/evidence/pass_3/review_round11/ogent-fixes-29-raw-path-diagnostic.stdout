@@ -1,0 +1,8 @@
+root multibyte=nil; file codepoints=(47 116 109 112 47 111 103 101 110 116 45 116 101 115 116 45 115 116 111 114 101 45 118 109 78 70 52 99 47 114 111 117 110 100 49 49 45 100 105 97 103 110 111 115 116 105 99 45 69 86 108 110 90 83 47 47 255 46 116 120 116)
+file-name-coding-system=nil; default-file-name-coding-system=utf-8-unix
+directory names=((46) (46 46) (4194303 46 116 120 116))
+glob paths=nil
+read="{\"contract_version\":\"1\",\"tool\":\"read-file\",\"status\":\"error\",\"data\":null,\"error\":{\"code\":\"unsupported_output\",\"message\":\"Unsupported file output: \\\"Use a Unicode filename and a supported text encoding; raw bytes cannot be represented in structured results\\\"\",\"recovery\":\"Inspect the error message and tool contract before retrying\"},\"next\":[]}
+"
+glob="{\"contract_version\":\"1\",\"tool\":\"glob\",\"status\":\"ok\",\"data\":{\"path\":\"/tmp/ogent-test-store-vmNF4c/round11-diagnostic-EVlnZS/\",\"pattern\":\"*.txt\",\"offset\":0,\"limit\":100,\"files\":[],\"total_files\":0,\"snapshot\":\"5da3a4c7f117944275b4c8629c4916403625d5a4a6573a01ecb03f0e9d2edbe6\",\"has_more\":false,\"next_offset\":null},\"error\":null,\"next\":[]}
+"

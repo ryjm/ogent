@@ -1,0 +1,38 @@
+{
+  "container": "ogent-fixes-29",
+  "argv": [
+    "docker",
+    "exec",
+    "ogent-fixes-29",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-L",
+    "/work/lisp",
+    "-L",
+    "/work/lisp/ui",
+    "-L",
+    "/work/test",
+    "-L",
+    "/work/test/ui",
+    "-l",
+    "/work/test/ogent-test-helper.el",
+    "-l",
+    "/work/lisp/ogent-tool-execution.el",
+    "-l",
+    "/work/lisp/ogent-tool-process.el",
+    "-l",
+    "/work/lisp/ui/ogent-ui-toolcalls.el",
+    "-l",
+    "/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round10/final/retained-ledger-probe.el"
+  ],
+  "started": "2026-10-08T22:48:49.587764+00:00",
+  "elapsed_seconds": 0.5344974879990332,
+  "exit": 0,
+  "counts": {
+    "selected": 1,
+    "expected": 1,
+    "unexpected": 0,
+    "skipped": 0
+  }
+}

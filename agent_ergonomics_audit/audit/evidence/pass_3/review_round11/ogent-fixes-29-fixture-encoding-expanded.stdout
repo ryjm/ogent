@@ -1,0 +1,7 @@
+root="/tmp/round11-encoding-WXwGf6"
+unibyte=(47 116 109 112 47 114 111 117 110 100 49 49 45 101 110 99 111 100 105 110 103 45 87 88 119 71 102 54 47 255 46 116 120 116) decoded=(47 116 109 112 47 114 111 117 110 100 49 49 45 101 110 99 111 100 105 110 103 45 87 88 119 71 102 54 47 4194303 46 116 120 116)
+coder=nil unibyte-exists=t decoded-exists=t unibyte-regular=t decoded-regular=nil decoded-encoded=(47 116 109 112 47 114 111 117 110 100 49 49 45 101 110 99 111 100 105 110 103 45 87 88 119 71 102 54 47 255 46 116 120 116)
+coder=utf-8-unix unibyte-exists=t decoded-exists=t unibyte-regular=t decoded-regular=nil decoded-encoded=(47 116 109 112 47 114 111 117 110 100 49 49 45 101 110 99 111 100 105 110 103 45 87 88 119 71 102 54 47 255 46 116 120 116)
+coder=raw-text-unix unibyte-exists=t decoded-exists=t unibyte-regular=t decoded-regular=nil decoded-encoded=(47 116 109 112 47 114 111 117 110 100 49 49 45 101 110 99 111 100 105 110 103 45 87 88 119 71 102 54 47 255 46 116 120 116)
+coder=no-conversion unibyte-exists=t decoded-exists=t unibyte-regular=t decoded-regular=nil decoded-encoded=(47 116 109 112 47 114 111 117 110 100 49 49 45 101 110 99 111 100 105 110 103 45 87 88 119 71 102 54 47 255 46 116 120 116)
+after decoded creation unibyte=t decoded=t names=(((47 116 109 112 47 114 111 117 110 100 49 49 45 101 110 99 111 100 105 110 103 45 87 88 119 71 102 54 47 4194303 46 116 120 116) nil))

@@ -1,0 +1,15 @@
+{
+  "command": [
+    "docker",
+    "exec",
+    "ogent-fixes",
+    "emacs",
+    "--version"
+  ],
+  "cwd": "/workspace/ogent",
+  "started_unix": 1791491802.341485,
+  "duration_seconds": 0.056249380111694336,
+  "exit_code": 0,
+  "stdout": "GNU Emacs 30.2\nCopyright (C) 2025 Free Software Foundation, Inc.\nGNU Emacs comes with ABSOLUTELY NO WARRANTY.\nYou may redistribute copies of GNU Emacs\nunder the terms of the GNU General Public License.\nFor more information about these matters, see the file named COPYING.\n",
+  "stderr": ""
+}

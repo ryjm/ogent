@@ -1,0 +1,992 @@
+{
+  "target_sha": "ff4e96c21d5fb3ffe79843fbce8392390d1c8bf4",
+  "judgment_source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+  "baseline_sha": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "method": "shared incremental validation of retained independent A/B/T readings; not new blind full readings",
+  "source_changed_files": [
+    "lisp/ogent-agent.el",
+    "lisp/ogent-doctor.el",
+    "lisp/ogent-tool-contract.el",
+    "lisp/ogent-tool-execution.el",
+    "lisp/ogent-tool-results.el",
+    "lisp/ogent-tools.el",
+    "test/offline/workflows.el.in",
+    "test/ogent-agent-execution-tests.el"
+  ],
+  "source_files_verified": 21,
+  "whole_blob_identical_files": 13,
+  "successful_probe_processes": 4,
+  "successful_records": 34,
+  "behavior_records": 28,
+  "identity_guard_records": 6,
+  "new_independent_full_readings": 0,
+  "new_build_commands": 0,
+  "runs": [
+    {
+      "label": "emacs29",
+      "family": "shared-sdk",
+      "target_sha": "ff4e96c21d5fb3ffe79843fbce8392390d1c8bf4",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "REFRESH_ELPA=/tmp/ogent-ergonomics-elpa",
+        "-e",
+        "NO_COLOR=1",
+        "-e",
+        "CI=true",
+        "-e",
+        "TERM=dumb",
+        "ogent-fixes-29",
+        "emacs",
+        "-Q",
+        "--batch",
+        "-l",
+        "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_final/probe.el"
+      ],
+      "started_utc": "2026-10-08T23:17:19.411554+00:00",
+      "finished_utc": "2026-10-08T23:17:23.396590+00:00",
+      "exit_code": 0,
+      "stdout": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_final/emacs29.stdout.jsonl",
+      "stderr": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_final/emacs29.stderr",
+      "probe_source": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_final/probe.el",
+      "probe_sha256": "de52e3b1f633290b483fc72c44fb8f20732a70ef150e3cf62b7eb2f3f4ff4b03",
+      "record_count": 16,
+      "behavior_records": 13,
+      "identity_guard_records": 3,
+      "stdout_sha256": "7fde8a73bbf5663d169a0e076cbd995e377c2f16bc92447d7953b5518de4dce7",
+      "stderr_sha256": "d01c865943cfe080520584fce9a8669900b1a51b3ad9cf661daa53d4358a1d14"
+    },
+    {
+      "label": "emacs29-gptel-encoding",
+      "family": "gptel-transport",
+      "target_sha": "ff4e96c21d5fb3ffe79843fbce8392390d1c8bf4",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "REFRESH_ELPA=/tmp/ogent-ergonomics-elpa",
+        "-e",
+        "NO_COLOR=1",
+        "-e",
+        "CI=true",
+        "-e",
+        "TERM=dumb",
+        "ogent-fixes-29",
+        "emacs",
+        "-Q",
+        "--batch",
+        "-l",
+        "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_final/gptel-encoding.el"
+      ],
+      "started_utc": "2026-10-08T23:17:19.411869+00:00",
+      "finished_utc": "2026-10-08T23:17:22.819965+00:00",
+      "exit_code": 0,
+      "stdout": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_final/emacs29-gptel-encoding.stdout.jsonl",
+      "stderr": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_final/emacs29-gptel-encoding.stderr",
+      "probe_source": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_final/gptel-encoding.el",
+      "probe_sha256": "bed25f86bee15355cee45f6983089742e791d00f4783bcd55a1448845727aa38",
+      "record_count": 1,
+      "behavior_records": 1,
+      "identity_guard_records": 0,
+      "stdout_sha256": "88f856849aa4887f49f7c07916b2db73f92cc7512b70c60688036a57f8a9b4a3",
+      "stderr_sha256": "11791c7670a9af2e1ac4dc40f693ebdc11e43f8161c6af33d8074497e143a97f"
+    },
+    {
+      "label": "emacs30",
+      "family": "shared-sdk",
+      "target_sha": "ff4e96c21d5fb3ffe79843fbce8392390d1c8bf4",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "REFRESH_ELPA=/tmp/ogent-fixdeps/30.2/elpa",
+        "-e",
+        "NO_COLOR=1",
+        "-e",
+        "CI=true",
+        "-e",
+        "TERM=dumb",
+        "ogent-fixes",
+        "emacs",
+        "-Q",
+        "--batch",
+        "-l",
+        "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_final/probe.el"
+      ],
+      "started_utc": "2026-10-08T23:17:19.412074+00:00",
+      "finished_utc": "2026-10-08T23:17:22.887827+00:00",
+      "exit_code": 0,
+      "stdout": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_final/emacs30.stdout.jsonl",
+      "stderr": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_final/emacs30.stderr",
+      "probe_source": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_final/probe.el",
+      "probe_sha256": "de52e3b1f633290b483fc72c44fb8f20732a70ef150e3cf62b7eb2f3f4ff4b03",
+      "record_count": 16,
+      "behavior_records": 13,
+      "identity_guard_records": 3,
+      "stdout_sha256": "6ce8c0d7b44044831eeacb258acfa4d0a77a57fec710457fdf0eafd82d43c05e",
+      "stderr_sha256": "e0affa564f48ef556818e8f2e0da3b88980acf290c160df27049a21c91a13444"
+    },
+    {
+      "label": "emacs30-gptel-encoding",
+      "family": "gptel-transport",
+      "target_sha": "ff4e96c21d5fb3ffe79843fbce8392390d1c8bf4",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "REFRESH_ELPA=/tmp/ogent-fixdeps/30.2/elpa",
+        "-e",
+        "NO_COLOR=1",
+        "-e",
+        "CI=true",
+        "-e",
+        "TERM=dumb",
+        "ogent-fixes",
+        "emacs",
+        "-Q",
+        "--batch",
+        "-l",
+        "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_final/gptel-encoding.el"
+      ],
+      "started_utc": "2026-10-08T23:17:19.412396+00:00",
+      "finished_utc": "2026-10-08T23:17:22.798469+00:00",
+      "exit_code": 0,
+      "stdout": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_final/emacs30-gptel-encoding.stdout.jsonl",
+      "stderr": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_final/emacs30-gptel-encoding.stderr",
+      "probe_source": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_final/gptel-encoding.el",
+      "probe_sha256": "bed25f86bee15355cee45f6983089742e791d00f4783bcd55a1448845727aa38",
+      "record_count": 1,
+      "behavior_records": 1,
+      "identity_guard_records": 0,
+      "stdout_sha256": "fc87e48f7403208d6945523ecffd964d54a336dc0c4ce7cffe75104c2099631f",
+      "stderr_sha256": "10b4e8f1c7ecabb6e3bd56285a9dd586aee5147e09d679998e2b9c66ae150dad"
+    }
+  ],
+  "outputs": [
+    {
+      "set": "scorerA",
+      "file": "audit/partial/scores_pass4_current_scorerA.jsonl",
+      "rows": 19,
+      "target_sha": "ff4e96c21d5fb3ffe79843fbce8392390d1c8bf4",
+      "judgment_source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+      "numeric_vectors_unchanged": true,
+      "sha256": "f02cbb36144ba98460f500a18e1f9bce05e313c10e7a7fc060b0cc892772757e"
+    },
+    {
+      "set": "scorerB",
+      "file": "audit/partial/scores_pass4_current_scorerB.jsonl",
+      "rows": 19,
+      "target_sha": "ff4e96c21d5fb3ffe79843fbce8392390d1c8bf4",
+      "judgment_source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+      "numeric_vectors_unchanged": true,
+      "sha256": "0a91834a874243ddc3135e92da5c7d0507bad1135591e22809f0af4f714a35a4"
+    },
+    {
+      "set": "scorerT",
+      "file": "audit/evidence/pass_3/tiebreaker/current_scores.jsonl",
+      "rows": 9,
+      "target_sha": "ff4e96c21d5fb3ffe79843fbce8392390d1c8bf4",
+      "judgment_source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+      "numeric_vectors_unchanged": true,
+      "sha256": "36fea462115f7977e1223e88ea96432514197d3e44f1be0d60751809c4805781"
+    },
+    {
+      "set": "scorerA_new_api",
+      "file": "audit/evidence/pass_3/scorerA/new_api_scores.jsonl",
+      "rows": 6,
+      "target_sha": "ff4e96c21d5fb3ffe79843fbce8392390d1c8bf4",
+      "judgment_source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+      "numeric_vectors_unchanged": true,
+      "sha256": "9aec5406ac8cc5d7c93ef1a534b8b3b687df043139efc62e090e53170eeb1854"
+    },
+    {
+      "set": "scorerB_new_api",
+      "file": "audit/evidence/pass_3/scorerB/new_api_scores.jsonl",
+      "rows": 6,
+      "target_sha": "ff4e96c21d5fb3ffe79843fbce8392390d1c8bf4",
+      "judgment_source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+      "numeric_vectors_unchanged": true,
+      "sha256": "63631a4de4ab5a06dbaada86ea8423df5d8f3da8f6f67e32ea98a36a9139d721"
+    }
+  ],
+  "source_citations_verified": 219,
+  "retained_runtime_citations_verified": 353,
+  "source_line_changes": [
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__glob",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 398,
+      "line": 401
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__glob",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 398,
+      "line": 401
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__glob",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 398,
+      "line": 401
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__glob",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 398,
+      "line": 401
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__glob",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 398,
+      "line": 401
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__grep",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 472,
+      "line": 475
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__grep",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 472,
+      "line": 475
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__grep",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 472,
+      "line": 475
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__grep",
+      "file": "test/ogent-agent-execution-tests.el",
+      "previous_line": 168,
+      "line": 218
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__grep",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 472,
+      "line": 475
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__grep",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 472,
+      "line": 475
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__grep-async",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 567,
+      "line": 570
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__grep-async",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 567,
+      "line": 570
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__grep-async",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 567,
+      "line": 570
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__grep-async",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 567,
+      "line": 570
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__grep-async",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 567,
+      "line": 570
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__grep-async",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 567,
+      "line": 570
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__grep-async",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 567,
+      "line": 570
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__grep-async",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 567,
+      "line": 570
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__bash",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 712,
+      "line": 715
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__bash",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 712,
+      "line": 715
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__bash",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 712,
+      "line": 715
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__bash",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 712,
+      "line": 715
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__bash",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 712,
+      "line": 715
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__bash",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 712,
+      "line": 715
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__bash-async",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 811,
+      "line": 814
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__bash-async",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 837,
+      "line": 840
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__bash-async",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 811,
+      "line": 814
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__bash-async",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 811,
+      "line": 814
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__bash-async",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 811,
+      "line": 814
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__bash-async",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 811,
+      "line": 814
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__bash-async",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 811,
+      "line": 814
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__bash-async",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 811,
+      "line": 814
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__write-file",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 966,
+      "line": 969
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__write-file",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 966,
+      "line": 969
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__write-file",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 966,
+      "line": 969
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__write-file",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 966,
+      "line": 969
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__write-file",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 966,
+      "line": 969
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__write-file",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 966,
+      "line": 969
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__write-file",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 966,
+      "line": 969
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__edit-file",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 1004,
+      "line": 1007
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__edit-file",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 1004,
+      "line": 1007
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__edit-file",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 1004,
+      "line": 1007
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__edit-file",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 1004,
+      "line": 1007
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__edit-file",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 975,
+      "line": 978
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__tools__edit-file",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 1004,
+      "line": 1007
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__execution__wrapper",
+      "file": "lisp/ogent-tool-execution.el",
+      "previous_line": 348,
+      "line": 349
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__execution__wrapper",
+      "file": "lisp/ogent-tool-execution.el",
+      "previous_line": 348,
+      "line": 349
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__execution__wrapper",
+      "file": "lisp/ogent-tool-execution.el",
+      "previous_line": 348,
+      "line": 349
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__execution__wrapper",
+      "file": "lisp/ogent-tool-execution.el",
+      "previous_line": 348,
+      "line": 349
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__execution__wrapper",
+      "file": "lisp/ogent-tool-execution.el",
+      "previous_line": 348,
+      "line": 349
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__execution__wrapper",
+      "file": "test/ogent-agent-execution-tests.el",
+      "previous_line": 704,
+      "line": 754
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__execution__wrapper",
+      "file": "lisp/ogent-tool-execution.el",
+      "previous_line": 348,
+      "line": 349
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__execution__wrapper",
+      "file": "lisp/ogent-tool-execution.el",
+      "previous_line": 348,
+      "line": 349
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__doctor__run",
+      "file": "lisp/ogent-doctor.el",
+      "previous_line": 596,
+      "line": 597
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__doctor__run",
+      "file": "lisp/ogent-doctor.el",
+      "previous_line": 566,
+      "line": 567
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__doctor__run",
+      "file": "lisp/ogent-doctor.el",
+      "previous_line": 596,
+      "line": 597
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__doctor__run",
+      "file": "lisp/ogent-doctor.el",
+      "previous_line": 566,
+      "line": 567
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__doctor__run",
+      "file": "lisp/ogent-doctor.el",
+      "previous_line": 596,
+      "line": 597
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__doctor__run",
+      "file": "lisp/ogent-doctor.el",
+      "previous_line": 596,
+      "line": 597
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__doctor__batch",
+      "file": "lisp/ogent-doctor.el",
+      "previous_line": 753,
+      "line": 755
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__doctor__batch",
+      "file": "lisp/ogent-doctor.el",
+      "previous_line": 753,
+      "line": 755
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__doctor__batch",
+      "file": "lisp/ogent-doctor.el",
+      "previous_line": 753,
+      "line": 755
+    },
+    {
+      "set": "scorerA",
+      "surface_id": "sdk_method__doctor__batch",
+      "file": "lisp/ogent-agent.el",
+      "previous_line": 216,
+      "line": 217
+    },
+    {
+      "set": "scorerB",
+      "surface_id": "sdk_method__tools__glob",
+      "file": "lisp/ogent-tool-results.el",
+      "previous_line": 90,
+      "line": 92
+    },
+    {
+      "set": "scorerB",
+      "surface_id": "sdk_method__tools__grep",
+      "file": "test/ogent-agent-execution-tests.el",
+      "previous_line": 168,
+      "line": 218
+    },
+    {
+      "set": "scorerB",
+      "surface_id": "sdk_method__tools__grep-async",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 567,
+      "line": 570
+    },
+    {
+      "set": "scorerB",
+      "surface_id": "sdk_method__tools__bash",
+      "file": "test/ogent-agent-execution-tests.el",
+      "previous_line": 181,
+      "line": 231
+    },
+    {
+      "set": "scorerB",
+      "surface_id": "sdk_method__tools__write-file",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 966,
+      "line": 969
+    },
+    {
+      "set": "scorerB",
+      "surface_id": "sdk_method__tools__edit-file",
+      "file": "lisp/ogent-tools.el",
+      "previous_line": 1004,
+      "line": 1007
+    },
+    {
+      "set": "scorerB",
+      "surface_id": "sdk_method__registry__tool-get",
+      "file": "test/ogent-agent-execution-tests.el",
+      "previous_line": 676,
+      "line": 726
+    },
+    {
+      "set": "scorerB",
+      "surface_id": "sdk_method__execution__wrapper",
+      "file": "lisp/ogent-tool-execution.el",
+      "previous_line": 318,
+      "line": 319
+    },
+    {
+      "set": "scorerB",
+      "surface_id": "sdk_method__execution__wrapper",
+      "file": "lisp/ogent-tool-execution.el",
+      "previous_line": 348,
+      "line": 349
+    },
+    {
+      "set": "scorerB",
+      "surface_id": "sdk_method__execution__wrapper",
+      "file": "test/ogent-agent-execution-tests.el",
+      "previous_line": 704,
+      "line": 754
+    },
+    {
+      "set": "scorerB",
+      "surface_id": "sdk_method__doctor__run",
+      "file": "lisp/ogent-doctor.el",
+      "previous_line": 596,
+      "line": 597
+    },
+    {
+      "set": "scorerB",
+      "surface_id": "sdk_method__doctor__batch",
+      "file": "lisp/ogent-doctor.el",
+      "previous_line": 753,
+      "line": 755
+    },
+    {
+      "set": "scorerT",
+      "surface_id": "sdk_method__execution__wrapper",
+      "file": "test/ogent-agent-execution-tests.el",
+      "previous_line": 927,
+      "line": 977
+    },
+    {
+      "set": "scorerA_new_api",
+      "surface_id": "sdk_method__agent__call",
+      "file": "test/ogent-agent-execution-tests.el",
+      "previous_line": 981,
+      "line": 1031
+    },
+    {
+      "set": "scorerA_new_api",
+      "surface_id": "sdk_method__agent__call",
+      "file": "lisp/ogent-agent.el",
+      "previous_line": 264,
+      "line": 265
+    },
+    {
+      "set": "scorerA_new_api",
+      "surface_id": "sdk_method__agent__next",
+      "file": "test/ogent-agent-execution-tests.el",
+      "previous_line": 106,
+      "line": 156
+    },
+    {
+      "set": "scorerA_new_api",
+      "surface_id": "sdk_method__agent__next",
+      "file": "lisp/ogent-agent.el",
+      "previous_line": 264,
+      "line": 265
+    },
+    {
+      "set": "scorerA_new_api",
+      "surface_id": "sdk_method__agent__batch",
+      "file": "test/ogent-agent-execution-tests.el",
+      "previous_line": 617,
+      "line": 667
+    },
+    {
+      "set": "scorerA_new_api",
+      "surface_id": "sdk_method__agent__batch",
+      "file": "lisp/ogent-agent.el",
+      "previous_line": 264,
+      "line": 265
+    },
+    {
+      "set": "scorerA_new_api",
+      "surface_id": "sdk_method__agent__call-async",
+      "file": "test/ogent-agent-execution-tests.el",
+      "previous_line": 193,
+      "line": 243
+    },
+    {
+      "set": "scorerA_new_api",
+      "surface_id": "sdk_method__agent__call-async",
+      "file": "lisp/ogent-agent.el",
+      "previous_line": 264,
+      "line": 265
+    },
+    {
+      "set": "scorerA_new_api",
+      "surface_id": "sdk_method__agent__describe",
+      "file": "lisp/ogent-agent.el",
+      "previous_line": 224,
+      "line": 225
+    },
+    {
+      "set": "scorerA_new_api",
+      "surface_id": "sdk_method__agent__describe",
+      "file": "test/ogent-agent-execution-tests.el",
+      "previous_line": 639,
+      "line": 689
+    },
+    {
+      "set": "scorerA_new_api",
+      "surface_id": "sdk_method__agent__describe",
+      "file": "lisp/ogent-agent.el",
+      "previous_line": 224,
+      "line": 225
+    },
+    {
+      "set": "scorerA_new_api",
+      "surface_id": "sdk_method__agent__schema",
+      "file": "lisp/ogent-agent.el",
+      "previous_line": 236,
+      "line": 237
+    },
+    {
+      "set": "scorerA_new_api",
+      "surface_id": "sdk_method__agent__schema",
+      "file": "lisp/ogent-agent.el",
+      "previous_line": 236,
+      "line": 237
+    },
+    {
+      "set": "scorerA_new_api",
+      "surface_id": "sdk_method__agent__schema",
+      "file": "lisp/ogent-agent.el",
+      "previous_line": 236,
+      "line": 237
+    },
+    {
+      "set": "scorerA_new_api",
+      "surface_id": "sdk_method__agent__schema",
+      "file": "lisp/ogent-agent.el",
+      "previous_line": 236,
+      "line": 237
+    },
+    {
+      "set": "scorerA_new_api",
+      "surface_id": "sdk_method__agent__schema",
+      "file": "lisp/ogent-agent.el",
+      "previous_line": 236,
+      "line": 237
+    },
+    {
+      "set": "scorerB_new_api",
+      "surface_id": "sdk_method__agent__call",
+      "file": "test/ogent-agent-execution-tests.el",
+      "previous_line": 981,
+      "line": 1031
+    },
+    {
+      "set": "scorerB_new_api",
+      "surface_id": "sdk_method__agent__next",
+      "file": "test/ogent-agent-execution-tests.el",
+      "previous_line": 122,
+      "line": 172
+    },
+    {
+      "set": "scorerB_new_api",
+      "surface_id": "sdk_method__agent__batch",
+      "file": "test/ogent-agent-execution-tests.el",
+      "previous_line": 617,
+      "line": 667
+    },
+    {
+      "set": "scorerB_new_api",
+      "surface_id": "sdk_method__agent__call-async",
+      "file": "test/ogent-agent-execution-tests.el",
+      "previous_line": 193,
+      "line": 243
+    },
+    {
+      "set": "scorerB_new_api",
+      "surface_id": "sdk_method__agent__describe",
+      "file": "test/ogent-agent-execution-tests.el",
+      "previous_line": 639,
+      "line": 689
+    },
+    {
+      "set": "scorerB_new_api",
+      "surface_id": "sdk_method__agent__describe",
+      "file": "lisp/ogent-agent.el",
+      "previous_line": 224,
+      "line": 225
+    },
+    {
+      "set": "scorerB_new_api",
+      "surface_id": "sdk_method__agent__schema",
+      "file": "lisp/ogent-agent.el",
+      "previous_line": 236,
+      "line": 237
+    }
+  ],
+  "all_numeric_vectors_unchanged": true,
+  "baseline_A196_bytes_unchanged": true,
+  "baseline_B19_and_T9_bytes_unchanged": true,
+  "old_raw_transcripts_and_target_markers_preserved": true,
+  "source_definition_guard": "audit/evidence/pass_3/scorerA/incremental_final/definition_identities.json",
+  "unchanged_executable_definitions": 163,
+  "changed_executable_definitions": [
+    {
+      "file": "lisp/ogent-tool-results.el",
+      "method": "ogent-tool-results--unicode",
+      "signature_equal": true,
+      "body_equal": false,
+      "previous_body_sha256": "33118ca769a487c2429a5a8972270f115756c684b0156d1bb71213cb155c6859",
+      "current_body_sha256": "3166402b501dd371de3cbc0f6be34e1b91a1604430659eff58309d9a23b72ede"
+    },
+    {
+      "file": "lisp/ogent-tool-results.el",
+      "method": "ogent-tool-results-format",
+      "signature_equal": true,
+      "body_equal": false,
+      "previous_body_sha256": "315b9092b03c0b93884bb0cc1271499d4cedfd192b9825287119a1ece386a1bf",
+      "current_body_sha256": "f4569f1bb2fc1f878a7352a4ac7a498a82998eb11533c3db99f0df5b9b1a3dc0"
+    },
+    {
+      "file": "lisp/ogent-tool-results.el",
+      "method": "ogent-tool-results-glob",
+      "signature_equal": true,
+      "body_equal": false,
+      "previous_body_sha256": "5a59d6c9d73ed32a561f878f88c3ed71a9bdf7964682223e6c3c1fa041417c4f",
+      "current_body_sha256": "6c346fb5a8e639a538e8f1fd4a0f8f024f0aed12147e4f2e301985c2f251822e"
+    },
+    {
+      "file": "lisp/ogent-tool-execution.el",
+      "method": "ogent-tool-execution-json",
+      "signature_equal": true,
+      "body_equal": false,
+      "previous_body_sha256": "db5434711663856549fa281404a237a9db1126bf9caaaa424edac200e8ef73c2",
+      "current_body_sha256": "2ecaef8f52c462f8910b54aa1191ffb73df597c3be6a8d660524a7b130c53c80"
+    },
+    {
+      "file": "lisp/ogent-tools.el",
+      "method": "ogent-tools--glob-files",
+      "signature_equal": false,
+      "body_equal": false,
+      "previous_body_sha256": "983871d04035ecbed5a5dce24961fab9e121043982f1e01a5fa017c907e12822",
+      "current_body_sha256": "1ab8def579354de9d183b4526ae66121da99b301ad765d3ad474e65182bde64b"
+    },
+    {
+      "file": "lisp/ogent-doctor.el",
+      "method": "ogent-doctor-format-json",
+      "signature_equal": true,
+      "body_equal": false,
+      "previous_body_sha256": "423d5f6b0c8cd0c6eb6eeb11218cf5c5d6380750171e03854084d1f75deb8e8e",
+      "current_body_sha256": "a44b128d3d5d342f355400bf40b1a82b64a7d9c41542070dbe54dc12d76ba661"
+    }
+  ],
+  "interim_021_invalidated_evidence": "audit/evidence/pass_3/scorerA/incremental_021cca4/validation_021_pre_repair.json",
+  "numeric_basis": "Retained anchors are supported after repairing omitted selected raw glob filenames and Emacs30 Unicode JSON transport nesting. Batch docstring preserves cap/shape/preflight/read-only/fail-fast semantics; fixes preserve the intended existing structured contracts. No aliases, schema changes, approval leases or rollback are introduced.",
+  "scoped_native_validation": "Owned by coordinator; no broad native suite or build battery rerun here",
+  "providers_called": false,
+  "inference_called": false,
+  "new_private_definition": {
+    "file": "lisp/ogent-tool-contract.el",
+    "method": "ogent-tool-contract--json-text",
+    "verified_by": "fresh actual SDK/raw results, doctor, gptel request serializer cases"
+  },
+  "original_artifact_preservation": "audit/evidence/pass_3/scorerA/incremental_final/artifact_preservation_validation.json"
+}

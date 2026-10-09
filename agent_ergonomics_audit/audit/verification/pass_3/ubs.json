@@ -1,0 +1,5 @@
+{
+  "available": false,
+  "invocation": null,
+  "note": "Optional ubs helper unavailable; actual source-forced reviews, native compiler/lint and full suites cover this pass."
+}

@@ -1,0 +1,91 @@
+{
+  "current_sha": "90818f808bee4f9ff26f84c3f1235e24d469d927",
+  "baseline_sha": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "score_files": [
+    {
+      "file": "audit/partial/scores_pass4_current_scorerB.jsonl",
+      "rows": 19,
+      "target_sha": "90818f808bee4f9ff26f84c3f1235e24d469d927",
+      "high_score_evidence_valid": true
+    },
+    {
+      "file": "audit/evidence/pass_3/scorerB/new_api_scores.jsonl",
+      "rows": 6,
+      "target_sha": "90818f808bee4f9ff26f84c3f1235e24d469d927",
+      "high_score_evidence_valid": true
+    },
+    {
+      "file": "audit/evidence/pass_3/scorerB/baseline_paired_scores.jsonl",
+      "rows": 19,
+      "target_sha": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "high_score_evidence_valid": true
+    }
+  ],
+  "current_primary_runtime_rows": 70,
+  "current_real_gptel_registry_rows": 4,
+  "current_real_build_commands": 18,
+  "current_json_build_reports": 13,
+  "baseline_runtime_rows": 40,
+  "baseline_real_build_commands": 12,
+  "unchanged_source_forms": 9,
+  "source_hashes_validated": 197,
+  "final_edge_assertions": "all passed",
+  "numeric_scores_are_qualitative": true,
+  "scorer_id": "scorerB",
+  "rubric_version": "sha256:44e7c00b3dee6be38118f1f40719d814278cb129f9aad34572e0936104b135a4",
+  "sdk_runtime_argv": [
+    "docker",
+    "exec",
+    "-e",
+    "NO_COLOR=1",
+    "-e",
+    "CI=true",
+    "-e",
+    "TERM=dumb",
+    "ogent-fixes",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-L",
+    "/work/lisp",
+    "-L",
+    "/work/lisp/ui",
+    "-L",
+    "/work/test",
+    "-l",
+    "/work/test/ogent-test-helper.el",
+    "-l",
+    "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerB/probe.el",
+    "-l",
+    "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerB/probe_final_edges.el"
+  ],
+  "limits": [
+    "same-model qualitative judgment, not task-success percentage",
+    "GNU fallback runtime; ripgrep runtime not independently replayed",
+    "doctor protected metadata, no live provider environment",
+    "actual build fixture; broad repository/offline suite not rerun",
+    "read-only extension classification trusts declared metadata",
+    "build PID/temp argv/ERT timing remain volatile"
+  ],
+  "applicability": {
+    "raw_private_method_intent": "applicable, direct aliases absent, score 0",
+    "raw_shell_write_edit_safety": "applicable, no direct gate or rollback, score 0",
+    "read_search_metadata_doctor_safety": "n/a-as-perfect",
+    "compile_recompile_clean_safety": "n/a-as-perfect for regenerable bytecode",
+    "offline_safety": "n/a-as-perfect for isolated local fixtures and protected stores",
+    "next_safety": "applicable: hand-built continuation accepts mutators through shared dispatch policy",
+    "batch_safety": "n/a-as-perfect for honestly declared read effects; preflight and immutable target snapshots"
+  },
+  "artifacts_sha256": {
+    "probe.stdout.jsonl": "68d3714314f3121360bcacbea4e32ea3bf2d92bdd32fa4735a2a4497fb11ab24",
+    "registry.stdout.jsonl": "f5914be1f8f90001b5b8c41c7dfe6d4862debd9ef6a016ae9d7db81b2091ed91",
+    "build-runtime.jsonl": "afed51049ca12185868e5c7d0ecbe6e2dfd562fa41482f6df676ba6484e709d9",
+    "baseline-probe.stdout.jsonl": "90911e8b6b962c1eb401f3d3b1bebff419f39d4bbad2f7f3e9e83c0f83182e93",
+    "baseline-build-runtime.jsonl": "928a5dd9ff87af8607112c46c34ec38133188e295e8cd578dd49b6a593f45816",
+    "baseline_paired_scores.jsonl": "45ccc792f02768f42098614800aadbb9f548b9c6f4b7f29abca4131d405c2a4f",
+    "new_api_scores.jsonl": "463be681b95dece90fbc4cfe0e64017047948563e9ab3fe1c1b2b51471c73178",
+    "baseline-current-function-identity.txt": "76ffd112957e4641abd1f3b33b3402467504f2cac2c8792b7bd530b9275d0fb3",
+    "source_hashes.json": "e4eb197276ce283c003115b51a20b378663bc6d1b58b15481b1be3efc8b82f80"
+  },
+  "current_original19_sha256": "350bee415093863fbd38a2eeb5200d9d58f43936969dcda2c713110d551f6111"
+}

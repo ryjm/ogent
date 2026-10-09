@@ -1,0 +1,59 @@
+diff --git a/lisp/ogent-tool-process.el b/lisp/ogent-tool-process.el
+index 3ed5e04..f8b1157 100644
+--- a/lisp/ogent-tool-process.el
++++ b/lisp/ogent-tool-process.el
+@@ -248,6 +248,8 @@ Retain partial output on a nonzero exit, timeout or cancellation."
+                 ogent-tool-process--max-limit))
+   (unless (and (numberp ogent-tools-grep-timeout) (> ogent-tools-grep-timeout 0))
+     (user-error "Invalid grep timeout; set ogent-tools-grep-timeout to positive seconds"))
++  (ogent-tool-results--unicode pattern)
++  (when glob-filter (ogent-tool-results--unicode glob-filter))
+   (setq path (ogent-tool-results--unicode
+               (ogent-tools--resolve-path (or path (ogent-tools--project-root)))))
+   (condition-case err
+diff --git a/test/ogent-agent-execution-tests.el b/test/ogent-agent-execution-tests.el
+index 89ee95a..b305094 100644
+--- a/test/ogent-agent-execution-tests.el
++++ b/test/ogent-agent-execution-tests.el
+@@ -208,6 +208,41 @@
+   "Reject raw search roots before invoking a process or enumerating files."
+   (ogent-agent-execution-tests--raw-root-contract "search"))
+ 
++(ert-deftest ogent-agent-execution-process-raw-query-contract ()
++  "Reject raw query bytes before results or continuations can retain them."
++  (let* ((root (ogent-test--provision-store-directory 'tools))
++         (raw (decode-coding-string (unibyte-string 255) 'utf-8-unix))
++         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
++         (ogent-ledger-enabled nil))
++    (ogent-agent-execution-tests--file root "a.el" "needle\nneedle\n")
++    (dolist (field '(:glob_filter :pattern))
++      (dolist (matches '(t nil))
++        (let ((args (list :pattern "needle" :path root :glob_filter "*.el" :limit 1)))
++          (plist-put args field
++                     (if (eq field :glob_filter)
++                         (concat "[" (if matches "a" "z") raw "]*.el")
++                       (concat "[" (if matches "n" "z") raw "]eedle")))
++          (dolist (format '(plist json))
++            (let ((result (ogent-agent-call "search" args format)))
++              (when (eq format 'json)
++                (setq result (json-parse-string result :object-type 'plist)))
++              (should (equal (plist-get result :status) "error"))
++              (should (equal (plist-get (plist-get result :error) :code) "unsupported_output")))
++            (let ((callbacks 0) result)
++              (should-not
++               (ogent-agent-call-async
++                "search" args (lambda (data) (cl-incf callbacks) (setq result data)) format))
++              (when (eq format 'json)
++                (setq result (json-parse-string result :object-type 'plist)))
++              (should (= callbacks 1))
++              (should (equal (plist-get (plist-get result :error) :code) "unsupported_output")))))))
++    (ogent-agent-execution-tests--file root "unicode.el" "λ\nλ\n")
++    (let ((result (ogent-agent-call "search" (list :pattern "λ" :path root
++                                                   :glob_filter "unicode.el" :limit 1))))
++      (should (= (length (plist-get result :next)) 1))
++      (should (json-serialize result :false-object :json-false :null-object :json-null))
++      (should (equal (plist-get (ogent-agent-next result) :status) "ok")))))
++
+ (ert-deftest ogent-agent-execution-next-freezes-path-and-follows-json ()
+   "Continuation calls retain absolute targets when the working root changes."
+   (let* ((root (ogent-test--provision-store-directory 'tools))

@@ -1,0 +1,79 @@
+(:probe "runtime-source-identities" :value (:emacs "29.1" :gptel "/tmp/ogent-ergonomics-elpa/gptel-20261007.432/gptel-request.el" :helper "/work/test/ogent-test-helper.el" :write "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/lisp/ogent-tools.el" :edit "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/lisp/ogent-tools.el" :get "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/lisp/ogent-models.el" :wrapper "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/lisp/ogent-tool-execution.el" :ui "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/lisp/ui/ogent-ui-toolcalls.el"))
+(:probe "actual-in-tool-discovery" :value (:contract_version "1" :tools ("bash" "edit-file" "glob" "grep" "read-file" "write-file") :result_contract (:tool_results "text; errors are signaled or returned as Tool error: text by the execution wrapper" :async_events ["stdout" "stderr" "done" "error"] :doctor_exit_codes (:ok 0 :warning 1 :error 2)) :guide "ogent agent guide (contract 1)
+Load ogent normally, then inspect (ogent-agent-capabilities 'json).
+This reads the live registry; an empty tools array means no tools are installed.
+(ogent-tools-install-defaults) explicitly installs built-in specs if wanted.
+Use canonical hyphen names or registered underscore aliases; typos get hints, never execution.
+Arguments follow registry order; named calls reject unknown/duplicate keys before approval.
+Native boolean false is nil or :json-false; zero and nested objects are preserved.
+MCP calls use :json-false for explicit false; optional nil means omit the argument.
+Tool results remain text. JSON discovery and doctor reports use contract_version 1.
+Read: (ogent-tool--read-file \"/path/file\" 1 200); follow the exact next offset in its footer.
+Search: (ogent-tool--glob \"**/*.el\" \"/path/project\") includes every depth.
+Grep: (ogent-tool--grep \"-needle\" \"/path/project\"); no matches is success, invalid regex is an error.
+Edit: old_string must be nonempty and unique; set replace_all to t only for intentional repeated replacement.
+Read-only tools need no confirmation by default. Writes and shell execution require approval.
+Direct ogent-tool-- functions are low-level APIs; use registered execution wrappers for approval enforcement.
+Shell: use a positive timeout in seconds and an existing working_directory.
+Shell stdout/stderr may be truncated; the final exit code is preserved.
+Local health: (ogent-agent-triage 'json), no provider requests or MCP handshakes.
+Batch health: (ogent-doctor-batch nil 'json), exit 0=ok/info, 1=warning, 2=error.
+Check readiness offline: make test; make test-isolation; make offline-test with OGENT_ELPA_DIR.
+"))
+(:probe "raw-write-first-and-repeat" :value (:first "Wrote 11 characters to /tmp/ogent-test-store-EDPZXq/tools-PGmoHq/score.txt" :second "Wrote 11 characters to /tmp/ogent-test-store-EDPZXq/tools-PGmoHq/score.txt" :same-bytes t))
+(:probe "raw-write-overwrites-without-approval" :value "alpha beta")
+(:probe "raw-write-invalid-path" :signal user-error :message "Invalid write_file file_path; use a non-empty file path string")
+(:probe "raw-write-invalid-content" :signal user-error :message "Invalid write_file content; use text or an empty string")
+(:probe "raw-edit-first" :value "Replaced 1 occurrence(s) in /tmp/ogent-test-store-EDPZXq/tools-PGmoHq/score.txt")
+(:probe "raw-edit-not-found" :signal user-error :message "Old_string not found in file: /tmp/ogent-test-store-EDPZXq/tools-PGmoHq/score.txt; read_file and copy exact old_string context")
+(:probe "raw-edit-ambiguous" :signal user-error :message "Ambiguous edit_file old_string matches 2 occurrences in /tmp/ogent-test-store-EDPZXq/tools-PGmoHq/score.txt; include unique surrounding context or explicitly set replace_all true")
+(:probe "raw-edit-ambiguity-preserved-content" :value "repeat repeat")
+(:probe "raw-edit-invalid-boolean" :signal user-error :message "edit_file replace_all must be a boolean; use true or false")
+(:probe "raw-edit-repeat-identical-initial-content" :value (:first "Replaced 2 occurrence(s) in /tmp/ogent-test-store-EDPZXq/tools-PGmoHq/score.txt" :second "Replaced 2 occurrence(s) in /tmp/ogent-test-store-EDPZXq/tools-PGmoHq/score.txt" :same-bytes t))
+(:probe "raw-helper-method-aliases" :value ((ogent-tool--write-file . t) (ogent-tool--write_file) (ogent-tool--write) (ogent-tool--edit-file . t) (ogent-tool--edit_file) (ogent-tool--edit)))
+(:probe "registry-first-symbol-string-underscore-alias-typo" :value (:actual-object t :symbol-and-string-same t :underscore-same t :read-alias-same nil :cat-alias-same nil :typo nil :unknown nil))
+(:probe "sdk-docstrings" :value ((ogent-tool--write-file . "Write CONTENT to FILE-PATH, overwriting if exists.") (ogent-tool--edit-file . "Replace OLD-STRING with NEW-STRING in FILE-PATH.
+If REPLACE-ALL is non-nil, replace all occurrences.") (ogent-tool-get . "Return the gptel tool object for NAME (symbol or string), or nil.") (ogent-tool-execution-wrapper . "Return a gptel function enforcing policy and ledger recording for SPEC.
+Adapt gptel's callback-first convention to ogent's callback-last async specs.
+Reject stale tool objects after registry removal or schema replacement.")))
+(:probe "raw-read-first-repeat-and-pagination" :value (:first "     1	alpha
+
+[More lines available. Next call: read_file(file_path=\"/tmp/ogent-test-store-EDPZXq/tools-PGmoHq/score.txt\", offset=2, limit=1)]" :second "     1	alpha
+
+[More lines available. Next call: read_file(file_path=\"/tmp/ogent-test-store-EDPZXq/tools-PGmoHq/score.txt\", offset=2, limit=1)]" :same-bytes t))
+(:probe "raw-read-invalid-offset" :signal user-error :message "Invalid read_file offset; use a positive line number, such as offset=1")
+(:probe "raw-read-method-aliases" :value ((ogent-tool--read-file . t) (ogent-tool--read_file) (ogent-tool--read)))
+(:probe "raw-glob-first-and-repeat" :value (:first "/tmp/ogent-test-store-EDPZXq/tools-PGmoHq/score.txt" :second "/tmp/ogent-test-store-EDPZXq/tools-PGmoHq/score.txt" :same-bytes t))
+(:probe "raw-glob-invalid-path" :signal user-error :message "Invalid glob path: /tmp/ogent-test-store-EDPZXq/tools-PGmoHq/missing is not a directory; set path to an existing directory")
+(:probe "raw-grep-first-and-repeat" :value (:first "1:alpha
+
+
+[1 result lines]" :second "1:alpha
+
+
+[1 result lines]" :same-bytes t))
+(:probe "raw-grep-invalid-regex" :signal user-error :message "grep failed (exit 2): grep: Invalid regular expression. Check pattern syntax and path; retry grep with a valid pattern, such as needle")
+(:probe "read-side-sdk-docstrings" :value ((ogent-tool--read-file . "Return a numbered page of text from FILE-PATH.
+OFFSET is the starting line number (1-indexed, default 1).
+LIMIT is the max lines to read (default `ogent-tools-max-file-lines').
+Name the next offset when more lines remain; mark truncated long lines.") (ogent-tool--glob . "Find files matching glob PATTERN.
+PATH is the directory to search (default project root).
+Returns files sorted by modification time (newest first).") (ogent-tool--grep . "Search for PATTERN in files with streaming progress.
+PATH is file or directory to search (default project root).
+GLOB-FILTER limits to matching files (e.g., \"*.el\").
+CONTEXT-LINES shows N lines before/after matches.
+Output is streamed incrementally via `ogent-tools-stream-callback'.")))
+(:probe "wrapper-first-and-repeat" :value (:format text :first "     1	alpha
+     2	beta" :second "     1	alpha
+     2	beta" :same-bytes t))
+(:probe "wrapper-wrong-order" :value "Tool error: read-file argument file_path requires string; provide file_path with that type")
+(:probe "wrapper-missing-required" :value "Tool error: read-file argument file_path requires string; provide file_path with that type")
+(:probe "wrapper-excess" :value "Tool error: read-file received 5 arguments but accepts 3; use its declared argument names")
+(:probe "wrapper-no-method-alias" :value (:arglist (spec) :typo-method-exists nil :alias-method-exists nil))
+(:probe "wrapper-stale" :value "Tool unavailable: its registry entry changed or was removed")
+(:probe "wrapper-actual-policy-denial" :value (:result "Tool execution denied by user" :file-content "alpha
+beta
+"))
+(:probe "wrapper-edit-review-keeps-file" :value (:result "Edit proposed for user review" :file-content "alpha
+beta
+"))

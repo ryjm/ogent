@@ -1,0 +1,10 @@
+{
+  "archive": "audit/evidence/pass_3/ledger_context/baseline-source.tar.gz",
+  "sha256": "04a6a802f68bf7faacaf338a6e609c66100a0a58b2c543285fc85f564e660838",
+  "files_sha256": {
+    "baseline-tool-execution.el": "c113730ca7803eb5560df9a738fc41783c38fe948ffe7d649f10d9153a7a89ef",
+    "baseline-ui-toolcalls.el": "754fe7fd371e74c756802b12d9d8e110cda8c897dea065c756580d428249740a"
+  },
+  "source_revision": "10f86bb12a03f3122a60ba085be7289eb5277f5e",
+  "extraction": "tar -xzf baseline-source.tar.gz -C ledger_context; baseline-*.el files stay ignored to protect makem discovery"
+}

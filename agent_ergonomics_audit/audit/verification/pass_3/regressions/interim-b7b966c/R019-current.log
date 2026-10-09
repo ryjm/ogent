@@ -1,0 +1,65 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 10 tests (2026-10-08 23:34:55+0000, selector `"ogent-agent-execution-async-"')
+   passed   1/10  ogent-agent-execution-async-and-sync-failures-in-ledger (0.109039 sec)
+   passed   2/10  ogent-agent-execution-async-custom-once-and-sync-rejection (0.000577 sec)
+   passed   3/10  ogent-agent-execution-async-denial-and-cancel (0.052251 sec)
+   passed   4/10  ogent-agent-execution-async-immediate-result-returns-nil (0.000492 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-Jg5NLZ (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-ZEInVl (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-nXt6yb (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-XwOZSo (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-AxyJo4 (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-PfvrJu (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-K7Rn4m (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-EtGNFp (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-Xjexwy (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-tai9gj (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-NilyL4 (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-EraiTR (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-f80rnV (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-RTqqZg (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-zaVFlD (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-geX5N2 (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-M0KmnG (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-c4bBJ2 (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-IHWZl3 (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-tG9om2 (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-B01lZG (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-6rslti (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-FWBoUM (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-r7WrhS (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-4AVl8R (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-COQC7T (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-H2XNGW (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-Vfr1Im (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-UhbpQq (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-bpvmhe (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-rl7Kbm (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-Rs9cjY (retained)
+   passed   5/10  ogent-agent-execution-async-ledger-context-survives-project-switch (1.712044 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-3soJ07 (retained)
+   passed   6/10  ogent-agent-execution-async-ledger-failure-preserves-tool-error (0.000952 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-32IOGo (retained)
+   passed   7/10  ogent-agent-execution-async-ledger-records-success (0.052302 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-CKRk4w (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-4eHjGa (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Y1lQAD/tools-ZnzelT (retained)
+   passed   8/10  ogent-agent-execution-async-ledger-write-failure-retains-terminal (0.311656 sec)
+   passed   9/10  ogent-agent-execution-async-malformed-result-delivers-once (0.000668 sec)
+   passed  10/10  ogent-agent-execution-async-real-process-and-ledger (0.152752 sec)
+
+Ran 10 tests, 10 results as expected, 0 unexpected (2026-10-08 23:34:57+0000, 2.393445 sec)
+

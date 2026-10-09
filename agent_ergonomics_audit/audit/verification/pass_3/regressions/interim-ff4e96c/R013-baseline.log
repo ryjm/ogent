@@ -1,0 +1,1790 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 55 tests (2026-10-08 23:17:41+0000, selector `"ogent-agent-execution-"')
+   passed   1/55  ogent-agent-execution-aliases-exact-and-ambiguous (0.000152 sec)
+Test ogent-agent-execution-aliases-share-policy backtrace:
+uncompressing help-fns.el.gz...
+uncompressing help-fns.el.gz...done
+uncompressing radix-tree.el.gz...
+uncompressing radix-tree.el.gz...done
+uncompressing derived.el.gz...
+uncompressing derived.el.gz...done
+uncompressing cl-print.el.gz...
+uncompressing cl-print.el.gz...done
+  signal(ert-test-failed (((should (eq (ogent-tool--name-symbol "read"
+  ert-fail(((should (eq (ogent-tool--name-symbol "read") 'read-file)) 
+  (if (unwind-protect (setq value-377 (apply fn-375 args-376)) (setq f
+  (let (form-description-379) (if (unwind-protect (setq value-377 (app
+  (let ((value-377 'ert-form-evaluation-aborted-378)) (let (form-descr
+  (let* ((fn-375 #'eq) (args-376 (condition-case err (list (ogent-tool
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (copy
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-aliases-share-p
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-aliases-share-policy condition:
+    (ert-test-failed
+     ((should (eq (ogent-tool--name-symbol "read") 'read-file)) :form
+      (eq read read-file) :value nil))
+uncompressing vc-git.el.gz...
+uncompressing vc-git.el.gz...done
+uncompressing vc-dispatcher.el.gz...
+uncompressing vc-dispatcher.el.gz...done
+uncompressing vc.el.gz...
+uncompressing vc.el.gz...done
+uncompressing dired.el.gz...
+uncompressing dired.el.gz...done
+uncompressing autorevert.el.gz...
+uncompressing autorevert.el.gz...done
+uncompressing filenotify.el.gz...
+uncompressing filenotify.el.gz...done
+uncompressing dired-loaddefs.el.gz...
+uncompressing dired-loaddefs.el.gz...done
+uncompressing dnd.el.gz...
+uncompressing dnd.el.gz...done
+uncompressing files-x.el.gz...
+uncompressing files-x.el.gz...done
+uncompressing desktop.el.gz...
+uncompressing desktop.el.gz...done
+uncompressing frameset.el.gz...
+uncompressing frameset.el.gz...done
+uncompressing vc-dir.el.gz...
+uncompressing vc-dir.el.gz...done
+uncompressing diff-mode.el.gz...
+uncompressing diff-mode.el.gz...done
+uncompressing track-changes.el.gz...
+uncompressing track-changes.el.gz...done
+   FAILED   2/55  ogent-agent-execution-aliases-share-policy (0.000130 sec) at test/ogent-agent-execution-tests.el:196
+Test ogent-agent-execution-async-and-sync-failures-in-ledger backtrace:
+  (ogent-agent-call "bash" '(:command "exit 7"))
+  (progn (fset 'ogent-ledger-record-tool-finish vnew) (ogent-agent-cal
+  (unwind-protect (progn (fset 'ogent-ledger-record-tool-finish vnew) 
+  (let* ((vnew #'(lambda (_call _data failure &rest _) (setq failures 
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (copy
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-and-sync-
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-and-sync-failures-in-ledger condition:
+    (void-function ogent-agent-call)
+   FAILED   3/55  ogent-agent-execution-async-and-sync-failures-in-ledger (0.000163 sec) at test/ogent-agent-execution-tests.el:638
+Test ogent-agent-execution-async-custom-once-and-sync-rejection backtrace:
+  signal(void-function (ogent-agent-call))
+  apply(signal (void-function (ogent-agent-call)))
+  (setq value-497 (apply fn-495 args-496))
+  (unwind-protect (setq value-497 (apply fn-495 args-496)) (setq form-
+  (if (unwind-protect (setq value-497 (apply fn-495 args-496)) (setq f
+  (let (form-description-499) (if (unwind-protect (setq value-497 (app
+  (let ((value-497 'ert-form-evaluation-aborted-498)) (let (form-descr
+  (let* ((fn-495 #'equal) (args-496 (condition-case err (list (plist-g
+  (let* ((runs 0) (ogent-tool-registry (list (list :name 'delayed :asy
+  #f(lambda () [gptel--known-tools t] (let* ((runs 0) (ogent-tool-regi
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-custom-on
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-custom-once-and-sync-rejection condition:
+    (void-function ogent-agent-call)
+   FAILED   4/55  ogent-agent-execution-async-custom-once-and-sync-rejection (0.000281 sec) at test/ogent-agent-execution-tests.el:264
+Test ogent-agent-execution-async-denial-and-cancel backtrace:
+  ogent-agent-call-async("shell" (:command "sleep 2") #f(lambda (data)
+  apply(ogent-agent-call-async ("shell" (:command "sleep 2") #f(lambda
+  (setq value-933 (apply fn-931 args-932))
+  (unwind-protect (setq value-933 (apply fn-931 args-932)) (setq form-
+  (not (unwind-protect (setq value-933 (apply fn-931 args-932)) (setq 
+  (if (not (unwind-protect (setq value-933 (apply fn-931 args-932)) (s
+  (let (form-description-935) (if (not (unwind-protect (setq value-933
+  (let ((value-933 'ert-form-evaluation-aborted-934)) (let (form-descr
+  (let* ((fn-931 #'ogent-agent-call-async) (args-932 (condition-case e
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (copy
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-denial-an
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-denial-and-cancel condition:
+    (void-function ogent-agent-call-async)
+   FAILED   5/55  ogent-agent-execution-async-denial-and-cancel (0.000183 sec) at test/ogent-agent-execution-tests.el:618
+Test ogent-agent-execution-async-immediate-result-returns-nil backtrace:
+  ogent-agent-call-async("immediate" nil #f(lambda (data) [(result nil
+  apply(ogent-agent-call-async ("immediate" nil #f(lambda (data) [(res
+  (setq value-701 (apply fn-699 args-700))
+  (unwind-protect (setq value-701 (apply fn-699 args-700)) (setq form-
+  (not (unwind-protect (setq value-701 (apply fn-699 args-700)) (setq 
+  (if (not (unwind-protect (setq value-701 (apply fn-699 args-700)) (s
+  (let (form-description-703) (if (not (unwind-protect (setq value-701
+  (let ((value-701 'ert-form-evaluation-aborted-702)) (let (form-descr
+  (let* ((fn-699 #'ogent-agent-call-async) (args-700 (condition-case e
+  (let* ((spec (list :name 'immediate :async t :args nil :function #'(
+  #f(lambda () [gptel--known-tools t] (let* ((spec (list :name ... :as
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-immediate
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-immediate-result-returns-nil condition:
+    (void-function ogent-agent-call-async)
+   FAILED   6/55  ogent-agent-execution-async-immediate-result-returns-nil (0.000199 sec) at test/ogent-agent-execution-tests.el:432
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-jz7yFb (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-dLsr0Z (retained)
+Test ogent-agent-execution-async-ledger-context-survives-project-switch backtrace:
+  (ogent-agent-call-async "shell" (list :command command :timeout 1) c
+  (let nil (ogent-agent-call-async "shell" (list :command command :tim
+  (cond ((eq format 'gptel-json) (let nil (let ((spec (ogent-tool-spec
+  (setq process (cond ((eq format 'gptel-json) (let nil (let ((spec (o
+  (let ((default-directory origin)) (setq process (cond ((eq format 'g
+  (let* ((origin (ogent-test--provision-store-directory 'tools)) (othe
+  (let ((change-settings (car tail))) (let* ((origin (ogent-test--prov
+  (while tail (let ((change-settings (car tail))) (let* ((origin (ogen
+  (let ((tail '(t nil))) (while tail (let ((change-settings (car tail)
+  (let ((initially-enabled (car tail))) (let ((tail '(t nil))) (while 
+  (while tail (let ((initially-enabled (car tail))) (let ((tail '(t ni
+  (let ((tail '(t nil))) (while tail (let ((initially-enabled (car tai
+  (let ((format (car tail))) (let ((tail '(t nil))) (while tail (let (
+  (while tail (let ((format (car tail))) (let ((tail '(t nil))) (while
+  (let ((tail '(plist json gptel-json text))) (while tail (let ((forma
+  #f(lambda () [gptel--known-tools t] (let ((tail '...)) (while tail (
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-ledger-co
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-ledger-context-survives-project-switch condition:
+    (void-function ogent-agent-call-async)
+   FAILED   7/55  ogent-agent-execution-async-ledger-context-survives-project-switch (0.000415 sec) at test/ogent-agent-execution-tests.el:494
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-sceDUV (retained)
+Test ogent-agent-execution-async-ledger-failure-preserves-tool-error backtrace:
+  ogent-agent-call-async("terminal-failure" nil #f(lambda (data) [(res
+  apply(ogent-agent-call-async ("terminal-failure" nil #f(lambda (data
+  (setq value-721 (apply fn-719 args-720))
+  (unwind-protect (setq value-721 (apply fn-719 args-720)) (setq form-
+  (not (unwind-protect (setq value-721 (apply fn-719 args-720)) (setq 
+  (if (not (unwind-protect (setq value-721 (apply fn-719 args-720)) (s
+  (let (form-description-723) (if (not (unwind-protect (setq value-721
+  (let ((value-721 'ert-form-evaluation-aborted-722)) (let (form-descr
+  (let* ((fn-719 #'ogent-agent-call-async) (args-720 (condition-case e
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-ledger-fa
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-ledger-failure-preserves-tool-error condition:
+    (void-function ogent-agent-call-async)
+   FAILED   8/55  ogent-agent-execution-async-ledger-failure-preserves-tool-error (0.000343 sec) at test/ogent-agent-execution-tests.el:444
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-cl3tM8 (retained)
+Test ogent-agent-execution-async-ledger-records-success backtrace:
+  (ogent-agent-call-async "shell" '(:command "printf complete") #'(lam
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (ogent-
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-ledger-re
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-ledger-records-success condition:
+    (void-function ogent-agent-call-async)
+   FAILED   9/55  ogent-agent-execution-async-ledger-records-success (0.000246 sec) at test/ogent-agent-execution-tests.el:337
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-9f0i35 (retained)
+Test ogent-agent-execution-async-ledger-write-failure-retains-terminal backtrace:
+  (ogent-agent-call-async "shell" (list :command command :timeout 1) c
+  (if (eq format 'gptel-json) (let ((spec (ogent-tool-spec-get 'bash))
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
+  (let ((format (car tail))) (let* ((root (ogent-test--provision-store
+  (while tail (let ((format (car tail))) (let* ((root (ogent-test--pro
+  (let ((tail '(plist json gptel-json))) (while tail (let ((format (ca
+  #f(lambda () [gptel--known-tools t] (let ((tail '...)) (while tail (
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-ledger-wr
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-ledger-write-failure-retains-terminal condition:
+    (void-function ogent-agent-call-async)
+   FAILED  10/55  ogent-agent-execution-async-ledger-write-failure-retains-terminal (0.000361 sec) at test/ogent-agent-execution-tests.el:296
+Test ogent-agent-execution-async-malformed-result-delivers-once backtrace:
+  (ogent-agent-call-async "read-file" '(:path 42) #'(lambda (data) (se
+  (let* ((data '(:has_more t :content "completed")) (spec (list :name 
+  #f(lambda () [gptel--known-tools t] (let* ((data '...) (spec (list :
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-malformed
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-malformed-result-delivers-once condition:
+    (void-function ogent-agent-call-async)
+   FAILED  11/55  ogent-agent-execution-async-malformed-result-delivers-once (0.000164 sec) at test/ogent-agent-execution-tests.el:415
+Test ogent-agent-execution-async-real-process-and-ledger backtrace:
+  (ogent-agent-call-async "shell" '(:command "sleep 0.1; printf comple
+  (let ((process (ogent-agent-call-async "shell" '(:command "sleep 0.1
+  (progn (fset 'ogent-ledger-record-tool-finish vnew) (fset 'ogent-led
+  (unwind-protect (progn (fset 'ogent-ledger-record-tool-finish vnew) 
+  (let* ((vnew #'(lambda (&rest _) (setq starts (1+ starts)))) (vnew #
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (copy
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-async-real-proc
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-async-real-process-and-ledger condition:
+    (void-function ogent-agent-call-async)
+   FAILED  12/55  ogent-agent-execution-async-real-process-and-ledger (0.000226 sec) at test/ogent-agent-execution-tests.el:243
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-5ACLw8 (retained)
+Test ogent-agent-execution-batch-composes-read-tools backtrace:
+  (ogent-agent-batch calls 'json)
+  (json-parse-string (ogent-agent-batch calls 'json) :object-type 'pli
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-batch-composes-
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-batch-composes-read-tools condition:
+    (void-function ogent-agent-batch)
+   FAILED  13/55  ogent-agent-execution-batch-composes-read-tools (0.000914 sec) at test/ogent-agent-execution-tests.el:653
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-xheW3X (retained)
+Test ogent-agent-execution-batch-continues-or-stops backtrace:
+  signal(void-function (ogent-agent-batch))
+  apply(signal (void-function (ogent-agent-batch)))
+  (setq value-1000 (apply fn-998 args-999))
+  (unwind-protect (setq value-1000 (apply fn-998 args-999)) (setq form
+  (if (unwind-protect (setq value-1000 (apply fn-998 args-999)) (setq 
+  (let (form-description-1002) (if (unwind-protect (setq value-1000 (a
+  (let ((value-1000 'ert-form-evaluation-aborted-1001)) (let (form-des
+  (let* ((fn-998 #'=) (args-999 (condition-case err (list (plist-get (
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (ogent-
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-batch-continues
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-batch-continues-or-stops condition:
+    (void-function ogent-agent-batch)
+   FAILED  14/55  ogent-agent-execution-batch-continues-or-stops (0.000377 sec) at test/ogent-agent-execution-tests.el:679
+Test ogent-agent-execution-batch-freezes-calls-and-argument-strings backtrace:
+  (ogent-agent-batch (list (list :tool "first" :args nil) later-call))
+  (let* ((executed nil) (value (copy-sequence "safe")) (later-call (li
+  #f(lambda () [gptel--known-tools t] (let* ((executed nil) (value (co
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-batch-freezes-c
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-batch-freezes-calls-and-argument-strings condition:
+    (void-function ogent-agent-batch)
+   FAILED  15/55  ogent-agent-execution-batch-freezes-calls-and-argument-strings (0.000210 sec) at test/ogent-agent-execution-tests.el:815
+Test ogent-agent-execution-batch-freezes-canonical-alias-target backtrace:
+  (ogent-agent-batch '[(:tool "first" :args nil) (:tool "alias" :args 
+  (let* ((executed nil) (later (list :name 'later :aliases '["alias"] 
+  #f(lambda () [gptel--known-tools t] (let* ((executed nil) (later (li
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-batch-freezes-c
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-batch-freezes-canonical-alias-target condition:
+    (void-function ogent-agent-batch)
+   FAILED  16/55  ogent-agent-execution-batch-freezes-canonical-alias-target (0.000196 sec) at test/ogent-agent-execution-tests.el:838
+Test ogent-agent-execution-batch-freezes-nested-object-values backtrace:
+  (ogent-agent-batch (list (list :tool "first" :args nil) (list :tool 
+  (let ((result (ogent-agent-batch (list (list :tool "first" :args nil
+  (let* ((payload (make-hash-table :test #'equal)) (nested (make-hash-
+  #f(lambda () [gptel--known-tools t] (let* ((payload (make-hash-table
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-batch-freezes-n
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-batch-freezes-nested-object-values condition:
+    (void-function ogent-agent-batch)
+   FAILED  17/55  ogent-agent-execution-batch-freezes-nested-object-values (0.000167 sec) at test/ogent-agent-execution-tests.el:918
+Test ogent-agent-execution-batch-inplace-effects-change backtrace:
+  (ogent-agent-batch '[(:tool "first" :args nil) (:tool "later" :args 
+  (let* ((executed nil) (later (list :name 'later :args nil :effects '
+  #f(lambda () [gptel--known-tools t] (let* ((executed nil) (later (li
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-batch-inplace-e
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-batch-inplace-effects-change condition:
+    (void-function ogent-agent-batch)
+   FAILED  18/55  ogent-agent-execution-batch-inplace-effects-change (0.000180 sec) at test/ogent-agent-execution-tests.el:797
+Test ogent-agent-execution-batch-preflight-prevents-unsafe-prefix backtrace:
+  (ogent-agent-batch (list '(:tool "files" :args (:pattern "*.el")) ta
+  (let ((result (ogent-agent-batch (list '(:tool "files" :args (:patte
+  (let ((tail (car tail))) (let ((result (ogent-agent-batch (list '(:t
+  (while tail (let ((tail (car tail))) (let ((result (ogent-agent-batc
+  (let ((tail '((:tool "shell" :args (:command "touch marker")) (:tool
+  (progn (fset 'ogent-ledger-record-tool-start vnew) (let ((tail '((:t
+  (unwind-protect (progn (fset 'ogent-ledger-record-tool-start vnew) (
+  (let* ((vnew #'(lambda (&rest _) (setq starts (1+ starts)))) (old (s
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (copy
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-batch-preflight
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-batch-preflight-prevents-unsafe-prefix condition:
+    (void-function ogent-agent-batch)
+   FAILED  19/55  ogent-agent-execution-batch-preflight-prevents-unsafe-prefix (0.000176 sec) at test/ogent-agent-execution-tests.el:667
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-9yDDy8 (retained)
+Test ogent-agent-execution-denial-and-approval-required backtrace:
+  signal(void-function (ogent-agent-call))
+  apply(signal (void-function (ogent-agent-call)))
+  (setq value-1313 (apply fn-1311 args-1312))
+  (unwind-protect (setq value-1313 (apply fn-1311 args-1312)) (setq fo
+  (if (unwind-protect (setq value-1313 (apply fn-1311 args-1312)) (set
+  (let (form-description-1315) (if (unwind-protect (setq value-1313 (a
+  (let ((value-1313 'ert-form-evaluation-aborted-1314)) (let (form-des
+  (let* ((fn-1311 #'equal) (args-1312 (condition-case err (list (plist
+  (let ((file (expand-file-name "new.txt" root))) (let* ((fn-1311 #'eq
+  (progn (fset 'ogent-tool--prompt-approval vnew) (let ((file (expand-
+  (unwind-protect (progn (fset 'ogent-tool--prompt-approval vnew) (let
+  (let* ((vnew #'(lambda (&rest _) (ert-fail "Programmatic calls must 
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (copy
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-denial-and-appr
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-denial-and-approval-required condition:
+    (void-function ogent-agent-call)
+   FAILED  20/55  ogent-agent-execution-denial-and-approval-required (0.000303 sec) at test/ogent-agent-execution-tests.el:1044
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-FBFmqv (retained)
+Test ogent-agent-execution-discovery-example-executes backtrace:
+  (ogent-agent-describe "read_file")
+  (plist-get (ogent-agent-describe "read_file") :tool)
+  (let* ((tool (plist-get (ogent-agent-describe "read_file") :tool)) (
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (ogent-
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-discovery-examp
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-discovery-example-executes condition:
+    (void-function ogent-agent-describe)
+   FAILED  21/55  ogent-agent-execution-discovery-example-executes (0.000442 sec) at test/ogent-agent-execution-tests.el:702
+Test ogent-agent-execution-discovery-exposes-real-call-shapes backtrace:
+  (ogent-agent-describe "read")
+  (plist-get (ogent-agent-describe "read") :tool)
+  (let ((read (plist-get (ogent-agent-describe "read") :tool)) (search
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (copy
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-discovery-expos
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-discovery-exposes-real-call-shapes condition:
+    (void-function ogent-agent-describe)
+   FAILED  22/55  ogent-agent-execution-discovery-exposes-real-call-shapes (0.000145 sec) at test/ogent-agent-execution-tests.el:689
+Test ogent-agent-execution-discovery-schema-and-purity backtrace:
+  (ogent-agent-schema 'json)
+  (json-parse-string (ogent-agent-schema 'json) :object-type 'plist)
+  (let ((schema (json-parse-string (ogent-agent-schema 'json) :object-
+  (progn (fset 'ogent-tool-execution-call vnew) (let ((schema (json-pa
+  (unwind-protect (progn (fset 'ogent-tool-execution-call vnew) (let (
+  (let* ((vnew #'(lambda (&rest _) (ert-fail "Discovery executed a too
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (copy
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-discovery-schem
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-discovery-schema-and-purity condition:
+    (void-function ogent-agent-schema)
+   FAILED  23/55  ogent-agent-execution-discovery-schema-and-purity (0.000160 sec) at test/ogent-agent-execution-tests.el:713
+Test ogent-agent-execution-failures-recorded backtrace:
+  (ogent-agent-call "fail" nil)
+  (let ((result (ogent-agent-call "fail" nil))) (let* ((fn-1331 #'equa
+  (progn (fset 'ogent-ledger-record-tool-finish vnew) (let ((result (o
+  (unwind-protect (progn (fset 'ogent-ledger-record-tool-finish vnew) 
+  (let* ((vnew #'(lambda (_call _result failure &rest _) (setq recorde
+  (let ((ogent-tool-registry (list (list :name 'fail :function #'(lamb
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (list
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-failures-record
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-failures-recorded condition:
+    (void-function ogent-agent-call)
+   FAILED  24/55  ogent-agent-execution-failures-recorded (0.000150 sec) at test/ogent-agent-execution-tests.el:1062
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-kjxfM5 (retained)
+Test ogent-agent-execution-glob-complete-pagination backtrace:
+  (ogent-agent-call "glob" (list :pattern "*.el" :path root))
+  (plist-get (ogent-agent-call "glob" (list :pattern "*.el" :path root
+  (let* ((first (plist-get (ogent-agent-call "glob" (list :pattern "*.
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (ogent-
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-glob-complete-p
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-glob-complete-pagination condition:
+    (void-function ogent-agent-call)
+   FAILED  25/55  ogent-agent-execution-glob-complete-pagination (0.008578 sec) at test/ogent-agent-execution-tests.el:74
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-NuPWo5 (retained)
+Test ogent-agent-execution-glob-json-empty-and-weird-paths backtrace:
+  ogent-tool--glob("*.el" "/tmp/ogent-test-store-LSDzF7/tools-NuPWo5/"
+  (json-parse-string (ogent-tool--glob "*.el" root 'json) :object-type
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-glob-json-empty
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-glob-json-empty-and-weird-paths condition:
+    (wrong-number-of-arguments
+     #[(pattern &optional path)
+       ((let* (... ... ... files)
+	  (if ... nil ...) (if ... nil ...) (setq files ...)
+	  (setq files ...) (setq files ...) (if ... ...)
+	  (if files ... "No files found matching pattern")))
+       (t) nil
+       "Find files matching glob PATTERN.\nPATH is the directory to search (default project root).\nReturns files sorted by modification time (newest first)."]
+     3)
+   FAILED  26/55  ogent-agent-execution-glob-json-empty-and-weird-paths (0.000379 sec) at test/ogent-agent-execution-tests.el:89
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-HYYtwN (retained)
+Test ogent-agent-execution-glob-raw-filenames-error-before-filtering backtrace:
+  (ogent-agent-call "files" (list :pattern pattern :path root) format)
+  (let ((result (ogent-agent-call "files" (list :pattern pattern :path
+  (let ((format (car tail))) (let ((result (ogent-agent-call "files" (
+  (while tail (let ((format (car tail))) (let ((result (ogent-agent-ca
+  (let ((tail '(plist json))) (while tail (let ((format (car tail))) (
+  (let ((pattern (car tail))) (let ((tail '(plist json))) (while tail 
+  (while tail (let ((pattern (car tail))) (let ((tail '(plist json))) 
+  (let ((tail '("*.txt" "**/*.txt"))) (while tail (let ((pattern (car 
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (raw (c
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-glob-raw-filena
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-glob-raw-filenames-error-before-filtering condition:
+    (void-function ogent-agent-call)
+   FAILED  27/55  ogent-agent-execution-glob-raw-filenames-error-before-filtering (0.000593 sec) at test/ogent-agent-execution-tests.el:106
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-garAkG (retained)
+Test ogent-agent-execution-glob-star-stays-in-component backtrace:
+  signal(void-function (ogent-tools--glob-files))
+  apply(signal (void-function (ogent-tools--glob-files)))
+  (setq value-287 (apply fn-285 args-286))
+  (unwind-protect (setq value-287 (apply fn-285 args-286)) (setq form-
+  (if (unwind-protect (setq value-287 (apply fn-285 args-286)) (setq f
+  (let (form-description-289) (if (unwind-protect (setq value-287 (app
+  (let ((value-287 'ert-form-evaluation-aborted-288)) (let (form-descr
+  (let* ((fn-285 #'equal) (args-286 (condition-case err (list (ogent-t
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (direct
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-glob-star-stays
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-glob-star-stays-in-component condition:
+    (void-function ogent-tools--glob-files)
+   FAILED  28/55  ogent-agent-execution-glob-star-stays-in-component (0.000610 sec) at test/ogent-agent-execution-tests.el:98
+Test ogent-agent-execution-json-unsupported-extension-callback-once backtrace:
+  (ogent-agent-call-async "bad-json" nil callback 'json)
+  #f(lambda (callback) [t] (ogent-agent-call-async "bad-json" nil call
+  funcall(#f(lambda (callback) [t] (ogent-agent-call-async "bad-json" 
+  (let ((invoke (car tail))) (progn (setq calls 0) (setq result nil)) 
+  (while tail (let ((invoke (car tail))) (progn (setq calls 0) (setq r
+  (let ((tail (list #'(lambda (callback) (ogent-agent-call-async "bad-
+  (let* ((spec (list :name 'bad-json :async t :args nil :function #'(l
+  #f(lambda () [gptel--known-tools t] (let* ((spec (list :name ... :as
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-json-unsupporte
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-json-unsupported-extension-callback-once condition:
+    (void-function ogent-agent-call-async)
+   FAILED  29/55  ogent-agent-execution-json-unsupported-extension-callback-once (0.000184 sec) at test/ogent-agent-execution-tests.el:1004
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-zlhrVd (retained)
+Test ogent-agent-execution-json-unsupported-path-delivers-error backtrace:
+  (ogent-agent-call "read" (list :file_path file) 'json)
+  (json-parse-string (ogent-agent-call "read" (list :file_path file) '
+  (let ((sync (json-parse-string (ogent-agent-call "read" (list :file_
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-json-unsupporte
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-json-unsupported-path-delivers-error condition:
+    (void-function ogent-agent-call)
+   FAILED  30/55  ogent-agent-execution-json-unsupported-path-delivers-error (0.000579 sec) at test/ogent-agent-execution-tests.el:988
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-DEPesw (retained)
+Test ogent-agent-execution-ledger-start-failure-prevents-effects backtrace:
+  ogent-agent-call-async("ledger-start" nil #f(lambda (data) [(result 
+  apply(ogent-agent-call-async ("ledger-start" nil #f(lambda (data) [(
+  (setq value-751 (apply fn-749 args-750))
+  (unwind-protect (setq value-751 (apply fn-749 args-750)) (setq form-
+  (not (unwind-protect (setq value-751 (apply fn-749 args-750)) (setq 
+  (if (not (unwind-protect (setq value-751 (apply fn-749 args-750)) (s
+  (let (form-description-753) (if (not (unwind-protect (setq value-751
+  (let ((value-751 'ert-form-evaluation-aborted-752)) (let (form-descr
+  (let* ((fn-749 #'ogent-agent-call-async) (args-750 (condition-case e
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (ogent-
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-ledger-start-fa
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-ledger-start-failure-prevents-effects condition:
+    (void-function ogent-agent-call-async)
+   FAILED  31/55  ogent-agent-execution-ledger-start-failure-prevents-effects (0.000284 sec) at test/ogent-agent-execution-tests.el:467
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-nSg7ur (retained)
+Test ogent-agent-execution-legacy-async-ledger-failure-visible-once backtrace:
+  ogent-tool-execution-wrapper((:name legacy-process :async t :args ((
+  (funcall (ogent-tool-execution-wrapper spec 'text) #'(lambda (data) 
+  (progn (funcall (ogent-tool-execution-wrapper spec 'text) #'(lambda 
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-legacy-async-le
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-legacy-async-ledger-failure-visible-once condition:
+    (wrong-number-of-arguments
+     #[(spec) ((let (... ...) #'(lambda ... ...))) (t) nil
+       "Return a gptel function enforcing policy and ledger recording for SPEC.\nAdapt gptel's callback-first convention to ogent's callback-last async specs.\nReject stale tool objects after registry removal or schema replacement."]
+     2)
+   FAILED  32/55  ogent-agent-execution-legacy-async-ledger-failure-visible-once (0.000403 sec) at test/ogent-agent-execution-tests.el:352
+Test ogent-agent-execution-model-detects-object-schema-mutation backtrace:
+  ogent-tool-execution-wrapper((:name changing :confirm t :args nil :m
+  (let* ((properties (make-hash-table :test #'equal)) executed (spec (
+  #f(lambda () [gptel--known-tools t] (let* ((properties (make-hash-ta
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-model-detects-o
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-model-detects-object-schema-mutation condition:
+    (wrong-number-of-arguments
+     #[(spec) ((let (... ...) #'(lambda ... ...))) (t) nil
+       "Return a gptel function enforcing policy and ledger recording for SPEC.\nAdapt gptel's callback-first convention to ogent's callback-last async specs.\nReject stale tool objects after registry removal or schema replacement."]
+     2)
+   FAILED  33/55  ogent-agent-execution-model-detects-object-schema-mutation (0.000182 sec) at test/ogent-agent-execution-tests.el:937
+Test ogent-agent-execution-model-freezes-argument-strings backtrace:
+  ogent-tool-execution-wrapper((:name echo :confirm t :args ((:name "v
+  (let* ((value (copy-sequence "safe")) (spec (list :name 'echo :confi
+  (let ((format (car tail))) (let* ((value (copy-sequence "safe")) (sp
+  (while tail (let ((format (car tail))) (let* ((value (copy-sequence 
+  (let ((tail '(text json))) (while tail (let ((format (car tail))) (l
+  #f(lambda () [gptel--known-tools t] (let ((tail '...)) (while tail (
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-model-freezes-a
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-model-freezes-argument-strings condition:
+    (wrong-number-of-arguments
+     #[(spec) ((let (... ...) #'(lambda ... ...))) (t) nil
+       "Return a gptel function enforcing policy and ledger recording for SPEC.\nAdapt gptel's callback-first convention to ogent's callback-last async specs.\nReject stale tool objects after registry removal or schema replacement."]
+     2)
+   FAILED  34/55  ogent-agent-execution-model-freezes-argument-strings (0.000136 sec) at test/ogent-agent-execution-tests.el:877
+Test ogent-agent-execution-model-freezes-metadata-strings backtrace:
+  ogent-tool-execution-wrapper((:name changing :confirm t :args nil :e
+  (let* ((executed nil) (target (copy-sequence "safe")) (spec (list :n
+  (let ((format (car tail))) (let* ((executed nil) (target (copy-seque
+  (while tail (let ((format (car tail))) (let* ((executed nil) (target
+  (let ((tail '(text json))) (while tail (let ((format (car tail))) (l
+  #f(lambda () [gptel--known-tools t] (let ((tail '...)) (while tail (
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-model-freezes-m
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-model-freezes-metadata-strings condition:
+    (wrong-number-of-arguments
+     #[(spec) ((let (... ...) #'(lambda ... ...))) (t) nil
+       "Return a gptel function enforcing policy and ledger recording for SPEC.\nAdapt gptel's callback-first convention to ogent's callback-last async specs.\nReject stale tool objects after registry removal or schema replacement."]
+     2)
+   FAILED  35/55  ogent-agent-execution-model-freezes-metadata-strings (0.000147 sec) at test/ogent-agent-execution-tests.el:857
+Test ogent-agent-execution-model-freezes-object-arguments backtrace:
+  ogent-tool-execution-wrapper((:name object-reader :confirm t :args (
+  (let* ((payload (make-hash-table :test #'equal)) (properties (let ((
+  (let ((format (car tail))) (let* ((payload (make-hash-table :test #'
+  (while tail (let ((format (car tail))) (let* ((payload (make-hash-ta
+  (let ((tail '(text json))) (while tail (let ((format (car tail))) (l
+  #f(lambda () [gptel--known-tools t] (let ((tail '...)) (while tail (
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-model-freezes-o
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-model-freezes-object-arguments condition:
+    (wrong-number-of-arguments
+     #[(spec) ((let (... ...) #'(lambda ... ...))) (t) nil
+       "Return a gptel function enforcing policy and ledger recording for SPEC.\nAdapt gptel's callback-first convention to ogent's callback-last async specs.\nReject stale tool objects after registry removal or schema replacement."]
+     2)
+   FAILED  36/55  ogent-agent-execution-model-freezes-object-arguments (0.000148 sec) at test/ogent-agent-execution-tests.el:895
+Test ogent-agent-execution-model-inplace-change-during-approval backtrace:
+  ogent-tool-execution-wrapper((:name changing :confirm t :args nil :f
+  (let* ((executed nil) (spec (list :name 'changing :confirm t :args n
+  (let ((format (car tail))) (let* ((executed nil) (spec (list :name '
+  (while tail (let ((format (car tail))) (let* ((executed nil) (spec (
+  (let ((tail '(text json))) (while tail (let ((format (car tail))) (l
+  #f(lambda () [gptel--known-tools t] (let ((tail '...)) (while tail (
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-model-inplace-c
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-model-inplace-change-during-approval condition:
+    (wrong-number-of-arguments
+     #[(spec) ((let (... ...) #'(lambda ... ...))) (t) nil
+       "Return a gptel function enforcing policy and ledger recording for SPEC.\nAdapt gptel's callback-first convention to ogent's callback-last async specs.\nReject stale tool objects after registry removal or schema replacement."]
+     2)
+   FAILED  37/55  ogent-agent-execution-model-inplace-change-during-approval (0.000199 sec) at test/ogent-agent-execution-tests.el:776
+Test ogent-agent-execution-model-json-async-callback backtrace:
+  ogent-tool-execution-wrapper((:name async-fixture :async t :args ((:
+  (funcall (ogent-tool-execution-wrapper spec 'json) #'(lambda (json) 
+  (let* ((spec (list :name 'async-fixture :async t :args '((:name "val
+  #f(lambda () [gptel--known-tools t] (let* ((spec (list :name ... :as
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-model-json-asyn
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-model-json-async-callback condition:
+    (wrong-number-of-arguments
+     #[(spec) ((let (... ...) #'(lambda ... ...))) (t) nil
+       "Return a gptel function enforcing policy and ledger recording for SPEC.\nAdapt gptel's callback-first convention to ogent's callback-last async specs.\nReject stale tool objects after registry removal or schema replacement."]
+     2)
+   FAILED  38/55  ogent-agent-execution-model-json-async-callback (0.000144 sec) at test/ogent-agent-execution-tests.el:977
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-OE7nbX (retained)
+Test ogent-agent-execution-model-json-pages-and-cache-refresh backtrace:
+  json-parse-string("Tool error: glob received 4 arguments but accepts
+  (let* ((ogent-tools-result-format 'json) (tool (ogent-tool-get "glob
+  (progn (fset 'gptel-make-tool vnew) (let ((text (ogent-tool-get "glo
+  (unwind-protect (progn (fset 'gptel-make-tool vnew) (let ((text (oge
+  (let* ((vnew #'(lambda (&rest args) (setq constructed (1+ constructe
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (ogent-
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-model-json-page
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-model-json-pages-and-cache-refresh condition:
+    (json-parse-error 1 1 1)
+   FAILED  39/55  ogent-agent-execution-model-json-pages-and-cache-refresh (0.001602 sec) at test/ogent-agent-execution-tests.el:726
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-aYsA14 (retained)
+Test ogent-agent-execution-model-json-unicode-transport backtrace:
+  ogent-tool--read-file("/tmp/ogent-test-store-LSDzF7/tools-aYsA14/caf
+  (list (ogent-tool--read-file file 1 1 'json) (ogent-agent-call "read
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (text "
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-model-json-unic
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-model-json-unicode-transport condition:
+    (wrong-number-of-arguments
+     #[(file-path &optional offset limit)
+       ((if (and ... ...) nil
+	  (user-error
+	   "Invalid read_file file_path; use a non-empty string or glob to find a file"))
+	(let* (... ... ...)
+	  (if ... nil ...) (if ... nil ...) (if ... nil ...)
+	  (if ... nil ...) (if ... nil ...) (if ... ...) (let ... ...)))
+       (t) nil
+       "Return a numbered page of text from FILE-PATH.\nOFFSET is the starting line number (1-indexed, default 1).\nLIMIT is the max lines to read (default `ogent-tools-max-file-lines').\nName the next offset when more lines remain; mark truncated long lines."]
+     4)
+   FAILED  40/55  ogent-agent-execution-model-json-unicode-transport (0.047248 sec) at test/ogent-agent-execution-tests.el:134
+Test ogent-agent-execution-model-refreshes-object-schema-cache backtrace:
+  signal(ert-test-failed (((should-not (eq first second)) :form (eq (:
+  ert-fail(((should-not (eq first second)) :form (eq (:name "object-re
+  (if (not (unwind-protect (setq value-1226 (apply fn-1224 args-1225))
+  (let (form-description-1228) (if (not (unwind-protect (setq value-12
+  (let ((value-1226 'ert-form-evaluation-aborted-1227)) (let (form-des
+  (let* ((fn-1224 #'eq) (args-1225 (condition-case err (list first sec
+  (let ((second (ogent-tool-get "object-reader"))) (let* ((fn-1224 #'e
+  (let ((first (ogent-tool-get "object-reader"))) (let* ((fn-1219 #'eq
+  (progn (fset 'gptel-make-tool vnew) (let ((first (ogent-tool-get "ob
+  (unwind-protect (progn (fset 'gptel-make-tool vnew) (let ((first (og
+  (let* ((vnew #'(lambda (&rest args) (setq constructed (1+ constructe
+  (let* ((properties (make-hash-table :test #'equal)) (spec (list :nam
+  #f(lambda () [gptel--known-tools t] (let* ((properties (make-hash-ta
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test ... :result
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-model-refreshes
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-model-refreshes-object-schema-cache condition:
+    (ert-test-failed
+     ((should-not (eq first second)) :form
+      (eq
+       (:name "object-reader" :function #[... ... ...] :description
+	      "Read an object" :args (...) :confirm nil)
+       (:name "object-reader" :function #[... ... ...] :description
+	      "Read an object" :args (...) :confirm nil))
+      :value t))
+   FAILED  41/55  ogent-agent-execution-model-refreshes-object-schema-cache (0.000391 sec) at test/ogent-agent-execution-tests.el:953
+Test ogent-agent-execution-model-stale-after-approval backtrace:
+  ogent-tool-execution-wrapper((:name changing :confirm t :args nil :f
+  (let* ((executed nil) (spec (list :name 'changing :confirm t :args n
+  (let ((format (car tail))) (let* ((executed nil) (spec (list :name '
+  (while tail (let ((format (car tail))) (let* ((executed nil) (spec (
+  (let ((tail '(text json))) (while tail (let ((format (car tail))) (l
+  #f(lambda () [gptel--known-tools t] (let ((tail '...)) (while tail (
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-model-stale-aft
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-model-stale-after-approval condition:
+    (wrong-number-of-arguments
+     #[(spec) ((let (... ...) #'(lambda ... ...))) (t) nil
+       "Return a gptel function enforcing policy and ledger recording for SPEC.\nAdapt gptel's callback-first convention to ogent's callback-last async specs.\nReject stale tool objects after registry removal or schema replacement."]
+     2)
+   FAILED  42/55  ogent-agent-execution-model-stale-after-approval (0.000185 sec) at test/ogent-agent-execution-tests.el:754
+Test ogent-agent-execution-named-call-and-json backtrace:
+  (ogent-agent-call "echo" '(:value "Tool error: literal") 'json)
+  (json-parse-string (ogent-agent-call "echo" '(:value "Tool error: li
+  (let ((result (json-parse-string (ogent-agent-call "echo" '(:value "
+  (let ((ogent-tool-registry (list (list :name 'echo :function #'ident
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (list
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-named-call-and-
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-named-call-and-json condition:
+    (void-function ogent-agent-call)
+   FAILED  43/55  ogent-agent-execution-named-call-and-json (0.000140 sec) at test/ogent-agent-execution-tests.el:1018
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-Phd061 (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-YPOrKk (retained)
+Test ogent-agent-execution-next-freezes-path-and-follows-json backtrace:
+  (ogent-agent-call "read_file" '(:file_path "data.txt" :limit 1) 'jso
+  (let ((first (ogent-agent-call "read_file" '(:file_path "data.txt" :
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (other 
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-next-freezes-pa
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-next-freezes-path-and-follows-json condition:
+    (void-function ogent-agent-call)
+   FAILED  44/55  ogent-agent-execution-next-freezes-path-and-follows-json (0.000742 sec) at test/ogent-agent-execution-tests.el:156
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-Aw6wDr (retained)
+Test ogent-agent-execution-next-refuses-changed-snapshot backtrace:
+  (ogent-agent-call "read-file" (list :file_path file :limit 1))
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-next-refuses-ch
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-next-refuses-changed-snapshot condition:
+    (void-function ogent-agent-call)
+   FAILED  45/55  ogent-agent-execution-next-refuses-changed-snapshot (0.000510 sec) at test/ogent-agent-execution-tests.el:172
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-uZP9Qy (retained)
+Test ogent-agent-execution-next-retains-long-line-characters backtrace:
+  (ogent-agent-call "read-file" (list :file_path file))
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-next-retains-lo
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-next-retains-long-line-characters condition:
+    (void-function ogent-agent-call)
+   FAILED  46/55  ogent-agent-execution-next-retains-long-line-characters (0.000427 sec) at test/ogent-agent-execution-tests.el:183
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-GiXILI (retained)
+Test ogent-agent-execution-process-grep-integration backtrace:
+  (ogent-agent-call "search" (list :pattern "needle" :path root :limit
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-process-grep-in
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-process-grep-integration condition:
+    (void-function ogent-agent-call)
+   FAILED  47/55  ogent-agent-execution-process-grep-integration (0.000434 sec) at test/ogent-agent-execution-tests.el:218
+Test ogent-agent-execution-process-shell-failures-retain-data backtrace:
+  (ogent-agent-call "shell" '(:command "printf out; printf err >&2; ex
+  (let ((failed (ogent-agent-call "shell" '(:command "printf out; prin
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (copy
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-process-shell-f
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-process-shell-failures-retain-data condition:
+    (void-function ogent-agent-call)
+   FAILED  48/55  ogent-agent-execution-process-shell-failures-retain-data (0.000148 sec) at test/ogent-agent-execution-tests.el:231
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-s3s0PO (retained)
+Test ogent-agent-execution-read-empty-and-invalid backtrace:
+  (ogent-agent-call "read-file" (list :file_path file))
+  (plist-get (ogent-agent-call "read-file" (list :file_path file)) :da
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-read-empty-and-
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-read-empty-and-invalid condition:
+    (void-function ogent-agent-call)
+   FAILED  49/55  ogent-agent-execution-read-empty-and-invalid (0.000419 sec) at test/ogent-agent-execution-tests.el:52
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-9ITb0d (retained)
+Test ogent-agent-execution-read-long-line-continuation backtrace:
+  (ogent-tool-results-read file 1 20)
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-read-long-line-
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-read-long-line-continuation condition:
+    (void-function ogent-tool-results-read)
+   FAILED  50/55  ogent-agent-execution-read-long-line-continuation (0.000433 sec) at test/ogent-agent-execution-tests.el:38
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-Day4Jm (retained)
+Test ogent-agent-execution-read-respects-configured-default backtrace:
+  (ogent-agent-call "read" (list :file_path file))
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-read-respects-c
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-read-respects-configured-default condition:
+    (void-function ogent-agent-call)
+   FAILED  51/55  ogent-agent-execution-read-respects-configured-default (0.000421 sec) at test/ogent-agent-execution-tests.el:63
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-dFGBd6 (retained)
+Test ogent-agent-execution-read-structured-pages backtrace:
+  (ogent-agent-call "read_file" (list :file_path file :limit 2))
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
+  #f(lambda () [gptel--known-tools t] (let* ((root (ogent-test--provis
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-read-structured
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-read-structured-pages condition:
+    (void-function ogent-agent-call)
+   FAILED  52/55  ogent-agent-execution-read-structured-pages (0.000435 sec) at test/ogent-agent-execution-tests.el:22
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-izL1el (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-14qc6J (retained)
+Test ogent-agent-execution-sync-ledger-context-survives-tool-context-change backtrace:
+  (ogent-agent-call "context-changing" nil format)
+  (if (eq format 'text) (funcall (ogent-tool-execution-wrapper spec 't
+  (let* ((default-directory origin) (result (if (eq format 'text) (fun
+  (let* ((origin (ogent-test--provision-store-directory 'tools)) (othe
+  (let ((change-settings (car tail))) (let* ((origin (ogent-test--prov
+  (while tail (let ((change-settings (car tail))) (let* ((origin (ogen
+  (let ((tail '(t nil))) (while tail (let ((change-settings (car tail)
+  (let ((initially-enabled (car tail))) (let ((tail '(t nil))) (while 
+  (while tail (let ((initially-enabled (car tail))) (let ((tail '(t ni
+  (let ((tail '(t nil))) (while tail (let ((initially-enabled (car tai
+  (let ((format (car tail))) (let ((tail '(t nil))) (while tail (let (
+  (while tail (let ((format (car tail))) (let ((tail '(t nil))) (while
+  (let ((tail '(plist json text))) (while tail (let ((format (car tail
+  #f(lambda () [gptel--known-tools t] (let ((tail '...)) (while tail (
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-sync-ledger-con
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-sync-ledger-context-survives-tool-context-change condition:
+    (void-function ogent-agent-call)
+   FAILED  53/55  ogent-agent-execution-sync-ledger-context-survives-tool-context-change (0.000400 sec) at test/ogent-agent-execution-tests.el:573
+ogent-test: provisioned tools store at /tmp/ogent-test-store-LSDzF7/tools-T5Yquf (retained)
+Test ogent-agent-execution-sync-ledger-failure-retains-completed-data backtrace:
+  (ogent-agent-call "ledger-sync" nil)
+  (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
+  (let ((exit-code (car tail))) (let* ((root (ogent-test--provision-st
+  (while tail (let ((exit-code (car tail))) (let* ((root (ogent-test--
+  (let ((tail '(0 7))) (while tail (let ((exit-code (car tail))) (let*
+  #f(lambda () [gptel--known-tools t] (let ((tail '...)) (while tail (
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-sync-ledger-fai
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-sync-ledger-failure-retains-completed-data condition:
+    (void-function ogent-agent-call)
+   FAILED  54/55  ogent-agent-execution-sync-ledger-failure-retains-completed-data (0.000402 sec) at test/ogent-agent-execution-tests.el:390
+Test ogent-agent-execution-validates-before-policy backtrace:
+  signal(void-function (ogent-agent-call))
+  apply(signal (void-function (ogent-agent-call)))
+  (setq value-1296 (apply fn-1294 args-1295))
+  (unwind-protect (setq value-1296 (apply fn-1294 args-1295)) (setq fo
+  (if (unwind-protect (setq value-1296 (apply fn-1294 args-1295)) (set
+  (let (form-description-1298) (if (unwind-protect (setq value-1296 (a
+  (let ((value-1296 'ert-form-evaluation-aborted-1297)) (let (form-des
+  (let* ((fn-1294 #'equal) (args-1295 (condition-case err (list (plist
+  (progn (fset 'ogent-tool-approval-check vnew) (let* ((fn-1294 #'equa
+  (unwind-protect (progn (fset 'ogent-tool-approval-check vnew) (let* 
+  (let* ((vnew #'(lambda (&rest _) (setq calls (1+ calls)) 'approved))
+  (let ((ogent-tool-registry (list (list :name 'echo :function #'ident
+  #f(lambda () [gptel--known-tools t] (let ((ogent-tool-registry (list
+  #f(compiled-function () #<bytecode 0x86341c8eec4ad19>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x86341c8eec4ad19>
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-execution-validates-befor
+  ert-run-or-rerun-test(#s(ert--stats :selector "ogent-agent-execution
+  ert-run-tests("ogent-agent-execution-" #f(compiled-function (event-t
+  ert-run-tests-batch("ogent-agent-execution-")
+  ert-run-tests-batch-and-exit("ogent-agent-execution-")
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-execution-validates-before-policy condition:
+    (void-function ogent-agent-call)
+   FAILED  55/55  ogent-agent-execution-validates-before-policy (0.000167 sec) at test/ogent-agent-execution-tests.el:1031
+
+Ran 55 tests, 1 results as expected, 54 unexpected (2026-10-08 23:19:39+0000, 117.364559 sec)
+
+54 unexpected results:
+   FAILED  ogent-agent-execution-aliases-share-policy
+   FAILED  ogent-agent-execution-async-and-sync-failures-in-ledger
+   FAILED  ogent-agent-execution-async-custom-once-and-sync-rejection
+   FAILED  ogent-agent-execution-async-denial-and-cancel
+   FAILED  ogent-agent-execution-async-immediate-result-returns-nil
+   FAILED  ogent-agent-execution-async-ledger-context-survives-project-switch
+   FAILED  ogent-agent-execution-async-ledger-failure-preserves-tool-error
+   FAILED  ogent-agent-execution-async-ledger-records-success
+   FAILED  ogent-agent-execution-async-ledger-write-failure-retains-terminal
+   FAILED  ogent-agent-execution-async-malformed-result-delivers-once
+   FAILED  ogent-agent-execution-async-real-process-and-ledger
+   FAILED  ogent-agent-execution-batch-composes-read-tools
+   FAILED  ogent-agent-execution-batch-continues-or-stops
+   FAILED  ogent-agent-execution-batch-freezes-calls-and-argument-strings
+   FAILED  ogent-agent-execution-batch-freezes-canonical-alias-target
+   FAILED  ogent-agent-execution-batch-freezes-nested-object-values
+   FAILED  ogent-agent-execution-batch-inplace-effects-change
+   FAILED  ogent-agent-execution-batch-preflight-prevents-unsafe-prefix
+   FAILED  ogent-agent-execution-denial-and-approval-required
+   FAILED  ogent-agent-execution-discovery-example-executes
+   FAILED  ogent-agent-execution-discovery-exposes-real-call-shapes
+   FAILED  ogent-agent-execution-discovery-schema-and-purity
+   FAILED  ogent-agent-execution-failures-recorded
+   FAILED  ogent-agent-execution-glob-complete-pagination
+   FAILED  ogent-agent-execution-glob-json-empty-and-weird-paths
+   FAILED  ogent-agent-execution-glob-raw-filenames-error-before-filtering
+   FAILED  ogent-agent-execution-glob-star-stays-in-component
+   FAILED  ogent-agent-execution-json-unsupported-extension-callback-once
+   FAILED  ogent-agent-execution-json-unsupported-path-delivers-error
+   FAILED  ogent-agent-execution-ledger-start-failure-prevents-effects
+   FAILED  ogent-agent-execution-legacy-async-ledger-failure-visible-once
+   FAILED  ogent-agent-execution-model-detects-object-schema-mutation
+   FAILED  ogent-agent-execution-model-freezes-argument-strings
+   FAILED  ogent-agent-execution-model-freezes-metadata-strings
+   FAILED  ogent-agent-execution-model-freezes-object-arguments
+   FAILED  ogent-agent-execution-model-inplace-change-during-approval
+   FAILED  ogent-agent-execution-model-json-async-callback
+   FAILED  ogent-agent-execution-model-json-pages-and-cache-refresh
+   FAILED  ogent-agent-execution-model-json-unicode-transport
+   FAILED  ogent-agent-execution-model-refreshes-object-schema-cache
+   FAILED  ogent-agent-execution-model-stale-after-approval
+   FAILED  ogent-agent-execution-named-call-and-json
+   FAILED  ogent-agent-execution-next-freezes-path-and-follows-json
+   FAILED  ogent-agent-execution-next-refuses-changed-snapshot
+   FAILED  ogent-agent-execution-next-retains-long-line-characters
+   FAILED  ogent-agent-execution-process-grep-integration
+   FAILED  ogent-agent-execution-process-shell-failures-retain-data
+   FAILED  ogent-agent-execution-read-empty-and-invalid
+   FAILED  ogent-agent-execution-read-long-line-continuation
+   FAILED  ogent-agent-execution-read-respects-configured-default
+   FAILED  ogent-agent-execution-read-structured-pages
+   FAILED  ogent-agent-execution-sync-ledger-context-survives-tool-context-change
+   FAILED  ogent-agent-execution-sync-ledger-failure-retains-completed-data
+   FAILED  ogent-agent-execution-validates-before-policy
+

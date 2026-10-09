@@ -1,0 +1,207 @@
+{
+  "recommendation_id": "R021",
+  "test_path": "agent_ergonomics_audit/audit/regression_tests/R021__live_contracts.test.sh",
+  "test_inputs_sha256": {
+    "agent_ergonomics_audit/audit/regression_tests/R021__live_contracts.test.sh": "db909e8aed7b91ed96798ed6b9dc6d3a276765c7966ff88066928997b952fd63",
+    "agent_ergonomics_audit/tools/run-ert.sh": "a9e618a585ad6496b8f3947e0ca14b0a90e8c5be1e7bdcfcf19e1387437bc4af",
+    "test/ogent-test-helper.el": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+    "test/ogent-agent-execution-tests.el": "c94d0bed0dbb9c1eabc15d6071984c3db9eb30ab177000ea87da26a70c81915b"
+  },
+  "contract": {
+    "kind": "ert",
+    "runs": [
+      {
+        "selector": "ogent-agent-execution-discovery-",
+        "test_file": "test/ogent-agent-execution-tests.el",
+        "expected_count": 3,
+        "expected_names": [
+          "ogent-agent-execution-discovery-example-executes",
+          "ogent-agent-execution-discovery-exposes-real-call-shapes",
+          "ogent-agent-execution-discovery-schema-and-purity"
+        ]
+      }
+    ],
+    "expected_count": 3,
+    "count_unit": "ERT tests"
+  },
+  "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "baseline": {
+    "argv": [
+      "docker",
+      "exec",
+      "ogent-fixes",
+      "env",
+      "-u",
+      "OGENT_AUDIT_SOURCE",
+      "-u",
+      "MAKEM_UNDER_TEST",
+      "-u",
+      "BASH_ENV",
+      "MAKEM_UNDER_TEST=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+      "OGENT_AUDIT_SOURCE=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+      "timeout",
+      "--kill-after=5",
+      "90",
+      "bash",
+      "/work/agent_ergonomics_audit/audit/regression_tests/R021__live_contracts.test.sh"
+    ],
+    "environment_overrides": {
+      "MAKEM_UNDER_TEST": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh",
+      "OGENT_AUDIT_SOURCE": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+    },
+    "started_at": "2026-10-08T23:34:26.069463+00:00",
+    "duration_seconds": 3.173,
+    "exit_code": 1,
+    "timed_out": false,
+    "timeout_seconds": 90,
+    "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R021-baseline.log",
+    "log_sha256": "c1b8cbf4d60f8c976beae8b0e113c9edaa6d3b5635695a39fa2388ffebf0d1ee",
+    "source": {
+      "revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "source_root": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "source_root_in_container": "/work/agent_ergonomics_audit/audit/partial/baseline_pass_3",
+      "tracked_source_clean": true,
+      "verified_git_archive": true,
+      "source_fingerprint_sha256": "307043b8873701e3bc746b75a7c1c5235001dc9517fbb9c15f9cf5ca32baf22c",
+      "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/baseline-source.json",
+      "manifest_sha256": "35ed30d194153dd7833a63a4e3c160d6b6c5510b35fa98053bacc31542922fe5"
+    },
+    "selected_count": 3,
+    "completed_count": 3,
+    "executed_count": 3,
+    "skipped_count": 0,
+    "unexpected_count": 3,
+    "runs": [
+      {
+        "selected": 3,
+        "completed": 3,
+        "expected": 0,
+        "unexpected": 3,
+        "skipped": 0,
+        "results": [
+          {
+            "status": "FAILED",
+            "index": 1,
+            "selected_total": 3,
+            "name": "ogent-agent-execution-discovery-example-executes"
+          },
+          {
+            "status": "FAILED",
+            "index": 2,
+            "selected_total": 3,
+            "name": "ogent-agent-execution-discovery-exposes-real-call-shapes"
+          },
+          {
+            "status": "FAILED",
+            "index": 3,
+            "selected_total": 3,
+            "name": "ogent-agent-execution-discovery-schema-and-purity"
+          }
+        ],
+        "summary": "Ran 3 tests, 0 results as expected, 3 unexpected"
+      }
+    ],
+    "unexecuted_selectors": [],
+    "evidence_errors": [],
+    "proven": true,
+    "runtime": {
+      "emacs_version": "GNU Emacs 30.2",
+      "process_test_rg": {
+        "path": "/tmp/ogent-test-rg",
+        "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+        "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+      }
+    }
+  },
+  "proven": true,
+  "current": {
+    "argv": [
+      "docker",
+      "exec",
+      "ogent-fixes",
+      "env",
+      "-u",
+      "OGENT_AUDIT_SOURCE",
+      "-u",
+      "MAKEM_UNDER_TEST",
+      "-u",
+      "BASH_ENV",
+      "MAKEM_UNDER_TEST=/work/makem.sh",
+      "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+      "timeout",
+      "--kill-after=5",
+      "90",
+      "bash",
+      "/work/agent_ergonomics_audit/audit/regression_tests/R021__live_contracts.test.sh"
+    ],
+    "environment_overrides": {
+      "MAKEM_UNDER_TEST": "/work/makem.sh",
+      "OGENT_PROCESS_TEST_RG": "/tmp/ogent-test-rg"
+    },
+    "started_at": "2026-10-08T23:34:58.146308+00:00",
+    "duration_seconds": 0.415,
+    "exit_code": 0,
+    "timed_out": false,
+    "timeout_seconds": 90,
+    "log": "agent_ergonomics_audit/audit/verification/pass_3/regressions/R021-current.log",
+    "log_sha256": "b0c8ef890a95a2c3b990180561735d965a56a78301f4d6bac2ceaf23cd4ee53d",
+    "source": {
+      "revision": "b7b966c6ac5acc15d15c8ea0c70d81653072cae9",
+      "source_root": "/workspace/ogent",
+      "source_root_in_container": "/work",
+      "tracked_source_clean": true,
+      "verified_git_archive": false,
+      "source_fingerprint_sha256": "98bbcc586250a59e10d6c647151ef86fe4d995a7a6e63dd7eafc87be1ce641ce",
+      "manifest": "agent_ergonomics_audit/audit/verification/pass_3/regressions/current-source.json",
+      "manifest_sha256": "a4cbd18a503df16a9797c8edbcf7cc1cacacb3e16d953c39e190c885fa48d656"
+    },
+    "selected_count": 3,
+    "completed_count": 3,
+    "executed_count": 3,
+    "skipped_count": 0,
+    "unexpected_count": 0,
+    "runs": [
+      {
+        "selected": 3,
+        "completed": 3,
+        "expected": 3,
+        "unexpected": 0,
+        "skipped": 0,
+        "results": [
+          {
+            "status": "passed",
+            "index": 1,
+            "selected_total": 3,
+            "name": "ogent-agent-execution-discovery-example-executes"
+          },
+          {
+            "status": "passed",
+            "index": 2,
+            "selected_total": 3,
+            "name": "ogent-agent-execution-discovery-exposes-real-call-shapes"
+          },
+          {
+            "status": "passed",
+            "index": 3,
+            "selected_total": 3,
+            "name": "ogent-agent-execution-discovery-schema-and-purity"
+          }
+        ],
+        "summary": "Ran 3 tests, 3 results as expected, 0 unexpected"
+      }
+    ],
+    "unexecuted_selectors": [],
+    "evidence_errors": [],
+    "proven": true,
+    "runtime": {
+      "emacs_version": "GNU Emacs 30.2",
+      "process_test_rg": {
+        "path": "/tmp/ogent-test-rg",
+        "sha256": "e62198eb19b136b88c330af83647b5a962cb99b6b1f066758568f12de1974849",
+        "version": "ripgrep 15.2.0 (rev e89fff89ac)"
+      }
+    }
+  }
+}

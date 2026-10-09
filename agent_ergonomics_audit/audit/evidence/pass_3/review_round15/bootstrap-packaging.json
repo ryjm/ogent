@@ -1,0 +1,7 @@
+{
+  "original": "probe-bootstrap.el",
+  "preserved": "probe-bootstrap.source.txt",
+  "sha256": "b7d834ab57c6a13ffef32b5c15b516dbbb9cd5f69c4678f35eafbba47f7da0f2",
+  "byte_identical": true,
+  "reason": "Ignore original Elisp copy to avoid final build discovery"
+}

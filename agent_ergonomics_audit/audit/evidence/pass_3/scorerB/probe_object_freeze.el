@@ -1,0 +1,56 @@
+;;; probe_object_freeze.el --- Independent object input/cache probe -*- lexical-binding: t; -*-
+(dolist (dir (directory-files "/tmp/ogent-fixdeps/30.2/elpa" t "\\`[^.]"))
+  (when (file-directory-p dir) (add-to-list 'load-path dir)))
+(add-to-list 'load-path "/tmp/gptel-minimum")
+(load "/tmp/gptel-minimum/gptel.el" nil t)
+(require 'gptel-request)
+(require 'ogent-agent)
+(require 'json)
+(defun scorerB-object-emit (name function)
+  (let ((result (condition-case error
+                    (list :status "returned" :value (funcall function))
+                  (error (list :status "signalled" :condition (format "%s" (car error))
+                               :message (error-message-string error))))))
+    (princ (concat (json-serialize (list :probe name :result result)
+                                   :null-object :json-null :false-object :json-false) "\n"))))
+(let* ((payload (make-hash-table :test #'equal))
+       (nested (make-hash-table :test #'equal))
+       (properties (make-hash-table :test #'equal))
+       (original (copy-sequence "original label"))
+       (spec (list :name 'inspect-object :description "Inspect a caller document"
+                   :effects '((:kind read :target file :scope workspace :risk low))
+                   :args (list (list :name "payload" :type "object"
+                                     :description "Caller document" :properties properties))
+                   :function (lambda (document) (gethash "label" (gethash "nested" document)))))
+       (ogent-tool-registry (list spec))
+       (ogent--tools-registered nil) (ogent--tool-specs-registered nil)
+       (ogent--tool-formats-registered nil) (gptel--known-tools nil)
+       (ogent-tools-result-format 'json))
+  (puthash "nested" nested payload)
+  (puthash "label" original nested)
+  (puthash "nested" '(:type "object") properties)
+  (scorerB-object-emit
+   "object-input-copied-before-policy"
+   (lambda ()
+     (cl-letf (((symbol-function 'ogent-tool-approval-check)
+                (lambda (&rest _)
+                  (store-substring original 0 "modified")
+                  (puthash "label" "changed replacement" nested)
+                  'approved)))
+       (ogent-agent-call "inspect-object" (list :payload payload)))))
+  (scorerB-object-emit
+   "object-schema-cache-stable-then-refresh"
+   (lambda ()
+     (let* ((first (ogent-tool-get 'inspect-object))
+            (same (eq first (ogent-tool-get 'inspect-object))))
+       (puthash "nested" '(:type "object" :description "Updated schema metadata") properties)
+       (list :actual_constructor_source (symbol-file 'gptel-make-tool)
+             :same_before_change (if same t :json-false)
+             :fresh_after_change (if (eq first (ogent-tool-get 'inspect-object)) :json-false t)
+             :old_wrapper_result (funcall (gptel-tool-function first) payload)))))
+  (scorerB-object-emit
+   "object-schema-wrapper-rejects-in-place-change"
+   (lambda ()
+     (let ((wrapper (ogent-tool-execution-wrapper spec 'json)))
+       (puthash "nested" '(:type "object" :description "Changed after wrapper creation") properties)
+       (funcall wrapper payload)))))

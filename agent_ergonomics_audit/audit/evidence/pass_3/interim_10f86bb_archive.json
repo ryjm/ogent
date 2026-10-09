@@ -1,0 +1,14 @@
+{
+  "source_sha": "10f86bb12a03f3122a60ba085be7289eb5277f5e",
+  "reason": "Review 8 accepted relative ledger destination resolution across project switches; completed scoring/proof/replay are valid intermediate evidence",
+  "archives": [
+    {
+      "path": "evidence/pass_3/interim_10f86bb_scoring.tar.gz",
+      "sha256": "400ecea48b7877d72411f2e160e916ffe99971b9119523e57c7f4031a83f1c84"
+    },
+    {
+      "path": "evidence/pass_3/interim_10f86bb_audit.tar.gz",
+      "sha256": "027a13378c99c897ef1a57081eb594b718d14f448d703799467a1472e3062903"
+    }
+  ]
+}

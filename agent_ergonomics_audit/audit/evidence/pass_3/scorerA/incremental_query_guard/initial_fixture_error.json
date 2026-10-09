@@ -1,0 +1,13 @@
+{
+  "target_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+  "processes": 2,
+  "exit_codes": [
+    255,
+    255
+  ],
+  "strict_json_prefix_records_each": 6,
+  "raw_query_behavior_prefix_records_each": 4,
+  "excluded_from_passing_conclusions": true,
+  "cause": "Probe with-temp-file body was outside the form; fixture files were empty. The page assertion indexed an empty continuation vector. Corrected only fixture form parentheses.",
+  "artifacts_suffix": ".initial_fixture_error"
+}

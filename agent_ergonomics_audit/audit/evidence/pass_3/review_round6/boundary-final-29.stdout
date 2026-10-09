@@ -1,0 +1,10 @@
+symlink-directory-gnu filter=nil matches=("link.txt" "source.txt")
+symlink-directory-gnu filter="*.txt" matches=("link.txt" "source.txt")
+symlink-directory-gnu filter="link.txt" matches=("link.txt")
+symlink-directory-gnu filter="l?nk.txt" matches=("link.txt")
+symlink-directory-gnu filter="l[ia]nk.txt" matches=("link.txt")
+symlink-directory-ripgrep filter=nil matches=("source.txt")
+symlink-directory-ripgrep filter="*.txt" matches=("source.txt")
+symlink-directory-ripgrep filter="link.txt" matches=nil
+symlink-directory-ripgrep filter="l?nk.txt" matches=("link.txt")
+symlink-directory-ripgrep filter="l[ia]nk.txt" matches=("link.txt")

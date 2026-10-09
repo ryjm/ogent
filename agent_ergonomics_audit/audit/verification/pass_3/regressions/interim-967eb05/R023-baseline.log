@@ -1,0 +1,33 @@
++ set -euo pipefail
++++ dirname /work/test/makem-report-tests.sh
+++ cd /work/test/..
+++ pwd
++ report_test_root=/work
++ report_test_makem=/work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh
++ report_test_emacs=emacs
+++ mktemp -d /tmp/ogent-makem-report-tests.XXXXXX
++ report_test_dir=/tmp/ogent-makem-report-tests.yN6tWr
++ trap 'rm -rf "$report_test_dir"' EXIT
++ mkdir -p /tmp/ogent-makem-report-tests.yN6tWr/lisp /tmp/ogent-makem-report-tests.yN6tWr/test
++ cp /work/agent_ergonomics_audit/audit/partial/baseline_pass_3/makem.sh /tmp/ogent-makem-report-tests.yN6tWr/makem.sh
++ cp /work/Makefile /tmp/ogent-makem-report-tests.yN6tWr/Makefile
++ chmod +x /tmp/ogent-makem-report-tests.yN6tWr/makem.sh
++ cd /tmp/ogent-makem-report-tests.yN6tWr
++ git init -q
++ cat
++ cat
++ git add lisp test
++ run-report 0 ./makem.sh --json --capabilities
++ local expected=0
++ shift
++ local actual=0
++ ./makem.sh --json --capabilities
++ actual=1
++ [[ 1 != \0 ]]
++ printf 'Expected exit %s, got %s: %s\n' 0 1 './makem.sh --json --capabilities'
+Expected exit 0, got 1: ./makem.sh --json --capabilities
++ cat /tmp/ogent-makem-report-tests.yN6tWr/diagnostics.txt
+./makem.sh: unrecognized option '--json'
+./makem.sh: unrecognized option '--capabilities'
++ return 1
++ rm -rf /tmp/ogent-makem-report-tests.yN6tWr

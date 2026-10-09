@@ -1,0 +1,5 @@
+;;; offline-selected.el --- Run only serialization tests without HTTP -*- lexical-binding: t; -*-
+(require 'ogent)
+(provide 'ogent-offline-boot)
+(setq ogent-ledger-enabled nil)
+(load-file "/work/test/offline/workflows.el.in")

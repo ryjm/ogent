@@ -1,0 +1,32 @@
+{
+  "command": [
+    "docker",
+    "exec",
+    "-e",
+    "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+    "ogent-fixes",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-L",
+    "/work/lisp",
+    "-L",
+    "/work/lisp/ui",
+    "-L",
+    "/work/test",
+    "-L",
+    "/work/test/ui",
+    "-l",
+    "/work/test/ogent-test-helper.el",
+    "-l",
+    "/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round9/overlap-ledger-probe.el"
+  ],
+  "exit_code": 0,
+  "elapsed_seconds": 0.34456324577331543,
+  "tests": {
+    "total": 1,
+    "expected": 1,
+    "unexpected": 0,
+    "skipped": 0
+  }
+}

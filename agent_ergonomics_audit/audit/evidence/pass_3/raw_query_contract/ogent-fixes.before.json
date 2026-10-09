@@ -1,0 +1,30 @@
+{
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "ogent-fixes",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-L",
+    "lisp",
+    "-L",
+    "lisp/ui",
+    "-L",
+    "test",
+    "-L",
+    "test/ui",
+    "-l",
+    "test/ogent-test-helper.el",
+    "-l",
+    "test/ogent-agent-execution-tests.el",
+    "--eval",
+    "(ert-run-tests-batch-and-exit \"^ogent-agent-execution-process-raw-query-contract$\")"
+  ],
+  "source_sha": "b7b966c6ac5acc15d15c8ea0c70d81653072cae9",
+  "exit": 1,
+  "test_file": "working-new-query-regression",
+  "recorded_at": "2026-10-08T23:40:28.932583+00:00"
+}

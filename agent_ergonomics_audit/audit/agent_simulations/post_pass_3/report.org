@@ -1,0 +1,48 @@
+#+title: Source-blind post-pass 3 agent exercise
+
+All nine canonical exercises completed. Seven succeeded on the first strategy.
+Initial source SHA: 07f775acea0c290a3af454edbdb397ecf4275831.
+Frozen batch rerun SHA: 895bed7a8446b3a57769ac0dd737bf32c9feea4b.
+SHA observations used git rev-parse HEAD only.
+
+README pagination returned 429 positioned lines across 62 pages, with exact
+content reconstruction and terminal done. File discovery returned exactly the
+105 fixture paths, once each, across three pages. Search returned all 250 exact
+line locations and original colon/newline filename across three pages, using
+observed GNU grep fallback. Empty/no-match searches succeeded; invalid regex
+failed in both nonempty and empty directories.
+
+Shell and write SDK calls returned approval_required with no prompts or fixture
+mutation. The read+shell batch preflight returned unsafe_batch and read nothing.
+Async completion and cancellation each delivered exactly one callback.
+
+The original three-call batch returned success but put its fields at top level;
+the first verifier expected data, matching ordinary call envelopes. A corrected
+top-level verifier passed. After the parent aligned the unpublished batch API
+with the common envelope, a third task7 invocation passed with results/requested/
+completed/stopped under data. All three observations are preserved.
+
+Real /work/makem.sh compiled and ran ERT on independent tracked fixture Git
+projects. Success exited 0 with one expected test. Intentional malformed-source
+compilation and intentional ERT failure each exited 1; ERT failure reported one
+unexpected test. Host-owned fixture repositories initially caused missing-
+prerequisite exit 3 before Emacs execution. Recreating fixtures inside Docker
+resolved ownership without changing safety configuration.
+
+Observed reporting limits remain in evidence: invalid-read source location is
+inside the compiler message rather than a parsed source diagnostic; the ERT
+failure message names test/audit-build-tests.el:4 while structured location fields
+are null. These observations predate any later parent parser refinement.
+
+See summary.json for per-task attempts/roundtrips, failures, exact paths, limits,
+and transcript index. Each recorded command has JSON argv/cwd/stdout/stderr/exit
+and exact stdout/stderr companions. Harness stdout includes full FORM/RESULT/
+CALLBACK records. Fixture code is reproducible from fixtures_setup.py and
+build_setup_container.py; fixtures are ignored.
+
+Only public docs, runtime help/discovery, and requested repository instructions
+were read. No production/test implementation, earlier audit report, or change
+history was inspected. The SDK loaded actual source via the protected helper,
+which may supply gptel doubles; no provider login/inference or live gptel transport
+validation occurred. No broad project build/test, commits, Beads operation, or
+approval-policy changes occurred.

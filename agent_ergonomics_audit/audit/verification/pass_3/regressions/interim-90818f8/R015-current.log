@@ -1,0 +1,24 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 3 tests (2026-10-08 21:09:09+0000, selector `"ogent-agent-execution-glob-"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-pclcm8/tools-GWRd9f (retained)
+   passed  1/3  ogent-agent-execution-glob-complete-pagination (0.016951 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-pclcm8/tools-Z5nf4l (retained)
+   passed  2/3  ogent-agent-execution-glob-json-empty-and-weird-paths (0.000533 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-pclcm8/tools-VE9fMt (retained)
+   passed  3/3  ogent-agent-execution-glob-star-stays-in-component (0.000712 sec)
+
+Ran 3 tests, 3 results as expected, 0 unexpected (2026-10-08 21:09:09+0000, 0.018372 sec)
+

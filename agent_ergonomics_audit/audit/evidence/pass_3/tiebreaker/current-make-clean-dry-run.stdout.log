@@ -1,0 +1,2 @@
+find lisp/ test/ -name "*.elc" -delete
+echo "Removed all .elc files" 

@@ -1,0 +1,27 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 7 tests (2026-10-08 23:34:58+0000, selector `"ogent-agent-execution-batch-"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Cs1T7o/tools-gS5GVI (retained)
+   passed  1/7  ogent-agent-execution-batch-composes-read-tools (0.060991 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-Cs1T7o/tools-USCJQh (retained)
+   passed  2/7  ogent-agent-execution-batch-continues-or-stops (0.002723 sec)
+   passed  3/7  ogent-agent-execution-batch-freezes-calls-and-argument-strings (0.000817 sec)
+   passed  4/7  ogent-agent-execution-batch-freezes-canonical-alias-target (0.000797 sec)
+   passed  5/7  ogent-agent-execution-batch-freezes-nested-object-values (0.000868 sec)
+   passed  6/7  ogent-agent-execution-batch-inplace-effects-change (0.000504 sec)
+   passed  7/7  ogent-agent-execution-batch-preflight-prevents-unsafe-prefix (0.000558 sec)
+
+Ran 7 tests, 7 results as expected, 0 unexpected (2026-10-08 23:34:58+0000, 0.067564 sec)
+

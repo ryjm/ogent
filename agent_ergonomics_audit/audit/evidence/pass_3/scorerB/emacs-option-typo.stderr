@@ -1,0 +1,3 @@
+./makem.sh: unrecognized option '--emaxx=emacs'
+ERROR (2026-10-08 22:33:25): Invalid option. Run ./makem.sh --help or make help for supported options.
+ERROR (2026-10-08 22:33:25): Use --emacs=/path/to/emacs to select Emacs.

@@ -1,0 +1,27 @@
+{
+  "source_sha": "ff4e96c21d5fb3ffe79843fbce8392390d1c8bf4",
+  "reason": "raw empty/excluded roots violate Unicode pathname contract",
+  "archive": "audit/evidence/pass_3/interim_ff4e96c_scoring.tar.gz",
+  "sha256": "18268a6159dca4b223a18d2ce5692387ecb90886aea0ebb18afcec605fe7413f",
+  "audit_archive": "audit/evidence/pass_3/interim_ff4e96c_audit.tar.gz",
+  "audit_archive_sha256": "2b7d63cfcdc46169bc35c6d9223d1906f40bf94a2e500ce722dbcd18b4b43609",
+  "audit_files_sha256": {
+    "recommendations_pass_3.jsonl": "1bbb046c1cd5bb2684930302fc1f9acc4c994de94d29c680d526cff2684069a5",
+    "applied_changes_pass_3.jsonl": "11a0ac5b546ac285cba144249352d8f49e30ad4ae56df0612923045ef04b3f1c",
+    "playbook_pass_3.md": "6d5942ad96e27e9c9468568f67189cf7fa4b72d401db1fcf5113f5d803503ae4",
+    "ambition_bar_pass_3.md": "7dd03a4be0885634e1a38a9cf8a43e78ee7d2bc0e5f3a9faace4c58ca37435c9",
+    "recommendation_hunks_pass_3.md": "960a9e1fd81fe72e25d4ceaf99e7f75eb43cd9a1cbb68094e1791b364cb401ad",
+    "final_handoff_pass_3.md": "297178806a0f620fd28007f017f7a68bb63db6cc1b0abff1f33d9f25fe7491ca",
+    "manifest.json": "ffc983259fa62806a7fa4f59021d17cae1d9d6bacdca78bc16d915d1e0bba214",
+    "HANDOFF.md": "c3b53bef74175dee72dcb2c5d49add7869c49aba117d57e8dbd583cbb1ac072e",
+    "phase7_pass_3_fresh_eyes_log.md": "4a9707c937d8089ad2ce6bbedda3687a99fce070b91d9e18dc941cf87fcab1c7",
+    "scorecard_pass_3.md": "e4f1b1c9a327c8679e6ec9f4be5312cb10a1a624c9f3a91de79babaf0c7c3538",
+    "scorecard_pass_4.md": "a69cab4461b6b921d6a8379defc2ea5ad96449b08e7062843c74a452da0f14c9",
+    "new_api_surfaces_pass_4.jsonl": "6408973351e29da00f7478f902f883909d07430b113ab3989102f269ece9cfea",
+    "new_api_scorecard_pass_4.md": "8f4a0c207748343523ae824be8eea6766ad9b3173b213a5a77fbc8fb62b31a1f",
+    "rubric_reconciliation_pass_3.md": "75aa4b80519ef8bbb5323addf826f58699102babe8a9017b0de42afe87fa8454",
+    "regression_alerts_pass_3.md": "0b5aeb927005f6ec2ddb06114d2670fff2e4f8a9d34f733425e8e5f2a94a3542",
+    "uplift_diff_pass_3.md": "2f82b0f8a4f27bbd9ed29a39dc4111089436a1c1474b010c9a2ed28a104fbc64",
+    "heatmap_pass_4.svg": "7c4116c45e5033391f8902071cb8aa267f152feead61e165963fd4073a4ef66a"
+  }
+}

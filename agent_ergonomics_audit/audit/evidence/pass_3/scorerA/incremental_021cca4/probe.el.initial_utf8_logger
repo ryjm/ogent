@@ -1,0 +1,193 @@
+;;; probe.el --- Shared incremental evidence refresh -*- lexical-binding: t; -*-
+;; This executes selected cases from the existing A/B/T scripts.  It is one
+;; shared revalidation, not three new independent full blind score readings.
+(require 'cl-lib)
+(require 'jka-compr)
+(setq load-suffixes (remove ".elc" load-suffixes))
+(dolist (directory (directory-files (getenv "REFRESH_ELPA") t "^[^.].*"))
+  (when (file-directory-p directory) (add-to-list 'load-path directory)))
+(add-to-list 'load-path "/tmp/gptel-minimum")
+(load-file "/tmp/gptel-minimum/gptel.el")
+(require 'gptel-request)
+(load-file "/work/test/ogent-test-helper.el")
+(require 'ogent-agent)
+(require 'ogent-tools)
+(require 'ogent-tool-results)
+;; Explicit filenames force the two changed modules, irrespective of bytecode.
+(load-file "/work/lisp/ogent-tool-results.el")
+(load-file "/work/lisp/ogent-agent.el")
+(setq ogent-tools-show-progress nil)
+(defun refresh-record (label invocation thunk)
+  (let ((coding-system-for-write 'utf-8-unix)
+        (value (funcall thunk)))
+    (princ (json-serialize
+            (list :probe label :invocation invocation :passed t :value value)
+            :null-object :json-null :false-object :json-false))
+    (terpri)))
+(defun refresh-assert (condition description)
+  (unless condition (error "Incremental check failed: %s" description)))
+(defun refresh-parse (text)
+  (json-parse-string text :object-type 'plist
+                     :null-object :json-null :false-object :json-false))
+(defun refresh-form (filename name)
+  (with-temp-buffer
+    (insert-file-contents filename)
+    (let (found)
+      (while (not found)
+        (let ((form (read (current-buffer))))
+          (when (and (eq (car-safe form) 'defun) (eq (cadr form) name))
+            (setq found form))))
+      found)))
+(refresh-record
+ "runtime-source-identities" "explicit source modules; real local gptel"
+ (lambda ()
+   (let ((identities
+          (list :emacs emacs-version :gptel (symbol-file 'gptel-make-tool)
+                :helper (symbol-file 'ogent-test--provision-store-directory)
+                :agent (symbol-file 'ogent-agent-batch)
+                :results (symbol-file 'ogent-tool-results--unicode)
+                :tools (symbol-file 'ogent-tool--read-file)
+                :wrapper (symbol-file 'ogent-tool-execution-wrapper))))
+     (refresh-assert (equal (plist-get identities :agent) "/work/lisp/ogent-agent.el") "agent source")
+     (refresh-assert (equal (plist-get identities :results) "/work/lisp/ogent-tool-results.el") "results source")
+     (refresh-assert (equal (plist-get identities :gptel) "/tmp/gptel-minimum/gptel-request.el") "real gptel constructor")
+     identities)))
+(refresh-record
+ "batch-body-identity" "read top-level defun forms, excluding docstrings"
+ (lambda ()
+   (let* ((prior (refresh-form
+                  "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_021cca4/ogent-agent.a2fa8ce.source.txt"
+                  'ogent-agent-batch))
+          (current (refresh-form "/work/lisp/ogent-agent.el" 'ogent-agent-batch)))
+     (refresh-assert (equal (cdddr (cdr prior)) (cdddr (cdr current))) "identical batch executable body")
+     (refresh-assert (equal (nth 2 prior) (nth 2 current)) "identical batch signature")
+     (list :body_equal t :signature_equal t :new_docstring (documentation 'ogent-agent-batch)))))
+(refresh-record
+ "unicode-valid-and-raw-byte-rejection" "ogent-tool-results--unicode on empty, ASCII, Unicode and raw byte"
+ (lambda ()
+   (dolist (text '("" "ASCII" "café λ 😀"))
+     (refresh-assert (eq text (ogent-tool-results--unicode text)) "same valid input string returned")
+     (refresh-assert (stringp (json-serialize text)) "serialize returns a nonnil JSON string"))
+   (let ((condition (condition-case err
+                        (progn (ogent-tool-results--unicode (string-make-multibyte (unibyte-string 255))) nil)
+                      (ogent-tool-results-output-error (error-message-string err)))))
+     (refresh-assert (and condition (string-match-p "Unicode filename" condition)) "typed raw byte refusal")
+     (list :valid_cases 3 :original_strings_retained t :raw_byte_condition condition))))
+(let* ((root (ogent-test--provision-store-directory 'tools))
+       (file (expand-file-name "café.txt" root))
+       (ogent-tools-project-root root) (default-directory root)
+       (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+       (ogent-ledger-enabled nil) (ogent-tool--denied-tools nil)
+       (ogent-tool-allow-list nil) (ogent-tool-require-approval t))
+  (unwind-protect
+      (progn
+        (with-temp-file file (insert "alpha λ\nbeta 😀\ngamma\n"))
+        (refresh-record
+         "raw-read-json-repeat" "A/T raw read JSON twice on one Unicode fixture"
+         (lambda ()
+           (let ((first (ogent-tool--read-file file 1 1 'json))
+                 (second (ogent-tool--read-file file 1 1 'json)))
+             (refresh-assert (equal first second) "same raw read bytes")
+             (refresh-assert (equal (plist-get (refresh-parse first) :content) "alpha λ") "Unicode content")
+             (list :first_json first :same_bytes t))))
+        (refresh-record
+         "raw-glob-json-repeat" "A/T raw glob JSON twice on one Unicode fixture"
+         (lambda ()
+           (let ((first (ogent-tool--glob "*.txt" root 'json))
+                 (second (ogent-tool--glob "*.txt" root 'json)))
+             (refresh-assert (equal first second) "same raw glob bytes")
+             (refresh-assert (= 1 (plist-get (refresh-parse first) :total_files)) "Unicode filename included")
+             (list :first_json first :same_bytes t))))
+        (refresh-record
+         "named-call-and-next" "A named read alias plus JSON continuation twice"
+         (lambda ()
+           (let* ((first (ogent-agent-call "read_file" (list :file_path file :limit 1) 'json))
+                  (next (ogent-agent-next first 'json))
+                  (repeat (ogent-agent-next first 'json)))
+             (refresh-assert (equal (plist-get (refresh-parse first) :status) "ok") "named read")
+             (refresh-assert (equal next repeat) "same continuation bytes")
+             (refresh-assert (equal (plist-get (plist-get (refresh-parse next) :data) :content) "beta 😀") "next Unicode page")
+             (list :first_json first :next_json next :same_next_bytes t))))
+        (refresh-record
+         "immediate-async-json-callback" "A immediate read via named async callback"
+         (lambda ()
+           (let ((count 0) result)
+             (let ((returned (ogent-agent-call-async
+                              "read" (list :file_path file :limit 1)
+                              (lambda (value) (setq result value) (cl-incf count)) 'json)))
+               (refresh-assert (and (null returned) (= count 1)) "one immediate callback and nil process")
+               (refresh-assert (equal (plist-get (refresh-parse result) :status) "ok") "async JSON status")
+               (list :callback_count count :returned_process :json-null :result_json result)))))
+        (refresh-record
+         "read-only-batch-list-vector-repeat" "A batch file discovery and Unicode read as list/vector"
+         (lambda ()
+           (let* ((calls (list (list :tool "files" :args (list :pattern "*.txt" :path root))
+                               (list :tool "read" :args (list :file_path file :limit 1))))
+                  (first (ogent-agent-batch calls 'json))
+                  (second (ogent-agent-batch (vconcat calls) 'json))
+                  (parsed (refresh-parse first)))
+             (refresh-assert (equal first second) "same list/vector batch bytes")
+             (refresh-assert (and (equal (plist-get parsed :status) "ok")
+                                  (= 2 (plist-get (plist-get parsed :data) :completed))) "two completed read calls")
+             (list :json first :same_bytes t))))
+        (refresh-record
+         "batch-preflight-rejects-unsafe-prefix" "A unsafe batch; earlier real read fixture must remain uncalled"
+         (lambda ()
+           (let* ((count 0)
+                  (spec (list :name 'refresh-count-read :description "Count fixture execution"
+                              :effects '((:kind read :target file :scope workspace :risk low))
+                              :args nil :function (lambda () (cl-incf count))))
+                  (ogent-tool-registry (cons spec ogent-tool-registry))
+                  (json (ogent-agent-batch
+                         (vector (list :tool "refresh-count-read" :args nil)
+                                 (list :tool "shell" :args (list :command "pwd"))) 'json))
+                  (parsed (refresh-parse json)))
+             (refresh-assert (and (= count 0) (equal (plist-get parsed :status) "error")
+                                  (equal (plist-get (plist-get parsed :error) :code) "unsafe_batch")) "whole batch preflight")
+             (list :prefix_execution_count count :json json))))
+        (refresh-record
+         "batch-continue-and-fail-fast" "existing batch cases with an unreadable file followed by a valid read"
+         (lambda ()
+           (let* ((calls (list (list :tool "read" :args (list :file_path (expand-file-name "missing" root)))
+                               (list :tool "read" :args (list :file_path file))))
+                  (continued (ogent-agent-batch calls 'json))
+                  (stopped (ogent-agent-batch calls 'json t)))
+             (refresh-assert (= 2 (plist-get (plist-get (refresh-parse continued) :data) :completed)) "continues after error")
+             (refresh-assert (= 1 (plist-get (plist-get (refresh-parse stopped) :data) :completed)) "fail-fast stops")
+             (list :continued_json continued :stopped_json stopped))))
+        (refresh-record
+         "raw-byte-name-json-rejection" "B selected raw byte filename through actual named read"
+         (lambda ()
+           (let ((raw-path (concat (string-as-unibyte root) "/bad-" (unibyte-string 255) ".txt")))
+             (with-temp-file raw-path (insert "fixture\n"))
+             (let* ((json (ogent-agent-call "read" (list :file_path raw-path) 'json))
+                    (parsed (refresh-parse json)))
+               (refresh-assert (and (equal (plist-get parsed :status) "error")
+                                    (equal (plist-get (plist-get parsed :error) :code) "unsupported_output")) "parseable raw filename refusal")
+               (list :json json)))))
+        (refresh-record
+         "discovery-schema-repeat" "A/T capabilities, describe and schema return parseable repeated JSON"
+         (lambda ()
+           (let ((capabilities (ogent-agent-capabilities 'json))
+                 (description (ogent-agent-describe "read" 'json))
+                 (schema (ogent-agent-schema 'json)))
+             (refresh-assert (equal capabilities (ogent-agent-capabilities 'json)) "capabilities repeated")
+             (refresh-assert (equal description (ogent-agent-describe "read" 'json)) "describe repeated")
+             (refresh-assert (equal schema (ogent-agent-schema 'json)) "schema repeated")
+             (refresh-assert (equal (plist-get (refresh-parse capabilities) :contract_version) "1") "contract version")
+             (refresh-parse description) (refresh-parse schema)
+             (list :capabilities_json capabilities :describe_json description :schema_json schema :same_bytes t))))
+        (refresh-record
+         "real-gptel-constructor-json-wrapper" "B/T native gptel object and cached alias execute JSON read"
+         (lambda ()
+           (let* ((ogent--tools-registered nil) (ogent--tool-specs-registered nil)
+                  (ogent--tool-formats-registered nil) (gptel--known-tools nil)
+                  (ogent-tools-result-format 'json)
+                  (tool (ogent-tool-get "read_file"))
+                  (result (funcall (gptel-tool-function tool) file 1 1)))
+             (refresh-assert (gptel-tool-p tool) "real constructed gptel object")
+             (refresh-assert (eq tool (ogent-tool-get "cat")) "cached alias identity")
+             (refresh-assert (equal (plist-get (refresh-parse result) :status) "ok") "actual JSON wrapper read")
+             (list :tool_name (gptel-tool-name tool) :constructor_source (symbol-file 'gptel-make-tool)
+                   :cached_alias_same t :result_json result)))))
+    (delete-directory root t)))

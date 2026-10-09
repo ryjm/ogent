@@ -1,0 +1,12 @@
+make-help exit 0 stdout 1982 stderr 0
+build-help exit 0 stdout 3088 stderr 0
+compile-success-1 exit 0 stdout 0 stderr 0
+compile-success-2 exit 0 stdout 0 stderr 0
+recompile-success exit 0 stdout 23 stderr 0
+task-typo exit 1 stdout 0 stderr 124
+compile-syntax-failure exit 2 stdout 271 stderr 161
+recompile-syntax-failure exit 2 stdout 294 stderr 207
+ert-real-failure exit 1 stdout 1530 stderr 120
+clean-default exit 0 stdout 23 stderr 0
+offline-prerequisite-1 exit 2 stdout 0 stderr 101
+offline-prerequisite-2 exit 2 stdout 0 stderr 101

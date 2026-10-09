@@ -1,0 +1,2 @@
+Set OGENT_ELPA_DIR=/path/to/installed/elpa, then run make offline-test.
+make: *** [Makefile:93: offline-test] Error 1

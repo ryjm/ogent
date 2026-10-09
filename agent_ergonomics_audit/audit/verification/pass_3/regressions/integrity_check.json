@@ -1,0 +1,19 @@
+{
+  "recorded_at": "2026-10-08T23:48:47.097828+00:00",
+  "baseline_revision": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "current_revision": "5d07d807bc85a093725db24e33996b4af690ec0f",
+  "source_status": "frozen_final_candidate",
+  "checked_transcripts": 22,
+  "checked_input_hashes": 47,
+  "current_source_matches_git_archive": true,
+  "source_manifest_hashes_valid": true,
+  "fixture_hashes_match_frozen_git_revision": true,
+  "selected_counts_equal_executed_counts": true,
+  "zero_skipped_tests": true,
+  "zero_timeouts": true,
+  "expanded_timeout_only_for_baseline_selectors_over_40_tests": true,
+  "large_baseline_timeout_seconds": 150,
+  "verifier_hash_valid": true,
+  "historical_pass_1_proof_unchanged": true,
+  "all_checks_passed": true
+}

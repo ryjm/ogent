@@ -1,0 +1,59 @@
+{
+  "executions": [
+    {
+      "record": "focused30",
+      "total": 26,
+      "expected": 26,
+      "unexpected": 0,
+      "skipped": 0,
+      "passed_lines": 26
+    },
+    {
+      "record": "focused29",
+      "total": 26,
+      "expected": 26,
+      "unexpected": 0,
+      "skipped": 0,
+      "passed_lines": 26
+    },
+    {
+      "record": "probe-fixed30",
+      "total": 4,
+      "expected": 4,
+      "unexpected": 0,
+      "skipped": 0,
+      "passed_lines": 4
+    },
+    {
+      "record": "probe-fixed29",
+      "total": 4,
+      "expected": 4,
+      "unexpected": 0,
+      "skipped": 0,
+      "passed_lines": 4
+    },
+    {
+      "record": "minimum30",
+      "total": 4,
+      "expected": 4,
+      "unexpected": 0,
+      "skipped": 0,
+      "passed_lines": 4
+    },
+    {
+      "record": "minimum29",
+      "total": 4,
+      "expected": 4,
+      "unexpected": 0,
+      "skipped": 0,
+      "passed_lines": 4
+    }
+  ],
+  "ert_total": 68,
+  "ert_expected": 68,
+  "ert_unexpected": 0,
+  "ert_skipped": 0,
+  "build_contract_invocations": 2,
+  "bootstrap_failures": 2,
+  "bootstrap_ert_invocations": 0
+}

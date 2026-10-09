@@ -1,0 +1,26 @@
+;;; cancellation-race-probe.el --- Preserve initial race-sensitive check -*- lexical-binding: t; -*-
+(require 'ogent-tool-process)
+(require 'cl-lib)
+
+(let* ((root (ogent-test--provision-store-directory 'tools))
+       (finder (symbol-function 'executable-find))
+       (ogent-tools--active-processes nil)
+       (callbacks 0) failures processes)
+  (dotimes (index 140)
+    (let ((file (expand-file-name (format "a%03d.txt" index) root)))
+      (with-temp-file file (insert "needle\n"))))
+  (cl-letf (((symbol-function 'executable-find)
+             (lambda (name &optional remote)
+               (if (equal name "rg") "/tmp/ogent-test-rg" (funcall finder name remote)))))
+    (dotimes (_ 2)
+      (push (ogent-tool-process-grep-async
+             "needle" root "[a]*.txt" 0 0 10
+             (lambda (_data failure) (cl-incf callbacks) (push failure failures))) processes))
+    (cl-assert (= (ogent-tools-active-count) 2))
+    (ogent-tools-cancel-all)
+    (accept-process-output nil 0.05)
+    (cl-assert (= callbacks 2))
+    (cl-assert (= (ogent-tools-active-count) 0))
+    (cl-assert (cl-every (lambda (failure) (eq (car failure) 'ogent-tool-process-search-cancelled)) failures))
+    (cl-assert (cl-every (lambda (process) (not (process-live-p process))) processes))
+    (princ (format "GLOBAL CANCELLATION %S\n" (list :callbacks callbacks :failures failures)))))

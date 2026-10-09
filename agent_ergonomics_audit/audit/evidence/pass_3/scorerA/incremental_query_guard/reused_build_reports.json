@@ -1,0 +1,211 @@
+{
+  "reuse_basis": {
+    "Makefile": {
+      "previous_source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+      "current_source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+      "previous_git_blob": "c0af31c36cc3fd56445e1e03baa49d5b25d8b36e",
+      "current_git_blob": "c0af31c36cc3fd56445e1e03baa49d5b25d8b36e",
+      "previous_sha256": "bc702483fd3d2639143abf65db30b942a07f2dc3317409cbba31c768f89c7cbe",
+      "sha256": "bc702483fd3d2639143abf65db30b942a07f2dc3317409cbba31c768f89c7cbe",
+      "whole_blob_identical": true,
+      "working_bytes_equal_git_show": true,
+      "previous_execution_source_sha": "b7b966c6ac5acc15d15c8ea0c70d81653072cae9",
+      "previous_execution_sha256": "bc702483fd3d2639143abf65db30b942a07f2dc3317409cbba31c768f89c7cbe",
+      "whole_blob_identical_to_previous_execution": true,
+      "ff4_execution_source_sha": "ff4e96c21d5fb3ffe79843fbce8392390d1c8bf4",
+      "ff4_execution_sha256": "bc702483fd3d2639143abf65db30b942a07f2dc3317409cbba31c768f89c7cbe",
+      "whole_blob_identical_to_ff4_execution": true
+    },
+    "makem.sh": {
+      "previous_source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+      "current_source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+      "previous_git_blob": "f8a7a917b1f154c39842194f712928256d4b7889",
+      "current_git_blob": "f8a7a917b1f154c39842194f712928256d4b7889",
+      "previous_sha256": "8492a15c695e9b80df1ba3e349a4157e78952db01eccd524f077192ca9794db4",
+      "sha256": "8492a15c695e9b80df1ba3e349a4157e78952db01eccd524f077192ca9794db4",
+      "whole_blob_identical": true,
+      "working_bytes_equal_git_show": true,
+      "previous_execution_source_sha": "b7b966c6ac5acc15d15c8ea0c70d81653072cae9",
+      "previous_execution_sha256": "8492a15c695e9b80df1ba3e349a4157e78952db01eccd524f077192ca9794db4",
+      "whole_blob_identical_to_previous_execution": true,
+      "ff4_execution_source_sha": "ff4e96c21d5fb3ffe79843fbce8392390d1c8bf4",
+      "ff4_execution_sha256": "8492a15c695e9b80df1ba3e349a4157e78952db01eccd524f077192ca9794db4",
+      "whole_blob_identical_to_ff4_execution": true
+    }
+  },
+  "reports": [
+    {
+      "file": "audit/evidence/pass_3/scorerA/make_runtime.jsonl",
+      "sha256": "5395099812711c487b8802e60674092248ea79628b59658f7381bfc9e3dc60c3",
+      "executed_source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+      "new_build_execution": false,
+      "prior_commands": 16,
+      "json_reports_reparsed": 8,
+      "reports": [
+        {
+          "probe": "capabilities-1",
+          "actual_prior_exit_code": 0,
+          "status": "success"
+        },
+        {
+          "probe": "capabilities-2",
+          "actual_prior_exit_code": 0,
+          "status": "success"
+        },
+        {
+          "probe": "compile-json-1",
+          "actual_prior_exit_code": 0,
+          "status": "success"
+        },
+        {
+          "probe": "compile-json-2",
+          "actual_prior_exit_code": 0,
+          "status": "success"
+        },
+        {
+          "probe": "recompile-json",
+          "actual_prior_exit_code": 0,
+          "status": "success"
+        },
+        {
+          "probe": "compile-json-failure",
+          "actual_prior_exit_code": 2,
+          "status": "error"
+        },
+        {
+          "probe": "recompile-json-failure",
+          "actual_prior_exit_code": 2,
+          "status": "error"
+        },
+        {
+          "probe": "typo",
+          "actual_prior_exit_code": 2,
+          "status": "error"
+        }
+      ]
+    },
+    {
+      "file": "audit/evidence/pass_3/scorerB/build-runtime.jsonl",
+      "sha256": "7e9675841d2f023bbafda407ba91b8977893841b7906ee39af339bcf4a9c536e",
+      "executed_source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+      "new_build_execution": false,
+      "prior_commands": 18,
+      "json_reports_reparsed": 13,
+      "reports": [
+        {
+          "probe": "build-capabilities",
+          "actual_prior_exit_code": 0,
+          "status": "success"
+        },
+        {
+          "probe": "compile-success-1",
+          "actual_prior_exit_code": 0,
+          "status": "success"
+        },
+        {
+          "probe": "compile-success-2",
+          "actual_prior_exit_code": 0,
+          "status": "success"
+        },
+        {
+          "probe": "recompile-success",
+          "actual_prior_exit_code": 0,
+          "status": "success"
+        },
+        {
+          "probe": "test-success",
+          "actual_prior_exit_code": 0,
+          "status": "success"
+        },
+        {
+          "probe": "task-typo",
+          "actual_prior_exit_code": 2,
+          "status": "error"
+        },
+        {
+          "probe": "emacs-option-typo",
+          "actual_prior_exit_code": 2,
+          "status": "error"
+        },
+        {
+          "probe": "compile-warning-failure",
+          "actual_prior_exit_code": 0,
+          "status": "success"
+        },
+        {
+          "probe": "lint-compile-warning-failure",
+          "actual_prior_exit_code": 1,
+          "status": "error"
+        },
+        {
+          "probe": "recompile-warning-failure",
+          "actual_prior_exit_code": 0,
+          "status": "success"
+        },
+        {
+          "probe": "compile-syntax-failure",
+          "actual_prior_exit_code": 2,
+          "status": "error"
+        },
+        {
+          "probe": "recompile-syntax-failure",
+          "actual_prior_exit_code": 2,
+          "status": "error"
+        },
+        {
+          "probe": "ert-real-failure",
+          "actual_prior_exit_code": 1,
+          "status": "error"
+        }
+      ]
+    },
+    {
+      "file": "audit/evidence/pass_3/tiebreaker/current-make-capabilities.stdout.log",
+      "sha256": "ec2cafc08417f96c9c690dbe61bf09bbce25cf416be6e891451fff5c7f28dd77",
+      "executed_source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+      "new_build_execution": false,
+      "json_reports_reparsed": 1,
+      "status": "success"
+    },
+    {
+      "file": "audit/evidence/pass_3/tiebreaker/current-make-recompile-compiler-failure.stdout.log",
+      "sha256": "53ae7d9d1fa002850cf0281f47791bee624bf3dfe2cda1af9f8b5b3589651551",
+      "executed_source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+      "new_build_execution": false,
+      "json_reports_reparsed": 1,
+      "status": "error"
+    },
+    {
+      "file": "audit/evidence/pass_3/tiebreaker/current-make-recompile-eof-failure.stdout.log",
+      "sha256": "1dc8676ec298f7f369b2b9435ad7d9676eda918026eeceb925294b1ddb900a5e",
+      "executed_source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+      "new_build_execution": false,
+      "json_reports_reparsed": 1,
+      "status": "error"
+    },
+    {
+      "file": "audit/evidence/pass_3/tiebreaker/current-make-recompile-json-first.stdout.log",
+      "sha256": "ff3eb3ba4e105c59e6f02d570be0d506d646dd82dc5642893f7c880af82ba1ba",
+      "executed_source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+      "new_build_execution": false,
+      "json_reports_reparsed": 1,
+      "status": "success"
+    },
+    {
+      "file": "audit/evidence/pass_3/tiebreaker/current-make-recompile-json-repeat.stdout.log",
+      "sha256": "59527e91af6188af0b74c5621811bb04d27381d84bd36da208af30cd46475879",
+      "executed_source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+      "new_build_execution": false,
+      "json_reports_reparsed": 1,
+      "status": "success"
+    },
+    {
+      "file": "audit/evidence/pass_3/tiebreaker/current-make-recompile-typo.stdout.log",
+      "sha256": "e468c779b594cdb7309dc9fda9c225b15a7f05de77330a7712451224827d0b36",
+      "executed_source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+      "new_build_execution": false,
+      "json_reports_reparsed": 1,
+      "status": "error"
+    }
+  ]
+}

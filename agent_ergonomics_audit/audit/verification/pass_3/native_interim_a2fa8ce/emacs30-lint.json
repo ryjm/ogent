@@ -1,0 +1,36 @@
+{
+  "check": "emacs30-lint",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "-e",
+    "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+    "ogent-fixes",
+    "make",
+    "lint",
+    "sandbox=/tmp/ogent-fixdeps",
+    "format=json"
+  ],
+  "exit_code": 2,
+  "source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+  "started_at": "2026-10-08T22:51:23.006235+00:00",
+  "completed_at": "2026-10-08T22:53:45.692121+00:00",
+  "summary": [
+    "Actual makem JSON: error; exit=1",
+    "GNU Make returns its own failure exit; helper code retained in JSON"
+  ],
+  "stdout": "audit/verification/pass_3/native_interim_a2fa8ce/emacs30-lint.stdout.log.gz",
+  "stderr": "audit/verification/pass_3/native_interim_a2fa8ce/emacs30-lint.stderr.log.gz",
+  "transcript_hashes": {
+    "stdout": {
+      "raw_sha256": "3522c258872cfbac61ad4538a96bd0a1753ba0679a550f81d7efa5c3a10c7d84",
+      "gzip_sha256": "c05723514e9e65b333f9a83b46d0bb217695844227b8c6a1893f404336c8eb28"
+    },
+    "stderr": {
+      "raw_sha256": "3d16adda9ef1ba883f077021e559ec36ff2b85c1a938babfabd6984532788b70",
+      "gzip_sha256": "4598ae8dc195edcb2e85c1ee747bb1c365c8dd46bb6f130e8e3058769cc464ce"
+    }
+  }
+}

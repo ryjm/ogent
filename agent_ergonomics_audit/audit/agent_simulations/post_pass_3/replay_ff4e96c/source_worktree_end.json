@@ -1,0 +1,21 @@
+{
+  "command": [
+    "git",
+    "diff",
+    "--quiet",
+    "HEAD",
+    "--",
+    "lisp",
+    "test",
+    "makem.sh",
+    "Makefile",
+    "docs",
+    "README.org"
+  ],
+  "cwd": "/workspace/ogent",
+  "started_unix": 1791501472.1629674,
+  "duration_seconds": 0.0031332969665527344,
+  "exit_code": 0,
+  "stdout": "",
+  "stderr": ""
+}

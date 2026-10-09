@@ -1,0 +1,86 @@
+;;; probe_ledger.el --- Actual completion IO failure probes -*- lexical-binding: t; -*-
+(require 'ogent-agent)
+(require 'ogent-tools)
+(require 'ogent-ui-toolcalls)
+(unless (equal (symbol-file 'ogent-tool-execution-call 'defun) "/work/lisp/ogent-tool-execution.el")
+  (error "Ledger probe loaded unexpected execution source"))
+(defun scorerA-ledger-break-path (path)
+  "Retain the actual start file and replace its captured filename by a directory."
+  (rename-file path (concat path ".started") t)
+  (make-directory path t))
+(defun scorerA-ledger-record (probe invocation thunk)
+  (let ((print-level nil) (print-length nil))
+    (princ (json-serialize
+            (condition-case err
+                (list :probe probe :invocation invocation :outcome "returned" :result (prin1-to-string (funcall thunk)))
+              (error (list :probe probe :invocation invocation :outcome "condition"
+                           :condition (symbol-name (car err)) :message (error-message-string err))))))
+    (princ "\n")))
+(let* ((root (ogent-test--provision-store-directory 'tools))
+       (ogent-tool-require-approval nil) (ogent-tools-show-progress nil) (ogent-ledger-enabled t))
+  (dolist (mode '(sync async wrapper))
+    (let* ((original-ledger (expand-file-name (format "%s.ndjson" mode) root))
+           (ogent-ledger-file original-ledger)
+           (executions 0) (callbacks 0) payload
+           (spec (list :name 'ledger-reader :args nil :effects '((:kind read :target file :risk low))
+                       :function (if (eq mode 'async)
+                                     (lambda (callback)
+                                       (cl-incf executions)
+                                       (scorerA-ledger-break-path original-ledger)
+                                       (funcall callback "retained-async")
+                                       "not-a-process")
+                                   (lambda ()
+                                     (cl-incf executions)
+                                     (scorerA-ledger-break-path original-ledger)
+                                     (format "retained-%s" mode)))))
+           (ogent-tool-registry (list spec)))
+      (when (eq mode 'async) (setq spec (plist-put spec :async t)))
+      (scorerA-ledger-record
+       (format "actual-ledger-failure-%s" mode)
+       (format "%s; custom read completes once; rename its actual original start ledger to .started and mkdir at its captured filename" mode)
+       (lambda ()
+         (let ((returned
+                (pcase mode
+                  ('sync (ogent-agent-call "ledger-reader" nil 'json))
+                  ('async (ogent-agent-call-async "ledger-reader" nil
+                                                (lambda (result) (cl-incf callbacks) (setq payload result)) 'json))
+                  ('wrapper (funcall (ogent-tool-execution-wrapper spec 'text))))))
+           (list :executions executions :callbacks callbacks :returned returned :callback-result payload)))))))
+(let* ((root (ogent-test--provision-store-directory 'tools))
+       (project-a (file-name-as-directory (expand-file-name "project-a" root)))
+       (project-b (file-name-as-directory (expand-file-name "project-b" root)))
+       (original-ledger (expand-file-name "events.org" project-a))
+       (ogent-tools-show-progress nil) (ogent-tool-require-approval nil)
+       (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+       (ogent-ledger-enabled t) (ogent-ledger-file "events.org")
+       (default-directory project-a) (callbacks 0) payload)
+  (dolist (project (list project-a project-b))
+    (make-directory project t)
+    (unless (zerop (call-process "git" nil nil nil "init" "--quiet" project))
+      (error "Unable to create independent fixture Git project")))
+  (with-temp-file (expand-file-name "read.txt" project-b) (insert "future call\n"))
+  (scorerA-ledger-record
+   "actual-project-switch-captured-ledger"
+   "Start real async shell in fixture Git project A with relative events.org; switch current project to B, change ledger file and disable ledger before completion"
+   (lambda ()
+     (let ((process (ogent-agent-call-async
+                     "bash" (list :command "sleep 0.15; printf project-A" :working_directory project-a :timeout 2)
+                     (lambda (result) (cl-incf callbacks) (setq payload result)) 'json)))
+       (unless (file-exists-p original-ledger) (error "Original project ledger start is missing"))
+       (setq default-directory project-b ogent-ledger-file "future-events.org" ogent-ledger-enabled nil)
+       (let ((deadline (+ (float-time) 5)))
+         (while (and (= callbacks 0) (< (float-time) deadline)) (accept-process-output nil 0.02)))
+       (when (and (processp process) (process-live-p process)) (delete-process process))
+       (ogent-agent-call "read" (list :file_path (expand-file-name "read.txt" project-b)))
+       (with-temp-buffer
+         (insert-file-contents original-ledger)
+         (goto-char (point-min))
+         (let ((starts 0) (finishes 0))
+           (while (re-search-forward "^:OGENT_LEDGER_TYPE: tool-start$" nil t) (cl-incf starts))
+           (goto-char (point-min))
+           (while (re-search-forward "^:OGENT_LEDGER_TYPE: tool-finish$" nil t) (cl-incf finishes))
+           (list :callbacks callbacks :process_returned (processp process)
+                 :original_start_count starts :original_finish_count finishes
+                 :switched_project_ledger_exists (file-exists-p (expand-file-name "events.org" project-b))
+                 :future_ledger_exists (file-exists-p (expand-file-name "future-events.org" project-b))
+                 :result payload)))))))

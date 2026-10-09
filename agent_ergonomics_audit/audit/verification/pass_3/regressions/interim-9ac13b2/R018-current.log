@@ -1,0 +1,80 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 46 tests (2026-10-08 21:30:44+0000, selector `"ogent-tool-process-"')
+   passed   1/46  ogent-tool-process-bash-async-is-asynchronous (0.171856 sec)
+   passed   2/46  ogent-tool-process-bash-bounds-combined-channels (0.011865 sec)
+ogent: process callback failed: Callback failure
+   passed   3/46  ogent-tool-process-bash-callback-error-cleans-up (0.021134 sec)
+   passed   4/46  ogent-tool-process-bash-cancel-keeps-partial-output (0.032249 sec)
+   passed   5/46  ogent-tool-process-bash-cancel-kills-grandchild (0.021689 sec)
+   passed   6/46  ogent-tool-process-bash-invalid-utf8-remains-json-safe (0.011288 sec)
+   passed   7/46  ogent-tool-process-bash-separates-channels-and-exit (0.011368 sec)
+   passed   8/46  ogent-tool-process-bash-signal-is-distinct-from-cancel (0.051107 sec)
+   passed   9/46  ogent-tool-process-bash-startup-error-is-terminal (0.006756 sec)
+   passed  10/46  ogent-tool-process-bash-terminal-exit-bounds-descendant-drain (0.051560 sec)
+   passed  11/46  ogent-tool-process-bash-timeout-keeps-partial-output (0.131976 sec)
+   passed  12/46  ogent-tool-process-bash-validation-does-not-spawn (0.000494 sec)
+   passed  13/46  ogent-tool-process-bash-zero-output-budget (0.051145 sec)
+   passed  14/46  ogent-tool-process-grep-async-once (0.072569 sec)
+   passed  15/46  ogent-tool-process-grep-cancel-has-typed-error (0.052345 sec)
+   passed  16/46  ogent-tool-process-grep-context-includes-nearby-matches (0.052094 sec)
+   passed  17/46  ogent-tool-process-grep-deterministic-order (0.052226 sec)
+   passed  18/46  ogent-tool-process-grep-directory-spans-argument-batches (0.087457 sec)
+   passed  19/46  ogent-tool-process-grep-empty-gnu-candidates-validate-regex (0.154937 sec)
+   passed  20/46  ogent-tool-process-grep-empty-is-success (0.052173 sec)
+   passed  21/46  ogent-tool-process-grep-finds-hidden-and-ignored-files (0.052622 sec)
+   passed  22/46  ogent-tool-process-grep-glob-filter (0.052270 sec)
+   passed  23/46  ogent-tool-process-grep-gnu-binary-scope (0.103833 sec)
+   passed  24/46  ogent-tool-process-grep-gnu-component-filters (0.420165 sec)
+   passed  25/46  ogent-tool-process-grep-gnu-explicit-file-filter (0.155793 sec)
+   passed  26/46  ogent-tool-process-grep-gnu-unicode-filters (0.499931 sec)
+   passed  27/46  ogent-tool-process-grep-invalid-regex-error (0.052095 sec)
+   passed  28/46  ogent-tool-process-grep-oversized-wire-line-is-explicit (0.062897 sec)
+   passed  29/46  ogent-tool-process-grep-pages-all-matches (0.103544 sec)
+   passed  30/46  ogent-tool-process-grep-pattern-is-literal-process-argument (0.052098 sec)
+   passed  31/46  ogent-tool-process-grep-preserves-unusual-filenames (0.052078 sec)
+   passed  32/46  ogent-tool-process-grep-ripgrep-binary-scope (0.103195 sec)
+   passed  33/46  ogent-tool-process-grep-ripgrep-component-filters (0.413557 sec)
+   passed  34/46  ogent-tool-process-grep-ripgrep-explicit-file-filter (0.155094 sec)
+   passed  35/46  ogent-tool-process-grep-ripgrep-selected-groups-preserve-pages (0.086241 sec)
+   passed  36/46  ogent-tool-process-grep-ripgrep-selected-parent-order (0.157092 sec)
+   passed  37/46  ogent-tool-process-grep-ripgrep-unicode-filters (0.537660 sec)
+   passed  38/46  ogent-tool-process-grep-snapshot-changes-with-source (0.104280 sec)
+   passed  39/46  ogent-tool-process-grep-timeout-has-typed-error (0.053043 sec)
+   passed  40/46  ogent-tool-process-grep-truncation-keeps-count-and-page (0.052097 sec)
+   passed  41/46  ogent-tool-process-grep-validates-page-and-context (0.000322 sec)
+   passed  42/46  ogent-tool-process-grep-zero-budget-does-not-skip-matches (0.052053 sec)
+   passed  43/46  ogent-tool-process-results-serialize-as-json (0.123475 sec)
+   passed  44/46  ogent-tool-process-ripgrep-base64-text (0.000077 sec)
+   passed  45/46  ogent-tool-process-ripgrep-real-json-protocol (0.103281 sec)
+   passed  46/46  ogent-tool-process-ripgrep-searches-hidden-files (0.052270 sec)
+
+Ran 46 tests, 46 results as expected, 0 unexpected (2026-10-08 21:30:49+0000, 4.702923 sec)
+
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 2 tests (2026-10-08 21:30:50+0000, selector `"ogent-agent-execution-process-"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-ITfA51/tools-6PeiDB (retained)
+   passed  1/2  ogent-agent-execution-process-grep-integration (0.162074 sec)
+   passed  2/2  ogent-agent-execution-process-shell-failures-retain-data (0.144332 sec)
+
+Ran 2 tests, 2 results as expected, 0 unexpected (2026-10-08 21:30:50+0000, 0.306605 sec)
+

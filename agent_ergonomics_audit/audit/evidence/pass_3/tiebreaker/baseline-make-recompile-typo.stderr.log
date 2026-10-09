@@ -1,0 +1,3 @@
+[0;31mERROR (2026-10-08 21:08:43): Invalid rule: recompiel[0m
+[0;31mLOG (2026-10-08 21:08:43): Finished with 1 errors.[0m
+make: *** [Makefile:130: recompiel] Error 1

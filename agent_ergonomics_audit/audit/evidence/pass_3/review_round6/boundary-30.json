@@ -1,0 +1,29 @@
+{
+  "command": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "ogent-fixes",
+    "env",
+    "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-L",
+    "/work/lisp",
+    "-L",
+    "/work/lisp/ui",
+    "-L",
+    "/work/test",
+    "-L",
+    "/work/test/ui",
+    "-l",
+    "/work/test/ogent-test-helper.el",
+    "-l",
+    "/work/agent_ergonomics_audit/audit/evidence/pass_3/review_round6/boundary-probe.el"
+  ],
+  "cwd": "/workspace/ogent",
+  "exit_code": 1,
+  "duration_seconds": 2.1852970123291016
+}

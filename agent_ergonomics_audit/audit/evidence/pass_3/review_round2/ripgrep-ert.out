@@ -1,0 +1,15 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 3 tests (2026-10-08 20:46:11+0000, selector `"ogent-tool-process-ripgrep"')
+   passed  1/3  ogent-tool-process-ripgrep-base64-text (0.000121 sec)
+   passed  2/3  ogent-tool-process-ripgrep-real-json-protocol (0.103335 sec)
+   passed  3/3  ogent-tool-process-ripgrep-searches-hidden-files (0.052461 sec)
+
+Ran 3 tests, 3 results as expected, 0 unexpected (2026-10-08 20:46:12+0000, 0.156204 sec)
+

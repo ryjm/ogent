@@ -1,0 +1,4 @@
+[0;31mERROR (2026-10-08 21:08:44): Compiling failed.[0m
+[0;31mLOG (2026-10-08 21:08:44): Finished with 1 errors.[0m
+make[1]: *** [Makefile:86: compile] Error 1
+make: *** [Makefile:95: recompile] Error 2

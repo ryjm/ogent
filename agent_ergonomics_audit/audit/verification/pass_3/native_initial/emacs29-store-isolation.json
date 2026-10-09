@@ -1,0 +1,23 @@
+{
+  "check": "emacs29-store-isolation",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "ogent-fixes-29",
+    "make",
+    "test-isolation"
+  ],
+  "exit_code": 0,
+  "source_sha": "a820ac0dc03738e90b2a2dbec5efe64e875bc3f4",
+  "started_at": "2026-10-08T20:33:41.215925+00:00",
+  "completed_at": "2026-10-08T20:34:01.936489+00:00",
+  "summary": [
+    "STORE-INTEGRITY: clean - no real-store drift across the suite run",
+    "Ran 3185 tests, 3164 results as expected, 0 unexpected, 21 skipped (2026-10-08 20:34:01+0000, 17.027739 sec)"
+  ],
+  "stdout": "audit/verification/pass_3/native_initial/emacs29-store-isolation.stdout.log.gz",
+  "stderr": "audit/verification/pass_3/native_initial/emacs29-store-isolation.stderr.log.gz",
+  "note": "Initial integration check, before review corrections; not final source-freeze evidence."
+}

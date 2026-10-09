@@ -1,0 +1,618 @@
+{
+  "exercise_type": "repeated regression replay after final semantic fixes",
+  "prior_workflow_familiarity": true,
+  "baseline_preservation": "Original post_pass_3 transcripts, summary, report, first-strategy results, and 94 canonical roundtrip metric remain unchanged. This replay is not a new fresh-agent baseline.",
+  "source_sha_start": "10f86bb12a03f3122a60ba085be7289eb5277f5e",
+  "source_sha_end": "10f86bb12a03f3122a60ba085be7289eb5277f5e",
+  "source_sha_method": "git rev-parse HEAD only; no source, test, history, or other audit implementation inspection",
+  "execution_started_at_utc": "2026-10-08T22:17:09.428567+00:00",
+  "execution_ended_at_utc": "2026-10-08T22:17:13.943384+00:00",
+  "tasks": [
+    {
+      "task": 1,
+      "name": "Discover named execution, search shape, and async support",
+      "replay_attempts": 1,
+      "regression_roundtrips": 1,
+      "success": true,
+      "call_arguments": [
+        "pattern",
+        "path",
+        "glob_filter",
+        "context_lines",
+        "offset",
+        "limit"
+      ],
+      "async_sdk": true,
+      "failure_diagnosis": null
+    },
+    {
+      "task": 2,
+      "name": "Page README seven lines at a time and preserve positions",
+      "replay_attempts": 1,
+      "regression_roundtrips": 63,
+      "success": true,
+      "pages": 62,
+      "line_count": 429,
+      "terminal_status": "done",
+      "preserved_content": true,
+      "failure_diagnosis": null
+    },
+    {
+      "task": 3,
+      "name": "Discover all 105 .el files without duplicates",
+      "replay_attempts": 1,
+      "regression_roundtrips": 4,
+      "success": true,
+      "pages": 3,
+      "count": 105,
+      "unique_count": 105,
+      "paths": [
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-000.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-002.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-004.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-006.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-008.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-010.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-012.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-014.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-016.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-018.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-020.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-022.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-024.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-026.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-028.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-030.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-032.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-034.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-036.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-038.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-040.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-042.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-044.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-046.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-048.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-050.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-052.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-054.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-056.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-058.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-060.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-062.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-064.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-066.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-068.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-070.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-072.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-074.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-076.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-078.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-080.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-082.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-084.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-086.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-088.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-090.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-092.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-094.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-096.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-098.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-100.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-102.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/file-104.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-001.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-003.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-005.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-007.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-009.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-011.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-013.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-015.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-017.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-019.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-021.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-023.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-025.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-027.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-029.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-031.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-033.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-035.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-037.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-039.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-041.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-043.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-045.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-047.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-049.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-051.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-053.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-055.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-057.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-059.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-061.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-063.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-065.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-067.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-069.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-071.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-073.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-075.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-077.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-079.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-081.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-083.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-085.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-087.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-089.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-091.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-093.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-095.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-097.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-099.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-101.el",
+        "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/glob/nested/file-103.el"
+      ],
+      "terminal": {
+        "contract_version": "1",
+        "tool": "glob",
+        "status": "done",
+        "data": null,
+        "error": null,
+        "next": []
+      },
+      "failure_diagnosis": null,
+      "exact_fixture_paths": true
+    },
+    {
+      "task": 4,
+      "name": "Page 250 exact match locations with colon/newline filename",
+      "replay_attempts": 1,
+      "regression_roundtrips": 4,
+      "success": true,
+      "pages": 3,
+      "count": 250,
+      "unique_count": 250,
+      "terminal": {
+        "contract_version": "1",
+        "tool": "grep",
+        "status": "done",
+        "data": null,
+        "error": null,
+        "next": []
+      },
+      "failure_diagnosis": null
+    },
+    {
+      "task": 5,
+      "name": "Distinguish no matches from invalid regex, including empty directory",
+      "replay_attempts": 1,
+      "regression_roundtrips": 4,
+      "success": true,
+      "outcomes": [
+        {
+          "directory": "nonempty",
+          "pattern": "unmatched-needle",
+          "result": {
+            "contract_version": "1",
+            "tool": "grep",
+            "status": "ok",
+            "data": {
+              "path": "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/nonempty/",
+              "matches": [],
+              "offset": 0,
+              "limit": 200,
+              "total_matches": 0,
+              "has_more": false,
+              "next_offset": null,
+              "truncated": false,
+              "encoding_loss": false,
+              "snapshot": "3019c6ac2f2a9ca9223f1345036db2b23aee3edd1639c0f73e6c005e6b95108e",
+              "engine": "gnu-grep-null"
+            },
+            "error": null,
+            "next": []
+          }
+        },
+        {
+          "directory": "nonempty",
+          "pattern": "[",
+          "result": {
+            "contract_version": "1",
+            "tool": "grep",
+            "status": "error",
+            "data": null,
+            "error": {
+              "code": "search_failed",
+              "message": "Local search failed: \"grep failed (exit 123): /usr/bin/grep: Invalid regular expression. Check pattern syntax and path; retry grep with a valid pattern, such as needle\"",
+              "recovery": "Inspect the error message and tool contract before retrying"
+            },
+            "next": []
+          }
+        },
+        {
+          "directory": "empty",
+          "pattern": "unmatched-needle",
+          "result": {
+            "contract_version": "1",
+            "tool": "grep",
+            "status": "ok",
+            "data": {
+              "path": "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/empty/",
+              "matches": [],
+              "offset": 0,
+              "limit": 200,
+              "total_matches": 0,
+              "has_more": false,
+              "next_offset": null,
+              "truncated": false,
+              "encoding_loss": false,
+              "snapshot": "5a6199afcbbf407a483653efdc09d266e96baa69ff947fb34a4d2c0211b056b4",
+              "engine": "gnu-grep-null"
+            },
+            "error": null,
+            "next": []
+          }
+        },
+        {
+          "directory": "empty",
+          "pattern": "[",
+          "result": {
+            "contract_version": "1",
+            "tool": "grep",
+            "status": "error",
+            "data": null,
+            "error": {
+              "code": "search_failed",
+              "message": "Local search failed: \"grep failed (exit 2): /usr/bin/grep: Invalid regular expression. Check pattern syntax and path; retry grep with a valid pattern, such as needle\"",
+              "recovery": "Inspect the error message and tool contract before retrying"
+            },
+            "next": []
+          }
+        }
+      ],
+      "failure_diagnosis": null
+    },
+    {
+      "task": 6,
+      "name": "Approval calls never prompt/mutate; unsafe batch preflight rejects",
+      "replay_attempts": 1,
+      "regression_roundtrips": 3,
+      "success": true,
+      "shell": {
+        "contract_version": "1",
+        "tool": "bash",
+        "status": "approval_required",
+        "data": null,
+        "error": {
+          "code": "approval_required",
+          "message": "This call needs user approval under the current effects policy; use the normal tool review flow or an existing explicit allow rule",
+          "recovery": "Use the normal user approval/review flow; do not retry with relaxed policy"
+        },
+        "next": []
+      },
+      "write": {
+        "contract_version": "1",
+        "tool": "write-file",
+        "status": "approval_required",
+        "data": null,
+        "error": {
+          "code": "approval_required",
+          "message": "This call needs user approval under the current effects policy; use the normal tool review flow or an existing explicit allow rule",
+          "recovery": "Use the normal user approval/review flow; do not retry with relaxed policy"
+        },
+        "next": []
+      },
+      "batch": {
+        "contract_version": "1",
+        "tool": "batch",
+        "status": "error",
+        "data": null,
+        "error": {
+          "code": "unsafe_batch",
+          "message": "Batch accepts only declared read-only tools; invoke bash individually through approval",
+          "recovery": "Inspect the error message and tool contract before retrying"
+        },
+        "next": []
+      },
+      "prompt_count": 0,
+      "read_count_before_rejection": 0,
+      "shell_mutated": false,
+      "write_mutated": false,
+      "failure_diagnosis": null
+    },
+    {
+      "task": 7,
+      "name": "Compose glob/search/read in one batch",
+      "replay_attempts": 1,
+      "regression_roundtrips": 1,
+      "success": true,
+      "requested": 3,
+      "completed": 3,
+      "failure_diagnosis": null
+    },
+    {
+      "task": 8,
+      "name": "Async search finishes once and supports cancellation",
+      "replay_attempts": 1,
+      "regression_roundtrips": 4,
+      "success": true,
+      "normal_callback_count": 1,
+      "cancel_callback_count": 1,
+      "normal_returned_process": true,
+      "cancel_returned_process": true,
+      "normal_result": {
+        "contract_version": "1",
+        "tool": "grep",
+        "status": "ok",
+        "data": {
+          "path": "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/search/",
+          "matches": [
+            {
+              "path": "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/search/strange:segment\nline.el",
+              "line": 1,
+              "text": "needle fixture line 001",
+              "truncated": false,
+              "context_before": [],
+              "context_after": []
+            },
+            {
+              "path": "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/search/strange:segment\nline.el",
+              "line": 2,
+              "text": "needle fixture line 002",
+              "truncated": false,
+              "context_before": [],
+              "context_after": []
+            },
+            {
+              "path": "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/search/strange:segment\nline.el",
+              "line": 3,
+              "text": "needle fixture line 003",
+              "truncated": false,
+              "context_before": [],
+              "context_after": []
+            },
+            {
+              "path": "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/search/strange:segment\nline.el",
+              "line": 4,
+              "text": "needle fixture line 004",
+              "truncated": false,
+              "context_before": [],
+              "context_after": []
+            },
+            {
+              "path": "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/search/strange:segment\nline.el",
+              "line": 5,
+              "text": "needle fixture line 005",
+              "truncated": false,
+              "context_before": [],
+              "context_after": []
+            }
+          ],
+          "offset": 0,
+          "limit": 5,
+          "total_matches": 250,
+          "has_more": true,
+          "next_offset": 5,
+          "truncated": false,
+          "encoding_loss": false,
+          "snapshot": "202cee8a51efa14a9b5ecf57e6b599920e2fa87ca72053f9c0142b779ea1c5c5",
+          "engine": "gnu-grep-null"
+        },
+        "error": null,
+        "next": [
+          {
+            "tool": "grep",
+            "args": {
+              "pattern": "needle",
+              "path": "/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/search/",
+              "limit": 5,
+              "offset": 5
+            },
+            "snapshot": "202cee8a51efa14a9b5ecf57e6b599920e2fa87ca72053f9c0142b779ea1c5c5",
+            "call": "(ogent-agent-call \"grep\" '(:pattern \"needle\" :path \"/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/search/\" :limit 5 :offset 5))"
+          }
+        ]
+      },
+      "cancel_result": {
+        "contract_version": "1",
+        "tool": "grep",
+        "status": "error",
+        "data": null,
+        "error": {
+          "code": "cancelled",
+          "message": "Local search was cancelled: \"Search cancelled; retry the same search when ready\"",
+          "recovery": "Inspect retained stdout/stderr and exit_code before deciding whether to retry"
+        },
+        "next": []
+      },
+      "failure_diagnosis": null
+    },
+    {
+      "task": 9,
+      "name": "Discover makem JSON and run actual minimal compiler/ERT success and failure",
+      "replay_attempts": 1,
+      "regression_roundtrips": 5,
+      "success": true,
+      "failure_diagnosis": null,
+      "actual_runner": "/work/makem.sh, production runner without replacement",
+      "fixtures": "Existing independent container-owned tracked Git fixtures reused; no Git staging or commits during replay",
+      "build_success_exit": 0,
+      "compiler_failure_exit": 1,
+      "ert_failure_exit": 1,
+      "ert_success_counts": {
+        "total": 1,
+        "expected": 1,
+        "unexpected": 0,
+        "skipped": 0
+      },
+      "ert_failure_counts": {
+        "total": 1,
+        "expected": 0,
+        "unexpected": 1,
+        "skipped": 0
+      },
+      "parsed_compiler_location": {
+        "source": "emacs",
+        "command_index": 0,
+        "task": "compile",
+        "severity": "error",
+        "file": "audit-build.el",
+        "line": 14,
+        "column": 1,
+        "message": "audit-build.el: Error: Invalid read syntax: \")\", 14, 1"
+      },
+      "parsed_ert_location": {
+        "source": "emacs",
+        "command_index": 2,
+        "task": "test-ert",
+        "severity": "error",
+        "file": "test/audit-build-tests.el",
+        "line": 4,
+        "column": null,
+        "message": "   FAILED  1/1  audit-build-add-test (0.000077 sec) at test/audit-build-tests.el:4"
+      },
+      "actual_emacs_command_count": 8
+    }
+  ],
+  "totals": {
+    "canonical_tasks": 9,
+    "actual_successful_tasks": 9,
+    "regression_roundtrips": 89
+  },
+  "roundtrip_definition": "One public SDK method invocation or makem capability/help/task invocation. Setup, transcript packaging, and source SHA probes excluded. No fresh first-strategy metric assigned.",
+  "environment": {
+    "container": "ogent-fixes",
+    "emacs": "30.2",
+    "mount": "/work",
+    "search_backend": "observed GNU grep fallback",
+    "source_loading": "Protected /work/test/ogent-test-helper.el; -Q --batch with lisp/lisp-ui/test/test-ui load paths; require ogent",
+    "registry": "Public tool specs already populated; no fixture registry installation needed during replay"
+  },
+  "public_inputs": [
+    "Known prior public guide (not re-read this replay)",
+    "README.org canonical read task",
+    "public SDK discovery/runtime/docstrings",
+    "makem --capabilities --json",
+    "makem --help"
+  ],
+  "parser_limits_rechecked": {
+    "prior_invalid_source_location_limit_fixed": true,
+    "prior_ert_location_limit_fixed": true,
+    "compiler_file": "audit-build.el",
+    "compiler_line": 14,
+    "compiler_column": 1,
+    "ert_file": "test/audit-build-tests.el",
+    "ert_line": 4,
+    "ert_column": null,
+    "note": "ERT emitted file/line only, so null column is correct."
+  },
+  "safety_results": {
+    "sdk_prompt_count": 0,
+    "unsafe_batch_read_count": 0,
+    "shell_mutation": false,
+    "write_mutation": false,
+    "policy_configuration_changed": false,
+    "provider_login_or_inference": false,
+    "commits_or_staging": false,
+    "full_project_build_test_compile": false
+  },
+  "limits": [
+    "This replay reused known public workflow and existing fixtures; familiarity makes it unsuitable as a fresh discovery baseline.",
+    "Actual production SDK source loaded via protected helper, which may supply gptel doubles; no live provider transport/registration proof.",
+    "Observed GNU grep fallback only; no ripgrep branch execution in this replay.",
+    "Only independent minimal tracked fixture projects compiled and ran ERT. Root owns broad native validation."
+  ],
+  "transcripts": [
+    {
+      "name": "source_sha_start",
+      "record": "source_sha_start.json",
+      "stdout": "source_sha_start.stdout",
+      "stderr": "source_sha_start.stderr",
+      "exit_code": 0,
+      "stdout_bytes": 41,
+      "stderr_bytes": 0
+    },
+    {
+      "name": "sdk_tasks",
+      "record": "sdk_tasks.json",
+      "stdout": "sdk_tasks.stdout",
+      "stderr": "sdk_tasks.stderr",
+      "exit_code": 0,
+      "stdout_bytes": 396316,
+      "stderr_bytes": 5081
+    },
+    {
+      "name": "build_capabilities",
+      "record": "build_capabilities.json",
+      "stdout": "build_capabilities.stdout",
+      "stderr": "build_capabilities.stderr",
+      "exit_code": 0,
+      "stdout_bytes": 995,
+      "stderr_bytes": 0
+    },
+    {
+      "name": "build_help",
+      "record": "build_help.json",
+      "stdout": "build_help.stdout",
+      "stderr": "build_help.stderr",
+      "exit_code": 0,
+      "stdout_bytes": 3504,
+      "stderr_bytes": 0
+    },
+    {
+      "name": "build_success",
+      "record": "build_success.json",
+      "stdout": "build_success.stdout",
+      "stderr": "build_success.stderr",
+      "exit_code": 0,
+      "stdout_bytes": 2145,
+      "stderr_bytes": 0
+    },
+    {
+      "name": "build_compile_failure",
+      "record": "build_compile_failure.json",
+      "stdout": "build_compile_failure.stdout",
+      "stderr": "build_compile_failure.stderr",
+      "exit_code": 1,
+      "stdout_bytes": 2270,
+      "stderr_bytes": 262
+    },
+    {
+      "name": "build_ert_failure",
+      "record": "build_ert_failure.json",
+      "stdout": "build_ert_failure.stdout",
+      "stderr": "build_ert_failure.stderr",
+      "exit_code": 1,
+      "stdout_bytes": 4487,
+      "stderr_bytes": 1631
+    },
+    {
+      "name": "source_sha_end",
+      "record": "source_sha_end.json",
+      "stdout": "source_sha_end.stdout",
+      "stderr": "source_sha_end.stderr",
+      "exit_code": 0,
+      "stdout_bytes": 41,
+      "stderr_bytes": 0
+    }
+  ],
+  "transcript_format": "Each record contains complete argv/cwd/timing/stdout/stderr/exit_code, with byte-complete stdout/stderr companion files. SDK stdout logs full FORM/RESULT/CALLBACK values; no retained output truncation.",
+  "final_state": "complete",
+  "preserved_interim_replays": [
+    "../replay_90818f8/",
+    "../replay_9ac13b2/",
+    "../replay_967eb05/"
+  ],
+  "fresh_discovery_or_efficiency_claim": false,
+  "original_fresh_metrics_preserved": {
+    "tasks": 9,
+    "successful": 9,
+    "first_strategy_successful": 7,
+    "canonical_roundtrips": 94
+  },
+  "observed_intentional_failure_causes": {
+    "compiler": "Owned fixture has an unmatched closing parenthesis at audit-build.el:14:1; actual compiler exited 1.",
+    "ert": "Owned fixture expects 3 from audit-build-add(1,1), which returns 2; actual ERT runner reported one unexpected failure and exited 1."
+  }
+}

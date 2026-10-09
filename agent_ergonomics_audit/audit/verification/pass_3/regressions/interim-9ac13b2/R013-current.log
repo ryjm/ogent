@@ -1,0 +1,79 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 43 tests (2026-10-08 21:30:42+0000, selector `"ogent-agent-execution-"')
+   passed   1/43  ogent-agent-execution-aliases-exact-and-ambiguous (0.000172 sec)
+   passed   2/43  ogent-agent-execution-aliases-share-policy (0.000544 sec)
+   passed   3/43  ogent-agent-execution-async-and-sync-failures-in-ledger (0.108418 sec)
+   passed   4/43  ogent-agent-execution-async-custom-once-and-sync-rejection (0.000478 sec)
+   passed   5/43  ogent-agent-execution-async-denial-and-cancel (0.052088 sec)
+   passed   6/43  ogent-agent-execution-async-real-process-and-ledger (0.153093 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-HcgeFI (retained)
+   passed   7/43  ogent-agent-execution-batch-composes-read-tools (0.054872 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-YkOC7N (retained)
+   passed   8/43  ogent-agent-execution-batch-continues-or-stops (0.002534 sec)
+   passed   9/43  ogent-agent-execution-batch-freezes-calls-and-argument-strings (0.000799 sec)
+   passed  10/43  ogent-agent-execution-batch-freezes-canonical-alias-target (0.000783 sec)
+   passed  11/43  ogent-agent-execution-batch-freezes-nested-object-values (0.000807 sec)
+   passed  12/43  ogent-agent-execution-batch-inplace-effects-change (0.000518 sec)
+   passed  13/43  ogent-agent-execution-batch-preflight-prevents-unsafe-prefix (0.000640 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-8xaQaX (retained)
+   passed  14/43  ogent-agent-execution-denial-and-approval-required (0.000579 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-Znyony (retained)
+   passed  15/43  ogent-agent-execution-discovery-example-executes (0.001148 sec)
+   passed  16/43  ogent-agent-execution-discovery-exposes-real-call-shapes (0.000471 sec)
+   passed  17/43  ogent-agent-execution-discovery-schema-and-purity (0.000757 sec)
+   passed  18/43  ogent-agent-execution-failures-recorded (0.000348 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-JNtsGL (retained)
+   passed  19/43  ogent-agent-execution-glob-complete-pagination (0.038559 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-oS5EqY (retained)
+   passed  20/43  ogent-agent-execution-glob-json-empty-and-weird-paths (0.000537 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-rYuQ3Y (retained)
+   passed  21/43  ogent-agent-execution-glob-star-stays-in-component (0.000616 sec)
+   passed  22/43  ogent-agent-execution-json-unsupported-extension-callback-once (0.000741 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-gKFtGQ (retained)
+   passed  23/43  ogent-agent-execution-json-unsupported-path-delivers-error (0.001177 sec)
+   passed  24/43  ogent-agent-execution-model-detects-object-schema-mutation (0.000462 sec)
+   passed  25/43  ogent-agent-execution-model-freezes-argument-strings (0.000784 sec)
+   passed  26/43  ogent-agent-execution-model-freezes-metadata-strings (0.000613 sec)
+   passed  27/43  ogent-agent-execution-model-freezes-object-arguments (0.001046 sec)
+   passed  28/43  ogent-agent-execution-model-inplace-change-during-approval (0.000672 sec)
+   passed  29/43  ogent-agent-execution-model-json-async-callback (0.000413 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-7bWnJy (retained)
+   passed  30/43  ogent-agent-execution-model-json-pages-and-cache-refresh (0.005204 sec)
+   passed  31/43  ogent-agent-execution-model-refreshes-object-schema-cache (0.000491 sec)
+   passed  32/43  ogent-agent-execution-model-stale-after-approval (0.000671 sec)
+   passed  33/43  ogent-agent-execution-named-call-and-json (0.000298 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-WixzPe (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-uypiE6 (retained)
+   passed  34/43  ogent-agent-execution-next-freezes-path-and-follows-json (0.002235 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-qmameo (retained)
+   passed  35/43  ogent-agent-execution-next-refuses-changed-snapshot (0.001700 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-1IpMAC (retained)
+   passed  36/43  ogent-agent-execution-next-retains-long-line-characters (0.002484 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-EpCT3A (retained)
+   passed  37/43  ogent-agent-execution-process-grep-integration (0.156700 sec)
+   passed  38/43  ogent-agent-execution-process-shell-failures-retain-data (0.183621 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-wkELZu (retained)
+   passed  39/43  ogent-agent-execution-read-empty-and-invalid (0.001573 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-mQXryi (retained)
+   passed  40/43  ogent-agent-execution-read-long-line-continuation (0.000390 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-F9hLyf (retained)
+   passed  41/43  ogent-agent-execution-read-respects-configured-default (0.001360 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-FD2b6Q/tools-Jqa1Xm (retained)
+   passed  42/43  ogent-agent-execution-read-structured-pages (0.001026 sec)
+   passed  43/43  ogent-agent-execution-validates-before-policy (0.000210 sec)
+
+Ran 43 tests, 43 results as expected, 0 unexpected (2026-10-08 21:30:42+0000, 0.784635 sec)
+

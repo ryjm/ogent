@@ -53,3 +53,15 @@ and checked its exact CI run.
 Remote CI follow-up: the doctor correction now avoids locale-dependent curly
 quotes and is pinned under every Emacs quote style. It is a repair to R008,
 not an additional inflated primary recommendation count.
+
+# Second full implementation round
+
+The user's request for a much stronger result triggered the mandatory verbatim
+self-prompt and another apply round. [Pass 3 ambition record](ambition_bar_pass_3.md)
+records eleven further tested behavior upgrades across parseability, composition,
+error recovery, intent and discoverability. Nine original scored surfaces meet
+the 100-point dimension threshold; new APIs remain unpaired and overlapping
+recommendations are not counted as independent numerical uplift. Final mean and
+median comparisons use genuine same-criteria paired baseline probes. The original
+first-pass record above is retained unchanged.
+

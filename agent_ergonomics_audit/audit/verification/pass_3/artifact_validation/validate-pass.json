@@ -1,0 +1,20 @@
+{
+  "check": "validate-pass",
+  "argv": [
+    "bash",
+    "/home/agent/.claude/skills/agent-ergonomics-and-intuitiveness-maximization-for-cli-tools/scripts/validate_pass.sh",
+    "/workspace/ogent/agent_ergonomics_audit"
+  ],
+  "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+  "started_at": "2026-10-08T23:51:42.451812+00:00",
+  "completed_at": "2026-10-08T23:51:46.722008+00:00",
+  "exit_code": 0,
+  "stdout": {
+    "path": "agent_ergonomics_audit/audit/verification/pass_3/artifact_validation/validate-pass.stdout",
+    "sha256": "226da858fb11411f76505b0f9b764348c8cbd0338dbbda2b29578b6fc8d22ec2"
+  },
+  "stderr": {
+    "path": "agent_ergonomics_audit/audit/verification/pass_3/artifact_validation/validate-pass.stderr",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

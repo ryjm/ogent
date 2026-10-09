@@ -1,0 +1,14 @@
+{
+  "source_sha": "9ac13b23032f40eccb9a627a824be45656292056",
+  "reason": "Review6 found directory file-symlink filter inconsistency; prior fullproof valid onlyasintermediate",
+  "archives": [
+    {
+      "path": "evidence/pass_3/interim_9ac13b2_scoring.tar.gz",
+      "sha256": "ada42ec6c0b04fccd177ed9a50041de626e2870de6ab511987f43b530f15f437"
+    },
+    {
+      "path": "evidence/pass_3/interim_9ac13b2_audit.tar.gz",
+      "sha256": "8cf50f25917350db72ee8a4bf267f979e53e22aad1cfb0801eb0b9e2aebf5289"
+    }
+  ]
+}

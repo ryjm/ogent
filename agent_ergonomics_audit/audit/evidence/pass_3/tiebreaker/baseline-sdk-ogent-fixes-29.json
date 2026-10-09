@@ -1,0 +1,28 @@
+{
+  "label": "baseline-sdk-ogent-fixes-29",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "-e",
+    "TIEBREAKER_ELPA=/tmp/ogent-ergonomics-elpa",
+    "-e",
+    "NO_COLOR=1",
+    "-e",
+    "CI=true",
+    "-e",
+    "TERM=dumb",
+    "-e",
+    "TIEBREAKER_BASELINE=1",
+    "ogent-fixes-29",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-l",
+    "agent_ergonomics_audit/audit/evidence/pass_3/tiebreaker/paired-sdk.el"
+  ],
+  "exit_code": 0,
+  "stdout": "audit/evidence/pass_3/tiebreaker/baseline-sdk-ogent-fixes-29.stdout.log",
+  "stderr": "audit/evidence/pass_3/tiebreaker/baseline-sdk-ogent-fixes-29.stderr.log"
+}

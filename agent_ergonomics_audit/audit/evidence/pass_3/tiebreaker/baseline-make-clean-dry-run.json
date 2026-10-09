@@ -1,0 +1,17 @@
+{
+  "label": "baseline-make-clean-dry-run",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work/agent_ergonomics_audit/audit/evidence/pass_3/tiebreaker/fixture-baseline",
+    "ogent-fixes",
+    "make",
+    "--no-print-directory",
+    "-n",
+    "clean"
+  ],
+  "exit_code": 0,
+  "stdout": "audit/evidence/pass_3/tiebreaker/baseline-make-clean-dry-run.stdout.log",
+  "stderr": "audit/evidence/pass_3/tiebreaker/baseline-make-clean-dry-run.stderr.log"
+}

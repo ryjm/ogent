@@ -1,0 +1,32 @@
+{
+  "label": "emacs29",
+  "family": "structured-query-guard",
+  "target_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "-e",
+    "REFRESH_ELPA=/tmp/ogent-ergonomics-elpa",
+    "-e",
+    "NO_COLOR=1",
+    "-e",
+    "CI=true",
+    "-e",
+    "TERM=dumb",
+    "ogent-fixes-29",
+    "emacs",
+    "-Q",
+    "--batch",
+    "-l",
+    "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_query_guard/probe.el"
+  ],
+  "started_utc": "2026-10-08T23:43:26.577439+00:00",
+  "finished_utc": "2026-10-08T23:43:29.904181+00:00",
+  "exit_code": 255,
+  "stdout": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_query_guard/emacs29.stdout.jsonl",
+  "stderr": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_query_guard/emacs29.stderr",
+  "probe_source": "agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_query_guard/probe.el",
+  "probe_sha256": "b375fd04b8b5c11b125985d3b007d5866ac587e8da20b567bf1cf77c2af60e0f"
+}

@@ -1,0 +1,10 @@
+fatal: detected dubious ownership in repository at '/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/build_success'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/build_success
+fatal: detected dubious ownership in repository at '/work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/build_success'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /work/agent_ergonomics_audit/audit/agent_simulations/post_pass_3/fixtures/build_success
+ERROR (2026-10-08 20:39:36): Can't find repo root.
+ERROR (2026-10-08 20:39:36): No project Git root found. Run makem.sh from a Git project with tracked Elisp files.

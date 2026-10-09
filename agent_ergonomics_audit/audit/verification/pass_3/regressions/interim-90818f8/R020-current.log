@@ -1,0 +1,26 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 6 tests (2026-10-08 21:09:15+0000, selector `"ogent-agent-execution-batch-"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-i5BwpS/tools-N7UF2X (retained)
+   passed  1/6  ogent-agent-execution-batch-composes-read-tools (0.058821 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-i5BwpS/tools-PtAoas (retained)
+   passed  2/6  ogent-agent-execution-batch-continues-or-stops (0.002139 sec)
+   passed  3/6  ogent-agent-execution-batch-freezes-calls-and-argument-strings (0.000713 sec)
+   passed  4/6  ogent-agent-execution-batch-freezes-canonical-alias-target (0.000614 sec)
+   passed  5/6  ogent-agent-execution-batch-inplace-effects-change (0.000490 sec)
+   passed  6/6  ogent-agent-execution-batch-preflight-prevents-unsafe-prefix (0.000665 sec)
+
+Ran 6 tests, 6 results as expected, 0 unexpected (2026-10-08 21:09:15+0000, 0.063734 sec)
+

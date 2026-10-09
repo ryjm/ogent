@@ -1,0 +1,24 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+ogent-test: provisioned tools store at /tmp/ogent-test-store-xZewhf/tools-54slAL (retained)
+
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+file="/tmp/ogent-test-store-xZewhf/tools-54slAL//\377.txt" exists=t multibyte=nil listing=("." ".." "\377.txt")
+read-plist=(:contract_version "1" :tool "read-file" :status "ok" :data (:path "/tmp/ogent-test-store-xZewhf/tools-54slAL/\377.txt" :snapshot "b9e68e1bea3e5b19ca6b2f98b73a54b73daafaa250484902e09982e07a12e733" :total_lines 1 :offset 1 :column 1 :limit 200 :lines [(:number 1 :column 1 :text "text" :partial :json-false)] :content "text" :ends_with_newline t :has_more :json-false :next_offset :json-null :next_column :json-null) :error :json-null :next [])
+read-async-json-error=(wrong-type-argument json-value-p "/tmp/ogent-test-store-xZewhf/tools-54slAL/\377.txt")
+read-async-json-callbacks=0
+read-json-error=(wrong-type-argument json-value-p "/tmp/ogent-test-store-xZewhf/tools-54slAL/\377.txt")
+files-json={"contract_version":"1","tool":"glob","status":"ok","data":{"path":"/tmp/ogent-test-store-xZewhf/tools-54slAL/","pattern":"*","offset":0,"limit":100,"files":[],"total_files":0,"snapshot":"5da3a4c7f117944275b4c8629c4916403625d5a4a6573a01ecb03f0e9d2edbe6","has_more":false,"next_offset":null},"error":null,"next":[]}
+bad-result=(:contract_version "1" :tool "bad-result" :status "ok" :data 42 :error :json-null :next [])
+bad-result-callbacks=1

@@ -1,0 +1,37 @@
+#+title: Interim 9ac13b2 source-blind regression replay
+
+All nine canonical tasks were actually replayed and passed against production
+SHA 9ac13b23032f40eccb9a627a824be45656292056, identical at execution start/end.
+This is a repeated regression exercise with prior workflow familiarity and no
+fresh discovery or efficiency claim. The prior 90818f8 replay is preserved under
+../replay_90818f8/, labeled interim. Original post_pass_3 baseline transcripts,
+report, summary, and 94-trip metric remain unchanged.
+
+The public SDK discovered named search arguments and async terminal support.
+README reconstructed exactly: 429 positioned lines, 62 seven-line pages, done.
+All 105 expected fixture .el paths were discovered once across three pages.
+All 250 exact matches retained the original colon/newline filename and line/text
+identity across three pages. No-match and invalid-regex searches were distinct
+for nonempty and empty directories. Approval-required shell/write calls had
+zero prompts and mutations. Unsafe read+shell batch rejected before reading.
+The glob/search/read batch returned three successful results in the common data
+envelope. Async completion and cancellation each invoked one terminal callback.
+
+The actual production /work/makem.sh compiler/ERT runner executed existing
+independent container-owned tracked fixture Git projects. Success exited 0,
+with one expected ERT result. Intentional malformed-source compilation and
+intentional ERT failure each exited 1. JSON parsed compiler source location
+audit-build.el:14:1 and ERT location test/audit-build-tests.el:4. ERT emitted no
+column, correctly represented as null.
+
+summary.json records exact execution timestamps/SHA, per-task coverage, and
+89 regression roundtrips. Every command preserves complete argv/cwd/stdout/
+stderr/exit plus byte-complete companion files. SDK stdout preserves all public
+forms/results/callbacks.
+
+Only final public docs, discovery/help, and the known owned harness/fixtures were
+used. No production/test/history/other audit implementation was inspected. The
+protected helper loads actual SDK source but may supply gptel doubles. The
+observed search backend was GNU grep fallback. No provider calls, policy
+configuration changes, Git staging/commits, or broad project build/test/compile
+were performed. Canonical replay scope does not establish unexecuted branches.

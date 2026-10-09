@@ -1,0 +1,30 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+ogent-test: provisioned tools store at /tmp/ogent-test-store-5MOEsY/tools-p7DHa3 (retained)
+
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+
+Running 4 tests (2026-10-08 21:40:19+0000, selector `"^review6-"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-5MOEsY/tools-qpb8y9 (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-5MOEsY/tools-sPer4n (retained)
+   passed  1/4  review6-continuation-refuses-change-outside-first-page (0.107003 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-5MOEsY/tools-IV6JEi (retained)
+   passed  2/4  review6-glob-continuation-keeps-original-project (0.002251 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-5MOEsY/tools-toodC8 (retained)
+   passed  3/4  review6-process-timeout-delivers-both-channels-once (0.202494 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-5MOEsY/tools-9OoMCR (retained)
+   passed  4/4  review6-search-continued-page-retains-identifiers-under-zero-budget (0.314380 sec)
+
+Ran 4 tests, 4 results as expected, 0 unexpected (2026-10-08 21:40:20+0000, 0.626455 sec)
+

@@ -1,0 +1,32 @@
+;;; probe_registry.el --- Native constructor inspection -*- lexical-binding: t; -*-
+(dolist (dir (directory-files "/tmp/ogent-fixdeps/30.2/elpa" t "\\`[^.]"))
+  (when (file-directory-p dir) (add-to-list 'load-path dir)))
+(add-to-list 'load-path "/tmp/gptel-minimum")
+(load "/tmp/gptel-minimum/gptel.el" nil t)
+(require 'gptel-request)
+(require 'ogent-tools)
+(require 'ogent-agent)
+(defun scorerB-registry-emit (id value)
+  (princ (concat (json-serialize (list :probe id :value value)
+                                :null-object :json-null :false-object :json-false) "\n")))
+(let* ((root (ogent-test--provision-store-directory 'tools))
+       (ogent-tools-project-root root)
+       (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+       (ogent--tools-registered nil) (ogent--tool-specs-registered nil)
+       (ogent--tool-formats-registered nil) (gptel--known-tools nil)
+       (ogent-tools-result-format 'json)
+       (tool (ogent-tool-get "read_file")))
+  (with-temp-file (expand-file-name "sample.txt" root) (insert "example"))
+  (scorerB-registry-emit "actual-constructor"
+                        (list :gptel_request_source (symbol-file 'gptel-make-tool)
+                              :tool_name (gptel-tool-name tool)
+                              :same_cached_object (if (eq tool (ogent-tool-get "read")) t :json-false)
+                              :result (funcall (gptel-tool-function tool) (expand-file-name "sample.txt" root))))
+  (scorerB-registry-emit "enabled-tools"
+                        (vconcat (mapcar #'gptel-tool-name (ogent-tools-enabled-list))))
+  (scorerB-registry-emit "enabled-tools-repeat"
+                        (vconcat (mapcar #'gptel-tool-name (ogent-tools-enabled-list))))
+  (scorerB-registry-emit "spec-shape"
+                        (list :name (symbol-name (plist-get (ogent-tool-spec-get "cat") :name))
+                              :arguments (ogent-agent--arguments (plist-get (ogent-tool-spec-get "cat") :args))))
+  (delete-directory root t))

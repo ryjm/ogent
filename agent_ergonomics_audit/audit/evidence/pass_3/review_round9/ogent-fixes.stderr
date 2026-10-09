@@ -1,0 +1,487 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+Loading /work/test/ogent-agent-execution-tests.el (source)...
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+Loading /work/test/ogent-tool-process-tests.el (source)...
+Loading /work/test/ui/ogent-ui-toolcalls-tests.el (source)...
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 108 tests (2026-10-08 22:32:47+0000, selector `t')
+   passed    1/108  ogent-agent-execution-aliases-exact-and-ambiguous (0.000246 sec)
+   passed    2/108  ogent-agent-execution-aliases-share-policy (0.000758 sec)
+   passed    3/108  ogent-agent-execution-async-and-sync-failures-in-ledger (0.103620 sec)
+   passed    4/108  ogent-agent-execution-async-custom-once-and-sync-rejection (0.000764 sec)
+   passed    5/108  ogent-agent-execution-async-denial-and-cancel (0.052501 sec)
+   passed    6/108  ogent-agent-execution-async-immediate-result-returns-nil (0.000622 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-AL4Tix (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-sGl7f5 (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-0duAtd (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-1n6G2q (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-G4aC55 (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-ko9ZPH (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-ITFwpi (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-015P5Q (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-NKz3zo (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-vPU25H (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-dI2NTa (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-Gnd0lS (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-i5URI6 (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-uj1vug (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-IHU0Sm (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-LSgeIL (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-kMgnex (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-hTEcBx (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-dC2P8G (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-nZCCgj (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-2oN6H1 (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-LcnQ4q (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-36G9sQ (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-uqYQdN (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-aYcxjv (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-9YgbeZ (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-JmXnAh (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-xw1YKW (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-2MzmxH (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-TosVdt (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-4zXNEN (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-k4Fyhy (retained)
+   passed    7/108  ogent-agent-execution-async-ledger-context-survives-project-switch (1.688472 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-mrB88B (retained)
+   passed    8/108  ogent-agent-execution-async-ledger-failure-preserves-tool-error (0.000885 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-PZ9WNV (retained)
+   passed    9/108  ogent-agent-execution-async-ledger-records-success (0.052159 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-UByaKT (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-DzQuoh (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-3KZYcz (retained)
+   passed   10/108  ogent-agent-execution-async-ledger-write-failure-retains-terminal (0.311451 sec)
+   passed   11/108  ogent-agent-execution-async-malformed-result-delivers-once (0.000534 sec)
+   passed   12/108  ogent-agent-execution-async-real-process-and-ledger (0.152872 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-NPVoIm (retained)
+   passed   13/108  ogent-agent-execution-batch-composes-read-tools (0.055229 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-8HCb71 (retained)
+   passed   14/108  ogent-agent-execution-batch-continues-or-stops (0.002485 sec)
+   passed   15/108  ogent-agent-execution-batch-freezes-calls-and-argument-strings (0.001005 sec)
+   passed   16/108  ogent-agent-execution-batch-freezes-canonical-alias-target (0.000758 sec)
+   passed   17/108  ogent-agent-execution-batch-freezes-nested-object-values (0.000821 sec)
+   passed   18/108  ogent-agent-execution-batch-inplace-effects-change (0.000607 sec)
+   passed   19/108  ogent-agent-execution-batch-preflight-prevents-unsafe-prefix (0.000593 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-W3BRo2 (retained)
+   passed   20/108  ogent-agent-execution-denial-and-approval-required (0.000654 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-Lkl2a1 (retained)
+   passed   21/108  ogent-agent-execution-discovery-example-executes (0.001139 sec)
+   passed   22/108  ogent-agent-execution-discovery-exposes-real-call-shapes (0.000521 sec)
+   passed   23/108  ogent-agent-execution-discovery-schema-and-purity (0.000502 sec)
+   passed   24/108  ogent-agent-execution-failures-recorded (0.000349 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-TfoMtF (retained)
+   passed   25/108  ogent-agent-execution-glob-complete-pagination (0.014909 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-9TtmJl (retained)
+   passed   26/108  ogent-agent-execution-glob-json-empty-and-weird-paths (0.000622 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-gOaRtx (retained)
+   passed   27/108  ogent-agent-execution-glob-star-stays-in-component (0.000837 sec)
+   passed   28/108  ogent-agent-execution-json-unsupported-extension-callback-once (0.000752 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-LWyWKF (retained)
+   passed   29/108  ogent-agent-execution-json-unsupported-path-delivers-error (0.001242 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-9yXS50 (retained)
+   passed   30/108  ogent-agent-execution-ledger-start-failure-prevents-effects (0.000573 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-wvTC5w (retained)
+   passed   31/108  ogent-agent-execution-legacy-async-ledger-failure-visible-once (0.103250 sec)
+   passed   32/108  ogent-agent-execution-model-detects-object-schema-mutation (0.000804 sec)
+   passed   33/108  ogent-agent-execution-model-freezes-argument-strings (0.001030 sec)
+   passed   34/108  ogent-agent-execution-model-freezes-metadata-strings (0.000759 sec)
+   passed   35/108  ogent-agent-execution-model-freezes-object-arguments (0.001155 sec)
+   passed   36/108  ogent-agent-execution-model-inplace-change-during-approval (0.000749 sec)
+   passed   37/108  ogent-agent-execution-model-json-async-callback (0.000526 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-aBFB57 (retained)
+   passed   38/108  ogent-agent-execution-model-json-pages-and-cache-refresh (0.030658 sec)
+   passed   39/108  ogent-agent-execution-model-refreshes-object-schema-cache (0.000575 sec)
+   passed   40/108  ogent-agent-execution-model-stale-after-approval (0.000727 sec)
+   passed   41/108  ogent-agent-execution-named-call-and-json (0.000366 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-qpFtTk (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-H2jkOB (retained)
+   passed   42/108  ogent-agent-execution-next-freezes-path-and-follows-json (0.002472 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-5o2fiA (retained)
+   passed   43/108  ogent-agent-execution-next-refuses-changed-snapshot (0.002132 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-0h6qSZ (retained)
+   passed   44/108  ogent-agent-execution-next-retains-long-line-characters (0.002513 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-J2CbfE (retained)
+   passed   45/108  ogent-agent-execution-process-grep-integration (0.157689 sec)
+   passed   46/108  ogent-agent-execution-process-shell-failures-retain-data (0.183650 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-S4XhO1 (retained)
+   passed   47/108  ogent-agent-execution-read-empty-and-invalid (0.001576 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-Ld8058 (retained)
+   passed   48/108  ogent-agent-execution-read-long-line-continuation (0.000426 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-Vg89Vl (retained)
+   passed   49/108  ogent-agent-execution-read-respects-configured-default (0.001477 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-0LP2QK (retained)
+   passed   50/108  ogent-agent-execution-read-structured-pages (0.001135 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-VFScux (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-sNpf96 (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-FVu5VU (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-v2nW1h (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-seoM1U (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-dybfb2 (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-VV8ggK (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-aO9p0N (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-XmwNsO (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-MlvsEk (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-yZmgF5 (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-9e607n (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-u31mZF (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-xZbpPQ (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-Aigts6 (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-SVqjVa (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-SvPBdb (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-Ltz9zc (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-tRi9sq (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-bU42Xn (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-Mosedw (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-fuAv92 (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-1bvA5b (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-6Hbv7h (retained)
+   passed   51/108  ogent-agent-execution-sync-ledger-context-survives-tool-context-change (0.016682 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-as0dUf (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-GRCkyF/tools-ASgNmY (retained)
+   passed   52/108  ogent-agent-execution-sync-ledger-failure-retains-completed-data (0.001615 sec)
+   passed   53/108  ogent-agent-execution-validates-before-policy (0.000274 sec)
+   passed   54/108  ogent-tool-process-bash-async-is-asynchronous (0.171769 sec)
+   passed   55/108  ogent-tool-process-bash-bounds-combined-channels (0.051054 sec)
+ogent: process callback failed: Callback failure
+   passed   56/108  ogent-tool-process-bash-callback-error-cleans-up (0.021120 sec)
+   passed   57/108  ogent-tool-process-bash-cancel-keeps-partial-output (0.031581 sec)
+   passed   58/108  ogent-tool-process-bash-cancel-kills-grandchild (0.021451 sec)
+   passed   59/108  ogent-tool-process-bash-invalid-utf8-remains-json-safe (0.011441 sec)
+   passed   60/108  ogent-tool-process-bash-separates-channels-and-exit (0.050862 sec)
+   passed   61/108  ogent-tool-process-bash-signal-is-distinct-from-cancel (0.050998 sec)
+   passed   62/108  ogent-tool-process-bash-startup-error-is-terminal (0.005717 sec)
+   passed   63/108  ogent-tool-process-bash-terminal-exit-bounds-descendant-drain (0.051310 sec)
+   passed   64/108  ogent-tool-process-bash-timeout-keeps-partial-output (0.131689 sec)
+   passed   65/108  ogent-tool-process-bash-validation-does-not-spawn (0.000297 sec)
+   passed   66/108  ogent-tool-process-bash-zero-output-budget (0.011498 sec)
+   passed   67/108  ogent-tool-process-grep-async-once (0.072425 sec)
+   passed   68/108  ogent-tool-process-grep-cancel-has-typed-error (0.052519 sec)
+   passed   69/108  ogent-tool-process-grep-context-includes-nearby-matches (0.052223 sec)
+   passed   70/108  ogent-tool-process-grep-deterministic-order (0.052422 sec)
+   passed   71/108  ogent-tool-process-grep-directory-spans-argument-batches (0.189810 sec)
+   passed   72/108  ogent-tool-process-grep-empty-gnu-candidates-validate-regex (0.155278 sec)
+   passed   73/108  ogent-tool-process-grep-empty-is-success (0.052597 sec)
+   passed   74/108  ogent-tool-process-grep-finds-hidden-and-ignored-files (0.052911 sec)
+   passed   75/108  ogent-tool-process-grep-glob-filter (0.052785 sec)
+   passed   76/108  ogent-tool-process-grep-gnu-binary-scope (0.261137 sec)
+   passed   77/108  ogent-tool-process-grep-gnu-component-filters (0.420656 sec)
+   passed   78/108  ogent-tool-process-grep-gnu-explicit-file-filter (0.192083 sec)
+   passed   79/108  ogent-tool-process-grep-gnu-symlink-scope (1.061796 sec)
+   passed   80/108  ogent-tool-process-grep-gnu-unicode-filters (0.479630 sec)
+   passed   81/108  ogent-tool-process-grep-gnu-unsupported-filenames (0.084424 sec)
+   passed   82/108  ogent-tool-process-grep-invalid-regex-error (0.052416 sec)
+   passed   83/108  ogent-tool-process-grep-oversized-wire-line-is-explicit (0.055299 sec)
+   passed   84/108  ogent-tool-process-grep-pages-all-matches (0.102179 sec)
+   passed   85/108  ogent-tool-process-grep-pattern-is-literal-process-argument (0.052179 sec)
+   passed   86/108  ogent-tool-process-grep-preserves-unusual-filenames (0.052392 sec)
+   passed   87/108  ogent-tool-process-grep-ripgrep-binary-scope (0.259375 sec)
+   passed   88/108  ogent-tool-process-grep-ripgrep-cancel-cleans-selected-script (0.052406 sec)
+   passed   89/108  ogent-tool-process-grep-ripgrep-component-filters (0.421922 sec)
+   passed   90/108  ogent-tool-process-grep-ripgrep-explicit-file-filter (0.155693 sec)
+   passed   91/108  ogent-tool-process-grep-ripgrep-selected-groups-preserve-pages (0.226844 sec)
+   passed   92/108  ogent-tool-process-grep-ripgrep-selected-parent-order (0.156771 sec)
+   passed   93/108  ogent-tool-process-grep-ripgrep-symlink-scope (1.079155 sec)
+   passed   94/108  ogent-tool-process-grep-ripgrep-unicode-filters (0.544905 sec)
+   passed   95/108  ogent-tool-process-grep-ripgrep-unsupported-filenames (0.061628 sec)
+   passed   96/108  ogent-tool-process-grep-snapshot-changes-with-source (0.103988 sec)
+   passed   97/108  ogent-tool-process-grep-timeout-has-typed-error (0.053321 sec)
+   passed   98/108  ogent-tool-process-grep-truncation-keeps-count-and-page (0.052662 sec)
+   passed   99/108  ogent-tool-process-grep-validates-page-and-context (0.000439 sec)
+   passed  100/108  ogent-tool-process-grep-zero-budget-does-not-skip-matches (0.052432 sec)
+   passed  101/108  ogent-tool-process-results-serialize-as-json (0.103183 sec)
+   passed  102/108  ogent-tool-process-ripgrep-base64-text (0.000081 sec)
+   passed  103/108  ogent-tool-process-ripgrep-real-json-protocol (0.103725 sec)
+   passed  104/108  ogent-tool-process-ripgrep-searches-hidden-files (0.052795 sec)
+ogent-test: provisioned ui-ledger store at /tmp/ogent-test-store-GRCkyF/ui-ledger-WpVPxF (retained)
+uncompressing ol-doi.el.gz...
+uncompressing ol-doi.el.gz...done
+uncompressing ol-w3m.el.gz...
+uncompressing ol-w3m.el.gz...done
+uncompressing ol-bbdb.el.gz...
+uncompressing ol-bbdb.el.gz...done
+uncompressing ol-bibtex.el.gz...
+uncompressing ol-bibtex.el.gz...done
+uncompressing bibtex.el.gz...
+uncompressing bibtex.el.gz...done
+uncompressing iso8601.el.gz...
+uncompressing iso8601.el.gz...done
+uncompressing derived.el.gz...
+uncompressing derived.el.gz...done
+uncompressing ol-docview.el.gz...
+uncompressing ol-docview.el.gz...done
+uncompressing doc-view.el.gz...
+uncompressing doc-view.el.gz...done
+uncompressing dired.el.gz...
+uncompressing dired.el.gz...done
+uncompressing autorevert.el.gz...
+uncompressing autorevert.el.gz...done
+uncompressing filenotify.el.gz...
+uncompressing filenotify.el.gz...done
+uncompressing dired-loaddefs.el.gz...
+uncompressing dired-loaddefs.el.gz...done
+uncompressing dnd.el.gz...
+uncompressing dnd.el.gz...done
+uncompressing files-x.el.gz...
+uncompressing files-x.el.gz...done
+uncompressing desktop.el.gz...
+uncompressing desktop.el.gz...done
+uncompressing frameset.el.gz...
+uncompressing frameset.el.gz...done
+uncompressing image-mode.el.gz...
+uncompressing image-mode.el.gz...done
+uncompressing image.el.gz...
+uncompressing image.el.gz...done
+uncompressing exif.el.gz...
+uncompressing exif.el.gz...done
+uncompressing let-alist.el.gz...
+uncompressing let-alist.el.gz...done
+uncompressing ol-gnus.el.gz...
+uncompressing ol-gnus.el.gz...done
+uncompressing gnus-sum.el.gz...
+uncompressing gnus-sum.el.gz...done
+uncompressing gnus.el.gz...
+uncompressing gnus.el.gz...done
+uncompressing wid-edit.el.gz...
+uncompressing wid-edit.el.gz...done
+uncompressing mm-util.el.gz...
+uncompressing mm-util.el.gz...done
+uncompressing mail-prsvr.el.gz...
+uncompressing mail-prsvr.el.gz...done
+uncompressing nnheader.el.gz...
+uncompressing nnheader.el.gz...done
+uncompressing range.el.gz...
+uncompressing range.el.gz...done
+uncompressing mail-utils.el.gz...
+uncompressing mail-utils.el.gz...done
+uncompressing gnus-util.el.gz...
+uncompressing gnus-util.el.gz...done
+uncompressing text-property-search.el.gz...
+uncompressing text-property-search.el.gz...done
+uncompressing message.el.gz...
+uncompressing message.el.gz...done
+uncompressing mailheader.el.gz...
+uncompressing mailheader.el.gz...done
+uncompressing gmm-utils.el.gz...
+uncompressing gmm-utils.el.gz...done
+uncompressing mailabbrev.el.gz...
+uncompressing mailabbrev.el.gz...done
+uncompressing sendmail.el.gz...
+uncompressing sendmail.el.gz...done
+uncompressing rfc2047.el.gz...
+uncompressing rfc2047.el.gz...done
+uncompressing ietf-drums.el.gz...
+uncompressing ietf-drums.el.gz...done
+uncompressing rfc2045.el.gz...
+uncompressing rfc2045.el.gz...done
+uncompressing mail-parse.el.gz...
+uncompressing mail-parse.el.gz...done
+uncompressing rfc2231.el.gz...
+uncompressing rfc2231.el.gz...done
+uncompressing mml.el.gz...
+uncompressing mml.el.gz...done
+uncompressing mm-bodies.el.gz...
+uncompressing mm-bodies.el.gz...done
+uncompressing mm-encode.el.gz...
+uncompressing mm-encode.el.gz...done
+uncompressing mm-decode.el.gz...
+uncompressing mm-decode.el.gz...done
+uncompressing mml-sec.el.gz...
+uncompressing mml-sec.el.gz...done
+uncompressing epg.el.gz...
+uncompressing epg.el.gz...done
+uncompressing epg-config.el.gz...
+uncompressing epg-config.el.gz...done
+uncompressing rfc6068.el.gz...
+uncompressing rfc6068.el.gz...done
+uncompressing epa.el.gz...
+uncompressing epa.el.gz...done
+uncompressing password-cache.el.gz...
+uncompressing password-cache.el.gz...done
+uncompressing url.el.gz...
+uncompressing url.el.gz...done
+uncompressing mailcap.el.gz...
+uncompressing mailcap.el.gz...done
+uncompressing mm-view.el.gz...
+uncompressing mm-view.el.gz...done
+uncompressing smime.el.gz...
+uncompressing smime.el.gz...done
+uncompressing dig.el.gz...
+uncompressing dig.el.gz...done
+uncompressing gnutls.el.gz...
+uncompressing gnutls.el.gz...done
+uncompressing puny.el.gz...
+uncompressing puny.el.gz...done
+uncompressing mml-smime.el.gz...
+uncompressing mml-smime.el.gz...done
+uncompressing url-vars.el.gz...
+uncompressing url-vars.el.gz...done
+uncompressing url-cookie.el.gz...
+uncompressing url-cookie.el.gz...done
+uncompressing url-util.el.gz...
+uncompressing url-util.el.gz...done
+uncompressing url-parse.el.gz...
+uncompressing url-parse.el.gz...done
+uncompressing auth-source.el.gz...
+uncompressing auth-source.el.gz...done
+uncompressing eieio.el.gz...
+uncompressing eieio.el.gz...done
+uncompressing eieio-core.el.gz...
+uncompressing eieio-core.el.gz...done
+uncompressing url-domsuf.el.gz...
+uncompressing url-domsuf.el.gz...done
+uncompressing generate-lisp-file.el.gz...
+uncompressing generate-lisp-file.el.gz...done
+uncompressing url-history.el.gz...
+uncompressing url-history.el.gz...done
+uncompressing url-expand.el.gz...
+uncompressing url-expand.el.gz...done
+uncompressing url-methods.el.gz...
+uncompressing url-methods.el.gz...done
+uncompressing url-privacy.el.gz...
+uncompressing url-privacy.el.gz...done
+uncompressing url-proxy.el.gz...
+uncompressing url-proxy.el.gz...done
+uncompressing rfc822.el.gz...
+uncompressing rfc822.el.gz...done
+uncompressing yank-media.el.gz...
+uncompressing yank-media.el.gz...done
+uncompressing gnus-group.el.gz...
+uncompressing gnus-group.el.gz...done
+uncompressing gnus-start.el.gz...
+uncompressing gnus-start.el.gz...done
+uncompressing gnus-win.el.gz...
+uncompressing gnus-win.el.gz...done
+uncompressing gnus-int.el.gz...
+uncompressing gnus-int.el.gz...done
+uncompressing gnus-range.el.gz...
+uncompressing gnus-range.el.gz...done
+uncompressing gnus-spec.el.gz...
+uncompressing gnus-spec.el.gz...done
+uncompressing gnus-cloud.el.gz...
+uncompressing gnus-cloud.el.gz...done
+uncompressing parse-time.el.gz...
+uncompressing parse-time.el.gz...done
+uncompressing nnimap.el.gz...
+uncompressing nnimap.el.gz...done
+uncompressing nnoo.el.gz...
+uncompressing nnoo.el.gz...done
+uncompressing utf7.el.gz...
+uncompressing utf7.el.gz...done
+uncompressing nnmail.el.gz...
+uncompressing nnmail.el.gz...done
+uncompressing mail-source.el.gz...
+uncompressing mail-source.el.gz...done
+uncompressing imap.el.gz...
+uncompressing imap.el.gz...done
+uncompressing rfc2104.el.gz...
+uncompressing rfc2104.el.gz...done
+uncompressing browse-url.el.gz...
+uncompressing browse-url.el.gz...done
+uncompressing gnus-dbus.el.gz...
+uncompressing gnus-dbus.el.gz...done
+uncompressing dbus.el.gz...
+uncompressing dbus.el.gz...done
+uncompressing xml.el.gz...
+uncompressing xml.el.gz...done
+uncompressing gnus-undo.el.gz...
+uncompressing gnus-undo.el.gz...done
+uncompressing mm-url.el.gz...
+uncompressing mm-url.el.gz...done
+uncompressing gnus-sum.el.gz...
+uncompressing gnus-sum.el.gz...done
+uncompressing shr.el.gz...
+uncompressing shr.el.gz...done
+uncompressing dom.el.gz...
+uncompressing dom.el.gz...done
+uncompressing svg.el.gz...
+uncompressing svg.el.gz...done
+uncompressing url-file.el.gz...
+uncompressing url-file.el.gz...done
+uncompressing pixel-fill.el.gz...
+uncompressing pixel-fill.el.gz...done
+uncompressing kinsoku.el.gz...
+uncompressing kinsoku.el.gz...done
+uncompressing gnus-art.el.gz...
+uncompressing gnus-art.el.gz...done
+uncompressing mm-uu.el.gz...
+uncompressing mm-uu.el.gz...done
+uncompressing mml2015.el.gz...
+uncompressing mml2015.el.gz...done
+uncompressing shr.el.gz...
+uncompressing shr.el.gz...done
+uncompressing dom.el.gz...
+uncompressing dom.el.gz...done
+uncompressing svg.el.gz...
+uncompressing svg.el.gz...done
+uncompressing url-file.el.gz...
+uncompressing url-file.el.gz...done
+uncompressing pixel-fill.el.gz...
+uncompressing pixel-fill.el.gz...done
+uncompressing kinsoku.el.gz...
+uncompressing kinsoku.el.gz...done
+uncompressing gnus-art.el.gz...
+uncompressing gnus-art.el.gz...done
+uncompressing mm-uu.el.gz...
+uncompressing mm-uu.el.gz...done
+uncompressing mml2015.el.gz...
+uncompressing mml2015.el.gz...done
+uncompressing nnselect.el.gz...
+uncompressing nnselect.el.gz...done
+uncompressing gnus-art.el.gz...
+uncompressing gnus-art.el.gz...done
+uncompressing mm-uu.el.gz...
+uncompressing mm-uu.el.gz...done
+uncompressing mml2015.el.gz...
+uncompressing mml2015.el.gz...done
+uncompressing ol-info.el.gz...
+uncompressing ol-info.el.gz...done
+uncompressing ol-irc.el.gz...
+uncompressing ol-irc.el.gz...done
+uncompressing ol-mhe.el.gz...
+uncompressing ol-mhe.el.gz...done
+uncompressing ol-rmail.el.gz...
+uncompressing ol-rmail.el.gz...done
+uncompressing ol-eww.el.gz...
+uncompressing ol-eww.el.gz...done
+uncompressing eww.el.gz...
+uncompressing eww.el.gz...done
+uncompressing url-queue.el.gz...
+uncompressing url-queue.el.gz...done
+uncompressing oc-basic.el.gz...
+uncompressing oc-basic.el.gz...done
+   passed  105/108  ogent-ui-toolcalls-streaming-duplicate-terminal-ignored (0.868586 sec)
+ogent-test: provisioned ui-ledger store at /tmp/ogent-test-store-GRCkyF/ui-ledger-cqNga7 (retained)
+ogent-test: provisioned ui-ledger store at /tmp/ogent-test-store-GRCkyF/ui-ledger-okfSxY (retained)
+uncompressing mule-util.el.gz...
+uncompressing mule-util.el.gz...done
+bash completed (exit 0) in 0.1s
+ogent-test: provisioned ui-ledger store at /tmp/ogent-test-store-GRCkyF/ui-ledger-RPIElo (retained)
+ogent-test: provisioned ui-ledger store at /tmp/ogent-test-store-GRCkyF/ui-ledger-zUUS2f (retained)
+bash completed (exit 0) in 0.1s
+ogent-test: provisioned ui-ledger store at /tmp/ogent-test-store-GRCkyF/ui-ledger-pU9plW (retained)
+ogent-test: provisioned ui-ledger store at /tmp/ogent-test-store-GRCkyF/ui-ledger-fmeljT (retained)
+bash completed (exit 0) in 0.1s
+ogent-test: provisioned ui-ledger store at /tmp/ogent-test-store-GRCkyF/ui-ledger-ORORgx (retained)
+ogent-test: provisioned ui-ledger store at /tmp/ogent-test-store-GRCkyF/ui-ledger-l1zSMt (retained)
+bash completed (exit 0) in 0.1s
+   passed  106/108  ogent-ui-toolcalls-streaming-ledger-context-survives-project-switch (0.426313 sec)
+ogent-test: provisioned ui-ledger store at /tmp/ogent-test-store-GRCkyF/ui-ledger-P7VY7m (retained)
+bash completed (exit 0) in 0.1s
+   passed  107/108  ogent-ui-toolcalls-streaming-ledger-failure-finalizes-drawer (0.106203 sec)
+ogent-test: provisioned ui-ledger store at /tmp/ogent-test-store-GRCkyF/ui-ledger-7Itd8I (retained)
+   passed  108/108  ogent-ui-toolcalls-sync-text-ledger-failure-retains-output (0.001015 sec)
+
+Ran 108 tests, 108 results as expected, 0 unexpected (2026-10-08 22:32:59+0000, 12.008741 sec)
+

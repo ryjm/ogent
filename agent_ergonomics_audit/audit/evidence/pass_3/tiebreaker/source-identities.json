@@ -1,0 +1,185 @@
+{
+  "baseline_sha": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "current_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+  "rubric_sha256": "44e7c00b3dee6be38118f1f40719d814278cb129f9aad34572e0936104b135a4",
+  "all_match": true,
+  "rows": [
+    {
+      "phase": "baseline",
+      "source_sha": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "path": "lisp/ogent-tools.el",
+      "actual_path": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3/lisp/ogent-tools.el",
+      "sha256": "e90cd471a03985c0e7efc08cf9c0f3a4e43ca77ddedbf1473e07f4db1f3245a7",
+      "equal_git_show": true
+    },
+    {
+      "phase": "baseline",
+      "source_sha": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "path": "lisp/ogent-models.el",
+      "actual_path": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3/lisp/ogent-models.el",
+      "sha256": "cd6b3a6bae8f68f5a34449065e35facbc0fd6caf432bede8a41e4a401f10531c",
+      "equal_git_show": true
+    },
+    {
+      "phase": "baseline",
+      "source_sha": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "path": "lisp/ogent-tool-execution.el",
+      "actual_path": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3/lisp/ogent-tool-execution.el",
+      "sha256": "f5049f80a7744e041583675e4913114ff029b7e3ba6c99df6c891b98e29e4514",
+      "equal_git_show": true
+    },
+    {
+      "phase": "baseline",
+      "source_sha": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "path": "lisp/ogent-tool-approval.el",
+      "actual_path": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3/lisp/ogent-tool-approval.el",
+      "sha256": "b1c1bf8d38f3433cb7df67ff129e96682553a060538d5245297de558fdb32ac4",
+      "equal_git_show": true
+    },
+    {
+      "phase": "baseline",
+      "source_sha": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "path": "lisp/ogent-tool-contract.el",
+      "actual_path": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3/lisp/ogent-tool-contract.el",
+      "sha256": "046a7c9e0af8d5a607ddeab56f548a21af03ff5109c6667d2f6dd59d7eac9325",
+      "equal_git_show": true
+    },
+    {
+      "phase": "baseline",
+      "source_sha": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "path": "lisp/ogent-agent.el",
+      "actual_path": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3/lisp/ogent-agent.el",
+      "sha256": "570ac52ac82cb8db7b9aa240e2a09bb209b052ca48b426cdb6ae9e3e6ea61bcb",
+      "equal_git_show": true
+    },
+    {
+      "phase": "baseline",
+      "source_sha": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+      "path": "lisp/ui/ogent-ui-toolcalls.el",
+      "actual_path": "/workspace/ogent/agent_ergonomics_audit/audit/partial/baseline_pass_3/lisp/ui/ogent-ui-toolcalls.el",
+      "sha256": "2bfbe7d340db66645d9b0cf3ae01e7a97c6430900a4d401bb35b222fa97e4243",
+      "equal_git_show": true
+    },
+    {
+      "phase": "current",
+      "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+      "path": "lisp/ogent-tools.el",
+      "actual_path": "/workspace/ogent/lisp/ogent-tools.el",
+      "sha256": "09de42f7b335e4cc268b0ef8a9317963905a9731d2eb9e41f70745b153b355e5",
+      "equal_git_show": true
+    },
+    {
+      "phase": "current",
+      "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+      "path": "lisp/ogent-models.el",
+      "actual_path": "/workspace/ogent/lisp/ogent-models.el",
+      "sha256": "ee3c2df8e4329c9d5e65e7254f6e2a442f94841d6e8de22521a78ded1fb5a3d1",
+      "equal_git_show": true
+    },
+    {
+      "phase": "current",
+      "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+      "path": "lisp/ogent-tool-execution.el",
+      "actual_path": "/workspace/ogent/lisp/ogent-tool-execution.el",
+      "sha256": "3e40b0c62a9e83f5a637974ba333f96a246a1909f16117844569eedf011b5e1f",
+      "equal_git_show": true
+    },
+    {
+      "phase": "current",
+      "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+      "path": "lisp/ogent-tool-approval.el",
+      "actual_path": "/workspace/ogent/lisp/ogent-tool-approval.el",
+      "sha256": "2d5186a8b49173a9b7f784b3de6552e66812f0706be3aa9354834919e4877e0c",
+      "equal_git_show": true
+    },
+    {
+      "phase": "current",
+      "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+      "path": "lisp/ogent-tool-contract.el",
+      "actual_path": "/workspace/ogent/lisp/ogent-tool-contract.el",
+      "sha256": "97fa430ac9a589d20f59043d456e2222b3f185e4e91cc4f6ea6aec682efaea01",
+      "equal_git_show": true
+    },
+    {
+      "phase": "current",
+      "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+      "path": "lisp/ogent-agent.el",
+      "actual_path": "/workspace/ogent/lisp/ogent-agent.el",
+      "sha256": "966801230aea635999f7fba2d4c04847aa3ead8858e65353925980caef58add8",
+      "equal_git_show": true
+    },
+    {
+      "phase": "current",
+      "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+      "path": "lisp/ui/ogent-ui-toolcalls.el",
+      "actual_path": "/workspace/ogent/lisp/ui/ogent-ui-toolcalls.el",
+      "sha256": "7d2ae8b936852ee7ce8bc3d20f4c9e341ecdcb094707743f7a928131ed3dd39a",
+      "equal_git_show": true
+    },
+    {
+      "phase": "current",
+      "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+      "path": "lisp/ogent-tool-results.el",
+      "actual_path": "/workspace/ogent/lisp/ogent-tool-results.el",
+      "sha256": "ac94e20e2584581a3138c47ca0ad03542e244bd459e292c91babc2961934dca6",
+      "equal_git_show": true
+    },
+    {
+      "phase": "current",
+      "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+      "path": "lisp/ogent-tool-process.el",
+      "actual_path": "/workspace/ogent/lisp/ogent-tool-process.el",
+      "sha256": "cf6b84a41a70827f7d283efc91f9c72683814a748f54a443c451eba221e21850",
+      "equal_git_show": true
+    },
+    {
+      "phase": "current",
+      "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+      "path": "lisp/ogent-ledger.el",
+      "actual_path": "/workspace/ogent/lisp/ogent-ledger.el",
+      "sha256": "751aee8ae7daec18dac46bae2cef38d3093b3bf4ba42179143f9e4016af0ef3f",
+      "equal_git_show": true
+    },
+    {
+      "phase": "current",
+      "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+      "path": "test/ogent-test-helper.el",
+      "actual_path": "/workspace/ogent/test/ogent-test-helper.el",
+      "sha256": "4d3e1c32085e4fe468933780665f0bfee8a05228175828f36e2e23bf69f60ee0",
+      "equal_git_show": true
+    },
+    {
+      "phase": "current",
+      "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+      "path": "test/ogent-tool-process-tests.el",
+      "actual_path": "/workspace/ogent/test/ogent-tool-process-tests.el",
+      "sha256": "972bddab9cc2427c2457022fba3d27810baca473858d45b6f7e959efce417b1d",
+      "equal_git_show": true
+    },
+    {
+      "phase": "current",
+      "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+      "path": "test/ogent-agent-execution-tests.el",
+      "actual_path": "/workspace/ogent/test/ogent-agent-execution-tests.el",
+      "sha256": "8399fef34556907c982300bd374982eedb8171a010357d761d0bc067ca5a28b1",
+      "equal_git_show": true
+    },
+    {
+      "phase": "current",
+      "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+      "path": "Makefile",
+      "actual_path": "/workspace/ogent/Makefile",
+      "sha256": "bc702483fd3d2639143abf65db30b942a07f2dc3317409cbba31c768f89c7cbe",
+      "equal_git_show": true
+    },
+    {
+      "phase": "current",
+      "source_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+      "path": "makem.sh",
+      "actual_path": "/workspace/ogent/makem.sh",
+      "sha256": "8492a15c695e9b80df1ba3e349a4157e78952db01eccd524f077192ca9794db4",
+      "equal_git_show": true
+    }
+  ],
+  "incremental_validation": "audit/evidence/pass_3/scorerA/incremental_query_guard/validation.json"
+}

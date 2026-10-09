@@ -1,0 +1,37 @@
+#+title: Interim 90818f8 source-blind regression replay
+
+All nine canonical tasks were actually replayed and passed against production
+SHA 90818f808bee4f9ff26f84c3f1235e24d469d927, identical at execution start/end.
+This is a repeated regression exercise with prior workflow familiarity. The
+original post_pass_3 transcripts/report/summary and 94-trip baseline remain
+unchanged; this replay does not redefine the fresh-agent baseline.
+
+The public SDK discovered named search arguments and async terminal support.
+README reconstructed exactly: 429 positioned lines, 62 seven-line pages, done.
+All 105 expected fixture .el paths were discovered once across three pages.
+All 250 exact matches retained the original colon/newline filename and line/text
+identity across three pages. No-match and invalid-regex searches were distinct
+for nonempty and empty directories. Approval-required shell/write calls had
+zero prompts and mutations. Unsafe read+shell batch rejected before reading.
+The glob/search/read batch returned three successful results in the common data
+envelope. Async completion and cancellation each invoked one terminal callback.
+
+The actual production /work/makem.sh compiler/ERT runner executed existing
+independent container-owned tracked fixture Git projects. Success exited 0,
+with one expected ERT result. Intentional malformed-source compilation and
+intentional ERT failure each exited 1. JSON now parses compiler source location
+audit-build.el:14:1 and ERT location test/audit-build-tests.el:4. ERT emitted no
+column, correctly represented as null. This resolves the earlier observed
+parser limits for these exact real fixtures.
+
+summary.json records exact execution timestamps/SHA, per-task coverage, and
+89 regression roundtrips. Every command preserves complete argv/cwd/stdout/
+stderr/exit plus byte-complete companion files. SDK stdout preserves all public
+forms/results/callbacks. Prior evidence is unchanged.
+
+Only final public docs, discovery/help, and the known owned harness/fixtures were
+used. No production/test/history/other audit implementation was inspected. The
+protected helper loads actual SDK source but may supply gptel doubles. The
+observed search backend was GNU grep fallback. No provider calls, policy
+configuration changes, Git staging/commits, or broad project build/test/compile
+were performed.

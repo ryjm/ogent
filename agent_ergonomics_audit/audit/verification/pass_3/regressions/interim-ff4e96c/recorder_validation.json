@@ -1,0 +1,14 @@
+{
+  "recorded_at": "2026-10-08T23:25:03.365113+00:00",
+  "verifier_sha256": "e98e7dbb6bcc9c5f772f1f9fac261035518e8d893a4a4bb08fd4bd0b08762e3d",
+  "transcript_fixture_revision": "ff4e96c21d5fb3ffe79843fbce8392390d1c8bf4",
+  "negative_controls": {
+    "empty_ert_selection_rejected": true,
+    "truncated_ert_transcript_rejected": true,
+    "baseline_pass_rejected": true,
+    "current_failures_rejected": true,
+    "baseline_shell_success_rejected": true,
+    "incomplete_current_shell_fixture_rejected": true
+  },
+  "all_passed": true
+}

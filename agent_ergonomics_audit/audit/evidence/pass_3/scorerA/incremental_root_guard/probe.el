@@ -1,0 +1,176 @@
+;;; probe.el --- Bounded structured root validation -*- lexical-binding: t; -*-
+;; Fresh root checks; ff4's broader checks retain their original execution target.
+(require 'cl-lib)
+(require 'jka-compr)
+(setq load-suffixes (remove ".elc" load-suffixes))
+(dolist (directory (directory-files (getenv "REFRESH_ELPA") t "^[^.].*"))
+  (when (file-directory-p directory) (add-to-list 'load-path directory)))
+(add-to-list 'load-path "/tmp/gptel-minimum")
+(load-file "/tmp/gptel-minimum/gptel.el")
+(require 'gptel-request)
+(load-file "/work/test/ogent-test-helper.el")
+(require 'ogent-agent)
+(require 'ogent-tools)
+(require 'ogent-tool-results)
+(require 'ogent-tool-process)
+(load-file "/work/lisp/ogent-tool-results.el")
+(load-file "/work/lisp/ogent-tool-process.el")
+(setq ogent-tools-show-progress nil)
+(defun root-assert (condition description)
+  (unless condition (error "Root validation failed: %s" description)))
+(defun root-log-text (value)
+  (cond ((stringp value) (if (multibyte-string-p value) value
+                         (decode-coding-string value 'utf-8-unix)))
+        ((consp value) (mapcar #'root-log-text value))
+        ((vectorp value) (vconcat (mapcar #'root-log-text value)))
+        (t value)))
+(defun root-record (label invocation thunk)
+  (let* ((value (funcall thunk))
+         (encoded (json-serialize
+                   (list :probe label :invocation invocation :passed t :value (root-log-text value))
+                   :null-object :json-null :false-object :json-false))
+         (coding-system-for-write 'utf-8-unix))
+    (princ (if (multibyte-string-p encoded) encoded
+             (decode-coding-string encoded 'utf-8-unix)))
+    (terpri)))
+(defun root-native (value)
+  (if (stringp value)
+      (json-parse-string value :object-type 'plist
+                         :null-object :json-null :false-object :json-false)
+    value))
+(defun root-definitions (filename)
+  (with-temp-buffer
+    (insert-file-contents filename)
+    (let (forms)
+      (condition-case nil
+          (while t
+            (let ((form (read (current-buffer))))
+              (when (memq (car-safe form) '(defun cl-defun)) (push form forms))))
+        (end-of-file nil))
+      (nreverse forms))))
+(root-record
+ "runtime-source-identities" "explicit changed-module source load; protected helper and actual gptel"
+ (lambda ()
+   (let ((result (list :emacs emacs-version
+                       :results (symbol-file 'ogent-tool-results-glob)
+                       :process (symbol-file 'ogent-tool-process-grep-async)
+                       :execution (symbol-file 'ogent-tool-execution-json)
+                       :gptel (symbol-file 'gptel-make-tool))))
+     (root-assert (equal (plist-get result :results) "/work/lisp/ogent-tool-results.el") "results source")
+     (root-assert (equal (plist-get result :process) "/work/lisp/ogent-tool-process.el") "process source")
+     (root-assert (equal (plist-get result :gptel) "/tmp/gptel-minimum/gptel-request.el") "real gptel source")
+     result)))
+(root-record
+ "ff4-to-current-definition-identities" "parse ff4/current source signatures and executable bodies"
+ (lambda ()
+   (vconcat
+    (cl-loop for module in '("ogent-agent" "ogent-tool-results" "ogent-tool-process"
+                            "ogent-tool-execution" "ogent-tool-contract" "ogent-tools"
+                            "ogent-models" "ogent-ledger" "ogent-doctor")
+             append
+             (let ((old (root-definitions
+                         (format "/work/agent_ergonomics_audit/audit/evidence/pass_3/scorerA/incremental_root_guard/%s.ff4e96c.source.txt" module)))
+                   (new (root-definitions (format "/work/lisp/%s.el" module))))
+               (mapcar
+                (lambda (form)
+                  (let* ((name (nth 1 form)) (current (cl-find name new :key #'cadr))
+                         (old-body (nthcdr (if (stringp (nth 3 form)) 4 3) form))
+                         (new-body (nthcdr (if (stringp (nth 3 current)) 4 3) current)))
+                    (list :file (concat "lisp/" module ".el") :method (symbol-name name)
+                          :signature_equal (if (equal (nth 2 form) (nth 2 current)) t :json-false)
+                          :body_equal (if (and current (equal old-body new-body)) t :json-false)
+                          :previous_body_sha256 (secure-hash 'sha256 (prin1-to-string old-body))
+                          :current_body_sha256 (secure-hash 'sha256 (prin1-to-string new-body))))) old))))))
+(defun root-error-formats (tool args)
+  (let ((native (ogent-agent-call tool args))
+        (json (ogent-agent-call tool args 'json)))
+    (dolist (result (list native (root-native json)))
+      (root-assert (and (equal (plist-get result :status) "error")
+                        (equal (plist-get (plist-get result :error) :code) "unsupported_output"))
+                   "both formats return unsupported_output"))
+    (list :native_status (plist-get native :status)
+          :native_error_code (plist-get (plist-get native :error) :code) :json json)))
+(defun root-error-explicit-default (tool args directory)
+  (let* ((explicit (root-error-formats tool (append args (list :path directory))))
+         (ogent-tools-project-root directory)
+         (default (root-error-formats tool args)))
+    (list :explicit_root explicit :configured_default_root default)))
+(let* ((parent (ogent-test--provision-store-directory 'tools))
+       (raw-empty (concat (string-as-unibyte parent) "/empty-" (unibyte-string 255)))
+       (raw-excluded (concat (string-as-unibyte parent) "/excluded-" (unibyte-string 255)))
+       (unicode (expand-file-name "café λ 😀" parent))
+       (unicode-file (expand-file-name "sample λ.txt" unicode))
+       (descendants (expand-file-name "descendant-control" parent))
+       (ogent-tools-project-root parent) (default-directory parent)
+       (ogent-ledger-enabled nil)
+       (ogent-tool-registry (copy-tree ogent-tools-default-registry)))
+  (unwind-protect
+      (progn
+        (make-directory raw-empty) (make-directory raw-excluded) (make-directory unicode)
+        (make-directory descendants)
+        (with-temp-file (concat raw-excluded "/excluded.txt") (insert "needle\n"))
+        (with-temp-file unicode-file (insert "needle λ 😀\n"))
+        (root-assert (and (file-directory-p raw-empty) (file-directory-p raw-excluded))
+                     "physical raw-byte root fixtures exist")
+        (root-record "empty-raw-root-glob-format-consistency"
+                     "native/JSON named files on physical empty explicit/default raw-byte root"
+                     (lambda () (root-error-explicit-default "files" (list :pattern "*") raw-empty)))
+        (root-record "empty-raw-root-search-format-consistency"
+                     "native/JSON named search on physical empty explicit/default raw-byte root"
+                     (lambda () (root-error-explicit-default "search" (list :pattern "needle") raw-empty)))
+        (root-record "excluded-raw-root-glob-format-consistency"
+                     "native/JSON named files excluding the only child of an explicit/default raw-byte root"
+                     (lambda () (root-error-explicit-default "files" (list :pattern "*.absent") raw-excluded)))
+        (root-record "excluded-raw-root-search-format-consistency"
+                     "native/JSON named search excluding the only child of an explicit/default raw-byte root"
+                     (lambda () (root-error-explicit-default "search" (list :pattern "needle" :glob_filter "*.absent") raw-excluded)))
+        (root-record
+         "raw-root-async-callback-once-in-both-formats"
+         "actual files/search named async SDK, empty raw root, native/JSON"
+         (lambda ()
+           (vconcat
+            (cl-loop for tool in '("files" "search") append
+                     (cl-loop for format in '(nil json) collect
+                              (let* ((count 0) result
+                                     (args (list :pattern (if (equal tool "files") "*" "needle") :path raw-empty))
+                                     (returned (ogent-agent-call-async
+                                                tool args (lambda (value) (setq result value) (cl-incf count)) format))
+                                     (native (root-native result)))
+                                (root-assert (and (null returned) (= count 1)) "one callback, no live process")
+                                (root-assert (and (equal (plist-get native :status) "error")
+                                                  (equal (plist-get (plist-get native :error) :code) "unsupported_output"))
+                                             "async unsupported_output")
+                                (list :tool tool :format (if format "json" "native")
+                                      :callback_count count :returned_process :json-null
+                                      :status (plist-get native :status)
+                                      :error_code (plist-get (plist-get native :error) :code))))))))
+        (root-record
+         "valid-unicode-root-glob-search-controls"
+         "actual native/JSON files/search on a nonempty Unicode root"
+         (lambda ()
+           (vconcat
+            (cl-loop for tool in '("files" "search") append
+                     (cl-loop for format in '(nil json) collect
+                              (let* ((args (list :pattern (if (equal tool "files") "*.txt" "needle") :path unicode))
+                                     (value (ogent-agent-call tool args format))
+                                     (native (root-native value)) (data (plist-get native :data)))
+                                (root-assert (equal (plist-get native :status) "ok") "Unicode root succeeds")
+                                (root-assert (equal (plist-get data :path)
+                                                    (if (equal tool "search") (file-name-as-directory unicode) unicode))
+                                             "Unicode root path preserved in the owner's directory representation")
+                                (root-assert (if (equal tool "files")
+                                                 (= (length (plist-get data :files)) 1)
+                                               (= (length (plist-get data :matches)) 1))
+                                             "actual Unicode child observed")
+                                (list :tool tool :format (if format "json" "native")
+                                      :status (plist-get native :status) :path (plist-get data :path))))))))
+        ;; Confirm the ff4 descendant refusal remains valid after root changes.
+        (let ((raw-file (concat (string-as-unibyte descendants) "/bad-" (unibyte-string 255) ".txt")))
+          (with-temp-file raw-file (insert "fixture\n")))
+        (root-record "raw-descendant-glob-refusal-retained"
+                     "native/JSON actual raw-byte descendant and reflected raw-byte pattern on a clean Unicode root"
+                     (lambda ()
+                       (list :descendant (root-error-formats "files" (list :pattern "*" :path descendants))
+                             :raw_pattern (root-error-formats "files" (list :pattern (string-make-multibyte (unibyte-string 255))
+                                                                          :path unicode))))))
+    (delete-directory parent t)))

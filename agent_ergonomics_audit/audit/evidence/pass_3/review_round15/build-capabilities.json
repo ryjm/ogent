@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "bash",
+    "./makem.sh",
+    "--capabilities",
+    "--json"
+  ],
+  "host_cwd": "/workspace/ogent",
+  "start_utc": "2026-10-08T23:54:04.650513+00:00",
+  "end_utc": "2026-10-08T23:54:04.718294+00:00",
+  "elapsed_seconds": 0.06795281500308192,
+  "exit_code": 0,
+  "stdout": "build-capabilities.stdout",
+  "stderr": "build-capabilities.stderr"
+}

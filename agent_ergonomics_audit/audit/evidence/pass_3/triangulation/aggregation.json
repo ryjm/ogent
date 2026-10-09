@@ -1,0 +1,98 @@
+{
+  "baseline_sha": "b3caf9300c7336ef812ed061158f851c5a47ccf7",
+  "current_sha": "5d07d807bc85a093725db24e33996b4af690ec0f",
+  "paired_surfaces": 19,
+  "unpaired_new_apis": 6,
+  "baseline_mean": 605.2631578947369,
+  "post_mean": 656.2105263157895,
+  "median_uplift_all_19": 11,
+  "median_uplift_10_changed_originals": 77.5,
+  "changed_originals": 10,
+  "surfaces_with_dimension_uplift_ge_100": 9,
+  "regressions_over_50": [],
+  "deltas": {
+    "sdk_method__doctor__batch": 0,
+    "sdk_method__doctor__run": 0,
+    "sdk_method__execution__wrapper": 100,
+    "sdk_method__registry__available-tools": 0,
+    "sdk_method__registry__tool-get": 23,
+    "sdk_method__registry__tool-spec-get": 11,
+    "sdk_method__tools__bash-async": 0,
+    "sdk_method__tools__bash": 71,
+    "sdk_method__tools__edit-file": 0,
+    "sdk_method__tools__glob": 78,
+    "sdk_method__tools__grep-async": 0,
+    "sdk_method__tools__grep": 78,
+    "sdk_method__tools__read-file": 77,
+    "sdk_method__tools__write-file": 0,
+    "verb__make__clean": 0,
+    "verb__make__compile": 275,
+    "verb__make__help": 14,
+    "verb__make__offline-test": 0,
+    "verb__make__recompile": 241
+  },
+  "dimension_mean_gains": {
+    "agent_intuitiveness": 3.9473684210526314,
+    "agent_ergonomics": 34.21052631578947,
+    "agent_ease_of_use": 28.94736842105263,
+    "output_parseability": 203.94736842105263,
+    "error_pedagogy": 35.526315789473685,
+    "intent_inference": 63.1578947368421,
+    "safety_with_recovery": 7.894736842105263,
+    "determinism_and_reproducibility": 35.526315789473685,
+    "self_documentation": 42.10526315789474,
+    "composability": 86.84210526315789,
+    "regression_resistance": 17.105263157894736
+  },
+  "method": "floored per-dimension median, floored equal-weight mean; same-model qualitative judgments",
+  "inputs": [
+    {
+      "pass": 3,
+      "scorer": "A",
+      "source": "audit/evidence/pass_3/scorerA/baseline_paired_scores.jsonl",
+      "archive": "audit/evidence/pass_3/triangulation/baseline/scorerA.jsonl",
+      "rows": 19,
+      "sha256": "285e7224f7ca29fa2d84d61632b40131a884be31b6c52d8f915e73a2302fbe16"
+    },
+    {
+      "pass": 4,
+      "scorer": "A",
+      "source": "audit/partial/scores_pass4_current_scorerA.jsonl",
+      "archive": "audit/evidence/pass_3/triangulation/current/scorerA.jsonl",
+      "rows": 19,
+      "sha256": "6346bb99b119389547c7eb786a901e11c1475da4e9b8121da3e5bb00e7b7e67a"
+    },
+    {
+      "pass": 3,
+      "scorer": "B",
+      "source": "audit/evidence/pass_3/scorerB/baseline_paired_scores.jsonl",
+      "archive": "audit/evidence/pass_3/triangulation/baseline/scorerB.jsonl",
+      "rows": 19,
+      "sha256": "45ccc792f02768f42098614800aadbb9f548b9c6f4b7f29abca4131d405c2a4f"
+    },
+    {
+      "pass": 4,
+      "scorer": "B",
+      "source": "audit/partial/scores_pass4_current_scorerB.jsonl",
+      "archive": "audit/evidence/pass_3/triangulation/current/scorerB.jsonl",
+      "rows": 19,
+      "sha256": "9f0c6d3d242905d9442fa3c9fbf421168337e87206ddee1979dd94977b6e6ef5"
+    },
+    {
+      "pass": 3,
+      "scorer": "T",
+      "source": "audit/evidence/pass_3/tiebreaker/baseline_paired_scores.jsonl",
+      "archive": "audit/evidence/pass_3/triangulation/baseline/scorerT.jsonl",
+      "rows": 9,
+      "sha256": "aea30ac796d2cbe4bd640292ab3a404a07c903d0610a64ff7a472c3ce4dd5741"
+    },
+    {
+      "pass": 4,
+      "scorer": "T",
+      "source": "audit/evidence/pass_3/tiebreaker/current_scores.jsonl",
+      "archive": "audit/evidence/pass_3/triangulation/current/scorerT.jsonl",
+      "rows": 9,
+      "sha256": "c4e38fffc7c0e32d64530273ff9f8e72bc2b2657f75350134633c73e636c8f96"
+    }
+  ]
+}

@@ -1,0 +1,465 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="636" font-family="ui-monospace,Menlo,monospace" font-size="11">
+  <style>
+    text { dominant-baseline: middle; }
+    .surface_id { text-anchor: end; fill: #333; }
+    .dim_label { fill: #333; }
+    .cell_text { text-anchor: middle; fill: #000; font-size: 9px; }
+    .header { font-weight: bold; fill: #111; }
+  </style>
+  <g transform="translate(340 110) rotate(-45)"><text class="header" x="0" y="0">intu</text></g>
+  <g transform="translate(420 110) rotate(-45)"><text class="header" x="0" y="0">ergo</text></g>
+  <g transform="translate(500 110) rotate(-45)"><text class="header" x="0" y="0">ease</text></g>
+  <g transform="translate(580 110) rotate(-45)"><text class="header" x="0" y="0">parse</text></g>
+  <g transform="translate(660 110) rotate(-45)"><text class="header" x="0" y="0">error</text></g>
+  <g transform="translate(740 110) rotate(-45)"><text class="header" x="0" y="0">intent</text></g>
+  <g transform="translate(820 110) rotate(-45)"><text class="header" x="0" y="0">safe</text></g>
+  <g transform="translate(900 110) rotate(-45)"><text class="header" x="0" y="0">det</text></g>
+  <g transform="translate(980 110) rotate(-45)"><text class="header" x="0" y="0">self</text></g>
+  <g transform="translate(1060 110) rotate(-45)"><text class="header" x="0" y="0">comp</text></g>
+  <g transform="translate(1140 110) rotate(-45)"><text class="header" x="0" y="0">regr</text></g>
+  <text class="surface_id" x="292" y="132">sdk_method__doctor__batch</text>
+  <rect x="300" y="120" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="132">800</text>
+  <rect x="380" y="120" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="132">800</text>
+  <rect x="460" y="120" width="80" height="24" fill="rgb(156,200,68)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="132">700</text>
+  <rect x="540" y="120" width="80" height="24" fill="rgb(116,200,73)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="132">825</text>
+  <rect x="620" y="120" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="132">750</text>
+  <rect x="700" y="120" width="80" height="24" fill="rgb(220,60,60)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="132">0</text>
+  <rect x="780" y="120" width="80" height="24" fill="rgb(60,200,80)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="132">1000</text>
+  <rect x="860" y="120" width="80" height="24" fill="rgb(132,200,71)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="132">775</text>
+  <rect x="940" y="120" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="132">750</text>
+  <rect x="1020" y="120" width="80" height="24" fill="rgb(116,200,73)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="132">825</text>
+  <rect x="1100" y="120" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="132">800</text>
+  <text class="surface_id" x="292" y="156">sdk_method__doctor__run</text>
+  <rect x="300" y="144" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="156">800</text>
+  <rect x="380" y="144" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="156">800</text>
+  <rect x="460" y="144" width="80" height="24" fill="rgb(204,200,62)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="156">550</text>
+  <rect x="540" y="144" width="80" height="24" fill="rgb(132,200,71)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="156">775</text>
+  <rect x="620" y="144" width="80" height="24" fill="rgb(148,200,69)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="156">725</text>
+  <rect x="700" y="144" width="80" height="24" fill="rgb(220,60,60)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="156">0</text>
+  <rect x="780" y="144" width="80" height="24" fill="rgb(60,200,80)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="156">1000</text>
+  <rect x="860" y="144" width="80" height="24" fill="rgb(132,200,71)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="156">775</text>
+  <rect x="940" y="144" width="80" height="24" fill="rgb(188,200,64)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="156">600</text>
+  <rect x="1020" y="144" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="156">800</text>
+  <rect x="1100" y="144" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="156">800</text>
+  <text class="surface_id" x="292" y="180">sdk_method__execution__wrapper</text>
+  <rect x="300" y="168" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="180">750</text>
+  <rect x="380" y="168" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="180">750</text>
+  <rect x="460" y="168" width="80" height="24" fill="rgb(188,200,64)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="180">600</text>
+  <rect x="540" y="168" width="80" height="24" fill="rgb(108,200,74)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="180">850</text>
+  <rect x="620" y="168" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="180">800</text>
+  <rect x="700" y="168" width="80" height="24" fill="rgb(220,60,60)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="180">0</text>
+  <rect x="780" y="168" width="80" height="24" fill="rgb(172,200,66)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="180">650</text>
+  <rect x="860" y="168" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="180">800</text>
+  <rect x="940" y="168" width="80" height="24" fill="rgb(172,200,66)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="180">650</text>
+  <rect x="1020" y="168" width="80" height="24" fill="rgb(220,200,60)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="180">500</text>
+  <rect x="1100" y="168" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="180">750</text>
+  <text class="surface_id" x="292" y="204">sdk_method__registry__available-tools</text>
+  <rect x="300" y="192" width="80" height="24" fill="rgb(132,200,71)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="204">775</text>
+  <rect x="380" y="192" width="80" height="24" fill="rgb(132,200,71)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="204">775</text>
+  <rect x="460" y="192" width="80" height="24" fill="rgb(196,200,63)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="204">575</text>
+  <rect x="540" y="192" width="80" height="24" fill="rgb(132,200,71)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="204">775</text>
+  <rect x="620" y="192" width="80" height="24" fill="rgb(132,200,71)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="204">775</text>
+  <rect x="700" y="192" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="204">800</text>
+  <rect x="780" y="192" width="80" height="24" fill="rgb(60,200,80)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="204">1000</text>
+  <rect x="860" y="192" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="204">750</text>
+  <rect x="940" y="192" width="80" height="24" fill="rgb(188,200,64)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="204">600</text>
+  <rect x="1020" y="192" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="204">800</text>
+  <rect x="1100" y="192" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="204">750</text>
+  <text class="surface_id" x="292" y="228">sdk_method__registry__tool-get</text>
+  <rect x="300" y="216" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="228">750</text>
+  <rect x="380" y="216" width="80" height="24" fill="rgb(108,200,74)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="228">850</text>
+  <rect x="460" y="216" width="80" height="24" fill="rgb(220,186,60)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="228">450</text>
+  <rect x="540" y="216" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="228">750</text>
+  <rect x="620" y="216" width="80" height="24" fill="rgb(220,130,60)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="228">250</text>
+  <rect x="700" y="216" width="80" height="24" fill="rgb(220,200,60)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="228">500</text>
+  <rect x="780" y="216" width="80" height="24" fill="rgb(60,200,80)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="228">1000</text>
+  <rect x="860" y="216" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="228">750</text>
+  <rect x="940" y="216" width="80" height="24" fill="rgb(220,200,60)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="228">500</text>
+  <rect x="1020" y="216" width="80" height="24" fill="rgb(108,200,74)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="228">850</text>
+  <rect x="1100" y="216" width="80" height="24" fill="rgb(156,200,68)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="228">700</text>
+  <text class="surface_id" x="292" y="252">sdk_method__registry__tool-spec-get</text>
+  <rect x="300" y="240" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="252">800</text>
+  <rect x="380" y="240" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="252">800</text>
+  <rect x="460" y="240" width="80" height="24" fill="rgb(204,200,62)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="252">550</text>
+  <rect x="540" y="240" width="80" height="24" fill="rgb(132,200,71)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="252">775</text>
+  <rect x="620" y="240" width="80" height="24" fill="rgb(220,130,60)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="252">250</text>
+  <rect x="700" y="240" width="80" height="24" fill="rgb(220,200,60)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="252">500</text>
+  <rect x="780" y="240" width="80" height="24" fill="rgb(60,200,80)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="252">1000</text>
+  <rect x="860" y="240" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="252">800</text>
+  <rect x="940" y="240" width="80" height="24" fill="rgb(148,200,69)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="252">725</text>
+  <rect x="1020" y="240" width="80" height="24" fill="rgb(116,200,73)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="252">825</text>
+  <rect x="1100" y="240" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="252">750</text>
+  <text class="surface_id" x="292" y="276">sdk_method__tools__bash-async</text>
+  <rect x="300" y="264" width="80" height="24" fill="rgb(132,200,71)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="276">775</text>
+  <rect x="380" y="264" width="80" height="24" fill="rgb(148,200,69)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="276">725</text>
+  <rect x="460" y="264" width="80" height="24" fill="rgb(180,200,65)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="276">625</text>
+  <rect x="540" y="264" width="80" height="24" fill="rgb(196,200,63)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="276">575</text>
+  <rect x="620" y="264" width="80" height="24" fill="rgb(164,200,67)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="276">675</text>
+  <rect x="700" y="264" width="80" height="24" fill="rgb(220,60,60)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="276">0</text>
+  <rect x="780" y="264" width="80" height="24" fill="rgb(220,60,60)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="276">0</text>
+  <rect x="860" y="264" width="80" height="24" fill="rgb(220,165,60)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="276">375</text>
+  <rect x="940" y="264" width="80" height="24" fill="rgb(204,200,62)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="276">550</text>
+  <rect x="1020" y="264" width="80" height="24" fill="rgb(132,200,71)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="276">775</text>
+  <rect x="1100" y="264" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="276">750</text>
+  <text class="surface_id" x="292" y="300">sdk_method__tools__bash</text>
+  <rect x="300" y="288" width="80" height="24" fill="rgb(132,200,71)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="300">775</text>
+  <rect x="380" y="288" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="300">800</text>
+  <rect x="460" y="288" width="80" height="24" fill="rgb(172,200,66)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="300">650</text>
+  <rect x="540" y="288" width="80" height="24" fill="rgb(132,200,71)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="300">775</text>
+  <rect x="620" y="288" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="300">750</text>
+  <rect x="700" y="288" width="80" height="24" fill="rgb(220,60,60)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="300">0</text>
+  <rect x="780" y="288" width="80" height="24" fill="rgb(220,60,60)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="300">0</text>
+  <rect x="860" y="288" width="80" height="24" fill="rgb(180,200,65)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="300">625</text>
+  <rect x="940" y="288" width="80" height="24" fill="rgb(172,200,66)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="300">650</text>
+  <rect x="1020" y="288" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="300">800</text>
+  <rect x="1100" y="288" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="300">800</text>
+  <text class="surface_id" x="292" y="324">sdk_method__tools__edit-file</text>
+  <rect x="300" y="312" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="324">750</text>
+  <rect x="380" y="312" width="80" height="24" fill="rgb(108,200,74)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="324">850</text>
+  <rect x="460" y="312" width="80" height="24" fill="rgb(220,172,60)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="324">400</text>
+  <rect x="540" y="312" width="80" height="24" fill="rgb(220,130,60)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="324">250</text>
+  <rect x="620" y="312" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="324">800</text>
+  <rect x="700" y="312" width="80" height="24" fill="rgb(220,60,60)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="324">0</text>
+  <rect x="780" y="312" width="80" height="24" fill="rgb(220,60,60)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="324">0</text>
+  <rect x="860" y="312" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="324">750</text>
+  <rect x="940" y="312" width="80" height="24" fill="rgb(220,200,60)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="324">500</text>
+  <rect x="1020" y="312" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="324">800</text>
+  <rect x="1100" y="312" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="324">750</text>
+  <text class="surface_id" x="292" y="348">sdk_method__tools__glob</text>
+  <rect x="300" y="336" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="348">750</text>
+  <rect x="380" y="336" width="80" height="24" fill="rgb(108,200,74)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="348">850</text>
+  <rect x="460" y="336" width="80" height="24" fill="rgb(172,200,66)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="348">650</text>
+  <rect x="540" y="336" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="348">800</text>
+  <rect x="620" y="336" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="348">750</text>
+  <rect x="700" y="336" width="80" height="24" fill="rgb(220,60,60)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="348">0</text>
+  <rect x="780" y="336" width="80" height="24" fill="rgb(60,200,80)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="348">1000</text>
+  <rect x="860" y="336" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="348">800</text>
+  <rect x="940" y="336" width="80" height="24" fill="rgb(156,200,68)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="348">700</text>
+  <rect x="1020" y="336" width="80" height="24" fill="rgb(108,200,74)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="348">850</text>
+  <rect x="1100" y="336" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="348">750</text>
+  <text class="surface_id" x="292" y="372">sdk_method__tools__grep-async</text>
+  <rect x="300" y="360" width="80" height="24" fill="rgb(132,200,71)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="372">775</text>
+  <rect x="380" y="360" width="80" height="24" fill="rgb(148,200,69)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="372">725</text>
+  <rect x="460" y="360" width="80" height="24" fill="rgb(180,200,65)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="372">625</text>
+  <rect x="540" y="360" width="80" height="24" fill="rgb(220,200,60)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="372">500</text>
+  <rect x="620" y="360" width="80" height="24" fill="rgb(172,200,66)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="372">650</text>
+  <rect x="700" y="360" width="80" height="24" fill="rgb(220,60,60)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="372">0</text>
+  <rect x="780" y="360" width="80" height="24" fill="rgb(60,200,80)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="372">1000</text>
+  <rect x="860" y="360" width="80" height="24" fill="rgb(196,200,63)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="372">575</text>
+  <rect x="940" y="360" width="80" height="24" fill="rgb(204,200,62)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="372">550</text>
+  <rect x="1020" y="360" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="372">800</text>
+  <rect x="1100" y="360" width="80" height="24" fill="rgb(148,200,69)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="372">725</text>
+  <text class="surface_id" x="292" y="396">sdk_method__tools__grep</text>
+  <rect x="300" y="384" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="396">750</text>
+  <rect x="380" y="384" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="396">800</text>
+  <rect x="460" y="384" width="80" height="24" fill="rgb(172,200,66)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="396">650</text>
+  <rect x="540" y="384" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="396">800</text>
+  <rect x="620" y="384" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="396">750</text>
+  <rect x="700" y="384" width="80" height="24" fill="rgb(220,60,60)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="396">0</text>
+  <rect x="780" y="384" width="80" height="24" fill="rgb(60,200,80)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="396">1000</text>
+  <rect x="860" y="384" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="396">800</text>
+  <rect x="940" y="384" width="80" height="24" fill="rgb(156,200,68)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="396">700</text>
+  <rect x="1020" y="384" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="396">800</text>
+  <rect x="1100" y="384" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="396">750</text>
+  <text class="surface_id" x="292" y="420">sdk_method__tools__read-file</text>
+  <rect x="300" y="408" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="420">750</text>
+  <rect x="380" y="408" width="80" height="24" fill="rgb(108,200,74)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="420">850</text>
+  <rect x="460" y="408" width="80" height="24" fill="rgb(172,200,66)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="420">650</text>
+  <rect x="540" y="408" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="420">800</text>
+  <rect x="620" y="408" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="420">800</text>
+  <rect x="700" y="408" width="80" height="24" fill="rgb(220,60,60)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="420">0</text>
+  <rect x="780" y="408" width="80" height="24" fill="rgb(60,200,80)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="420">1000</text>
+  <rect x="860" y="408" width="80" height="24" fill="rgb(108,200,74)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="420">850</text>
+  <rect x="940" y="408" width="80" height="24" fill="rgb(156,200,68)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="420">700</text>
+  <rect x="1020" y="408" width="80" height="24" fill="rgb(108,200,74)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="420">850</text>
+  <rect x="1100" y="408" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="420">750</text>
+  <text class="surface_id" x="292" y="444">sdk_method__tools__write-file</text>
+  <rect x="300" y="432" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="444">750</text>
+  <rect x="380" y="432" width="80" height="24" fill="rgb(108,200,74)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="444">850</text>
+  <rect x="460" y="432" width="80" height="24" fill="rgb(220,158,60)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="444">350</text>
+  <rect x="540" y="432" width="80" height="24" fill="rgb(220,130,60)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="444">250</text>
+  <rect x="620" y="432" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="444">750</text>
+  <rect x="700" y="432" width="80" height="24" fill="rgb(220,60,60)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="444">0</text>
+  <rect x="780" y="432" width="80" height="24" fill="rgb(220,60,60)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="444">0</text>
+  <rect x="860" y="432" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="444">750</text>
+  <rect x="940" y="432" width="80" height="24" fill="rgb(220,200,60)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="444">500</text>
+  <rect x="1020" y="432" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="444">800</text>
+  <rect x="1100" y="432" width="80" height="24" fill="rgb(172,200,66)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="444">650</text>
+  <text class="surface_id" x="292" y="468">verb__make__clean</text>
+  <rect x="300" y="456" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="468">750</text>
+  <rect x="380" y="456" width="80" height="24" fill="rgb(172,200,66)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="468">650</text>
+  <rect x="460" y="456" width="80" height="24" fill="rgb(172,200,66)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="468">650</text>
+  <rect x="540" y="456" width="80" height="24" fill="rgb(220,130,60)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="468">250</text>
+  <rect x="620" y="456" width="80" height="24" fill="rgb(220,130,60)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="468">250</text>
+  <rect x="700" y="456" width="80" height="24" fill="rgb(220,60,60)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="468">0</text>
+  <rect x="780" y="456" width="80" height="24" fill="rgb(60,200,80)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="468">1000</text>
+  <rect x="860" y="456" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="468">750</text>
+  <rect x="940" y="456" width="80" height="24" fill="rgb(188,200,64)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="468">600</text>
+  <rect x="1020" y="456" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="468">800</text>
+  <rect x="1100" y="456" width="80" height="24" fill="rgb(172,200,66)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="468">650</text>
+  <text class="surface_id" x="292" y="492">verb__make__compile</text>
+  <rect x="300" y="480" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="492">800</text>
+  <rect x="380" y="480" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="492">800</text>
+  <rect x="460" y="480" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="492">800</text>
+  <rect x="540" y="480" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="492">800</text>
+  <rect x="620" y="480" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="492">800</text>
+  <rect x="700" y="480" width="80" height="24" fill="rgb(196,200,63)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="492">575</text>
+  <rect x="780" y="480" width="80" height="24" fill="rgb(60,200,80)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="492">1000</text>
+  <rect x="860" y="480" width="80" height="24" fill="rgb(220,165,60)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="492">375</text>
+  <rect x="940" y="480" width="80" height="24" fill="rgb(132,200,71)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="492">775</text>
+  <rect x="1020" y="480" width="80" height="24" fill="rgb(116,200,73)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="492">825</text>
+  <rect x="1100" y="480" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="492">800</text>
+  <text class="surface_id" x="292" y="516">verb__make__help</text>
+  <rect x="300" y="504" width="80" height="24" fill="rgb(100,200,75)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="516">875</text>
+  <rect x="380" y="504" width="80" height="24" fill="rgb(148,200,69)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="516">725</text>
+  <rect x="460" y="504" width="80" height="24" fill="rgb(116,200,73)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="516">825</text>
+  <rect x="540" y="504" width="80" height="24" fill="rgb(220,130,60)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="516">250</text>
+  <rect x="620" y="504" width="80" height="24" fill="rgb(220,179,60)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="516">425</text>
+  <rect x="700" y="504" width="80" height="24" fill="rgb(220,95,60)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="516">125</text>
+  <rect x="780" y="504" width="80" height="24" fill="rgb(60,200,80)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="516">1000</text>
+  <rect x="860" y="504" width="80" height="24" fill="rgb(116,200,73)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="516">825</text>
+  <rect x="940" y="504" width="80" height="24" fill="rgb(116,200,73)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="516">825</text>
+  <rect x="1020" y="504" width="80" height="24" fill="rgb(116,200,73)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="516">825</text>
+  <rect x="1100" y="504" width="80" height="24" fill="rgb(172,200,66)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="516">650</text>
+  <text class="surface_id" x="292" y="540">verb__make__offline-test</text>
+  <rect x="300" y="528" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="540">750</text>
+  <rect x="380" y="528" width="80" height="24" fill="rgb(220,200,60)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="540">500</text>
+  <rect x="460" y="528" width="80" height="24" fill="rgb(196,200,63)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="540">575</text>
+  <rect x="540" y="528" width="80" height="24" fill="rgb(220,130,60)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="540">250</text>
+  <rect x="620" y="528" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="540">750</text>
+  <rect x="700" y="528" width="80" height="24" fill="rgb(220,95,60)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="540">125</text>
+  <rect x="780" y="528" width="80" height="24" fill="rgb(60,200,80)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="540">1000</text>
+  <rect x="860" y="528" width="80" height="24" fill="rgb(220,130,60)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="540">250</text>
+  <rect x="940" y="528" width="80" height="24" fill="rgb(204,200,62)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="540">550</text>
+  <rect x="1020" y="528" width="80" height="24" fill="rgb(172,200,66)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="540">650</text>
+  <rect x="1100" y="528" width="80" height="24" fill="rgb(140,200,70)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="540">750</text>
+  <text class="surface_id" x="292" y="564">verb__make__recompile</text>
+  <rect x="300" y="552" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="340" y="564">800</text>
+  <rect x="380" y="552" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="420" y="564">800</text>
+  <rect x="460" y="552" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="500" y="564">800</text>
+  <rect x="540" y="552" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="580" y="564">800</text>
+  <rect x="620" y="552" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="660" y="564">800</text>
+  <rect x="700" y="552" width="80" height="24" fill="rgb(220,130,60)" stroke="#fff"/>
+  <text class="cell_text" x="740" y="564">250</text>
+  <rect x="780" y="552" width="80" height="24" fill="rgb(60,200,80)" stroke="#fff"/>
+  <text class="cell_text" x="820" y="564">1000</text>
+  <rect x="860" y="552" width="80" height="24" fill="rgb(220,200,60)" stroke="#fff"/>
+  <text class="cell_text" x="900" y="564">500</text>
+  <rect x="940" y="552" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="980" y="564">800</text>
+  <rect x="1020" y="552" width="80" height="24" fill="rgb(108,200,74)" stroke="#fff"/>
+  <text class="cell_text" x="1060" y="564">850</text>
+  <rect x="1100" y="552" width="80" height="24" fill="rgb(124,200,72)" stroke="#fff"/>
+  <text class="cell_text" x="1140" y="564">800</text>
+  <text x="300" y="596" class="header">Legend:</text>
+  <rect x="380" y="588" width="40" height="16" fill="rgb(220,60,60)" />
+  <text x="430" y="596" fill="#333">0 (worst)</text>
+  <rect x="520" y="588" width="40" height="16" fill="rgb(220,200,60)" />
+  <text x="570" y="596" fill="#333">500</text>
+  <rect x="640" y="588" width="40" height="16" fill="rgb(60,200,80)" />
+  <text x="690" y="596" fill="#333">1000 (best)</text>
+</svg>

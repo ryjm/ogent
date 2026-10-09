@@ -1,0 +1,4 @@
+text-result="Tool unavailable: its registry entry changed during approval" ran=nil
+json-result="{\"contract_version\":\"1\",\"tool\":\"changing\",\"status\":\"error\",\"data\":null,\"error\":{\"code\":\"unavailable\",\"message\":\"Registry entry changed before execution; rediscover the tool and retry\",\"recovery\":\"Inspect the error message and tool contract before retrying\"},\"next\":[]}
+" ran=nil
+batch-result=(:contract_version "1" :tool "batch" :status "partial" :data (:results [(:contract_version "1" :tool "first" :status "ok" :data (:value "first read") :error :json-null :next []) (:contract_version "1" :tool "second" :status "error" :data :json-null :error (:code "unavailable" :message "Tool registry changed during batch; rediscover before retrying" :recovery "Inspect the error message and tool contract before retrying") :next [])] :requested 2 :completed 2 :stopped :json-false) :error :json-null :next []) ran=nil

@@ -1,0 +1,16 @@
+{
+  "source_sha": "a2fa8ce0533b4a508fb641f343fa55b15fd6fc60",
+  "reason": "Full native lint finds batch docstring and unused JSON validation result warnings; all runtime checks pass",
+  "native_passed": 7,
+  "native_total": 8,
+  "archives": [
+    {
+      "path": "evidence/pass_3/interim_a2fa8ce_scoring.tar.gz",
+      "sha256": "5ead33e2eb0496fcf5ed38869d99ae77c64978f0cb7481c241bfc6a817e5e05b"
+    },
+    {
+      "path": "evidence/pass_3/interim_a2fa8ce_audit.tar.gz",
+      "sha256": "957a2354a7615581c2267a0a431dbc0143e7a4a4d1c8dd265ba15ce9e07737b7"
+    }
+  ]
+}

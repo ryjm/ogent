@@ -1,0 +1,1110 @@
+diff --git a/lisp/ogent-agent.el b/lisp/ogent-agent.el
+index 6867b4e..9c82d12 100644
+--- a/lisp/ogent-agent.el
++++ b/lisp/ogent-agent.el
+@@ -1,8 +1,8 @@
+-;;; ogent-agent.el --- Read-only agent interface discovery -*- lexical-binding: t; -*-
++;;; ogent-agent.el --- Agent contracts and named execution -*- lexical-binding: t; -*-
+ 
+ ;;; Commentary:
+-;; Publish live tool metadata and local diagnostics without constructing gptel
+-;; tools, requesting approval, contacting providers, or changing configuration.
++;; Publish live metadata and local diagnostics without provider requests.
++;; Execute named tools through the shared approval, review and ledger owners.
+ ;; Plists are the native SDK format; JSON is an explicit serialization option.
+ 
+ ;;; Code:
+@@ -10,19 +10,142 @@
+ (require 'json)
+ (require 'ogent-models)
+ (require 'ogent-doctor)
++(require 'ogent-tool-execution)
+ 
+ (defun ogent-agent--output (data format)
+   "Return DATA as a plist or serialize it according to FORMAT."
+   (pcase format
+     ((or 'nil 'plist) data)
+-    ('json (concat (json-serialize data :null-object :json-null
+-                                   :false-object :json-false) "\n"))
+-    (_ (user-error "Use nil, 'plist, or 'json for the agent report format"))))
++    ('json (ogent-tool-execution-json data))
++    (_ (user-error "Use nil, (quote plist), or (quote json) for the agent report format"))))
++
++(defun ogent-agent-call (name args &optional format)
++  "Execute tool NAME with named ARGS and return its structured result.
++Return a plist by default or JSON when FORMAT is `json'.  Validate FORMAT
++before execution.  Respect approval policy without granting permission.
++For example:
++  (ogent-agent-call \"read_file\" \='(:file_path \"README.org\" :limit 20))"
++  (ogent-agent--output nil format)
++  (ogent-agent--output (ogent-tool-execution-call name args) format))
++
++(defun ogent-agent-next (result &optional format)
++  "Follow RESULT's first continuation and return the next page in FORMAT.
++Accept a native result plist or JSON string.  Refuse changed snapshots so
++pagination cannot silently combine different versions of file/search data.
++Return a terminal result with status done when no continuation remains."
++  (ogent-agent--output nil format)
++  (when (stringp result)
++    (setq result (json-parse-string result :object-type 'plist
++                                    :null-object :json-null :false-object :json-false)))
++  (unless (and (proper-list-p result) (equal (plist-get result :contract_version) "1")
++               (vectorp (plist-get result :next)))
++    (user-error "Provide a contract_version 1 result from ogent-agent-call"))
++  (let* ((next (and (> (length (plist-get result :next)) 0)
++                    (aref (plist-get result :next) 0)))
++         (name (plist-get result :tool))
++         (page
++          (if (null next)
++              (if (equal (plist-get result :status) "ok")
++                  (ogent-tool-execution-result name "done") result)
++            (let ((expected (plist-get next :snapshot)))
++              (unless (and (equal name (plist-get next :tool))
++                           (stringp expected)
++                           (equal expected (plist-get (plist-get result :data) :snapshot)))
++                (user-error "Invalid continuation; restart with ogent-agent-call"))
++              (let ((actual (ogent-tool-execution-call name (plist-get next :args))))
++                (if (and (equal (plist-get actual :status) "ok")
++                         (not (equal expected (plist-get (plist-get actual :data) :snapshot))))
++                    (ogent-tool-execution-result
++                     name "error" nil "snapshot_changed"
++                     "Files changed between pages; restart the original call rather than combining these results")
++                  actual))))))
++    (ogent-agent--output page format)))
++
++(defun ogent-agent-call-async (name args callback &optional format)
++  "Execute NAME with named ARGS and send its terminal result to CALLBACK.
++Serialize that result according to FORMAT.  Return a process for asynchronous
++tools; immediate results return nil.  CALLBACK accepts one result and runs
++exactly once, including validation, denial, timeout and cancellation failures.
++Cancel a returned process with `ogent-tool-process-cancel'."
++  (ogent-agent--output nil format)
++  (unless (functionp callback)
++    (user-error "Provide a callback function accepting one terminal result"))
++  (ogent-tool-execution-call
++   name args (lambda (result) (funcall callback (ogent-agent--output result format)))))
++
++(defun ogent-agent-batch (calls &optional format fail-fast)
++  "Execute up to 20 explicitly read-only CALLS and return results in FORMAT.
++Accept a list or vector of call plists containing :tool and :args.  Preflight
++the entire batch before running any call.  Reject writes, shell commands and tools
++without declared read effects.  Continue after errors unless FAIL-FAST is t.
++For example, batch a glob, search and file read in one local SDK round trip."
++  (ogent-agent--output nil format)
++  (let ((phase "invalid_arguments") prepared results stopped)
++    (ogent-agent--output
++     (condition-case err
++         (progn
++           (unless (and (or (proper-list-p calls) (vectorp calls))
++                        (<= (length calls) 20))
++             (user-error "Provide at most 20 calls as a list or vector"))
++           (unless (memq fail-fast '(nil t))
++             (user-error "Use nil or t for fail-fast"))
++           (dolist (call (append calls nil))
++             (unless (and (proper-list-p call) (= (length call) 4)
++                          (plist-member call :tool) (plist-member call :args)
++                          (cl-loop for key in call by #'cddr always (memq key '(:tool :args))))
++               (user-error "Each call needs only :tool and :args fields"))
++             (let ((spec (ogent-tool-spec-get (plist-get call :tool))))
++               (unless spec (user-error "%s" (ogent-tool-contract-name-hint
++                                              (plist-get call :tool)
++                                              (mapcar (lambda (item) (plist-get item :name)) ogent-tool-registry))))
++               (ogent-tool-contract-values (ogent-tool-execution--schema spec) (plist-get call :args))
++               (setq phase "unsafe_batch")
++               (let ((effects (ogent-tool-effects-normalize (plist-get spec :effects))))
++                 (unless (and effects (cl-every (lambda (effect) (eq (plist-get effect :kind) 'read)) effects))
++                   (user-error "Batch accepts only declared read-only tools; invoke %s individually through approval"
++                               (plist-get spec :name))))
++               (setq phase "invalid_arguments")
++               (push (cons (ogent-tool-execution-snapshot spec)
++                           (list :tool (plist-get spec :name)
++                                 :args (ogent-tool-execution-copy-data (plist-get call :args))))
++                     prepared)))
++           (dolist (entry (nreverse prepared))
++             (unless stopped
++               (let* ((spec (car entry)) (call (cdr entry))
++                      (result (if (ogent-tool-execution-snapshot-equal-p
++                                   spec (ogent-tool-spec-get (plist-get spec :name)))
++                                  (ogent-tool-execution-call (plist-get call :tool) (plist-get call :args))
++                                (ogent-tool-execution-result
++                                 (plist-get spec :name) "error" nil "unavailable"
++                                 "Tool registry changed during batch; rediscover before retrying"))))
++                 (push result results)
++                 (when (and fail-fast (not (equal (plist-get result :status) "ok")))
++                   (setq stopped t)))))
++           (setq results (nreverse results))
++           (ogent-tool-execution-result
++            "batch" (if (cl-every (lambda (result) (equal (plist-get result :status) "ok")) results)
++                        "ok" "partial")
++            (list :results (vconcat results) :requested (length calls) :completed (length results)
++                  :stopped (if stopped t :json-false))))
++       (error (ogent-tool-execution--failure "batch" phase err)))
++     format)))
+ 
+ (defun ogent-agent--boolean (value)
+   "Return a JSON-compatible boolean for VALUE."
+   (if value t :json-false))
+ 
++(defun ogent-agent--arguments (arguments)
++  "Return public metadata for registry ARGUMENTS as a vector."
++  (vconcat
++   (mapcar (lambda (arg)
++             (append (list :name (plist-get arg :name)
++                           :type (format "%s" (plist-get arg :type))
++                           :optional (ogent-agent--boolean (plist-get arg :optional))
++                           :description (or (plist-get arg :description) ""))
++                     (when (plist-member arg :enum)
++                       (list :enum (vconcat (plist-get arg :enum))))))
++           arguments)))
++
+ (defun ogent-agent--tool (spec)
+   "Return public discovery metadata for tool SPEC."
+   (let* ((name (plist-get spec :name))
+@@ -31,31 +154,34 @@
+                            (memq name (mapcar #'ogent-tool--name-symbol
+                                               ogent-tools-enabled))))))
+     (list :name (symbol-name name)
+-          :aliases (let ((alias (replace-regexp-in-string
+-                                 "-" "_" (symbol-name name))))
+-                     (if (and (not (equal alias (symbol-name name)))
+-                              (eq name (ogent-tool--name-symbol alias)))
+-                         (vector alias)
+-                       []))
++          :aliases (vconcat
++                    (delete-dups
++                     (seq-filter
++                      (lambda (alias) (and (not (equal alias (symbol-name name)))
++                                           (eq name (ogent-tool--name-symbol alias))))
++                      (cons (replace-regexp-in-string "-" "_" (symbol-name name))
++                            (append (plist-get spec :aliases) nil)))))
+           :description (or (plist-get spec :description) "")
+           :category (or (plist-get spec :category) "")
+           :enabled (ogent-agent--boolean enabled)
+           :async (ogent-agent--boolean (plist-get spec :async))
++          :async_sdk (ogent-agent--boolean (or (plist-get spec :result-async-function)
++                                               (plist-get spec :async)))
++          :legacy_streaming (ogent-agent--boolean (plist-get spec :async-function))
+           :boolean_representation (if (eq (plist-get spec :boolean-representation) 'json)
+                                       "json" "native")
+           :confirmation_required (ogent-agent--boolean
+                                   (ogent-tool-spec-confirm-p spec))
+           :risk (symbol-name (ogent-tool-effects-risk (plist-get spec :effects)))
+-          :arguments
+-          (vconcat
+-           (mapcar (lambda (arg)
+-                     (append (list :name (plist-get arg :name)
+-				   :type (format "%s" (plist-get arg :type))
+-				   :optional (ogent-agent--boolean (plist-get arg :optional))
+-				   :description (or (plist-get arg :description) ""))
+-                             (when (plist-member arg :enum)
+-                               (list :enum (vconcat (plist-get arg :enum))))))
+-                   (plist-get spec :args)))
++          :arguments (ogent-agent--arguments (plist-get spec :args))
++          :call_arguments (ogent-agent--arguments
++                           (append (plist-get spec :args) (plist-get spec :result-args)))
++          :execution (if (plist-get spec :async) "ogent-agent-call-async" "ogent-agent-call")
++          :result (if (plist-get spec :result-function) "structured data" "value envelope")
++          :examples (if-let ((args (plist-get spec :example-args)))
++                        (let ((print-length nil) (print-level nil))
++                          (vector (prin1-to-string (list 'ogent-agent-call (symbol-name name)
++                                                         (list 'quote args))))) [])
+           :effects
+           (vconcat
+            (mapcar (lambda (effect)
+@@ -81,15 +207,60 @@ per-call allow/deny rules still apply at execution time."
+                                   (string< (symbol-name (plist-get a :name))
+                                            (symbol-name (plist-get b :name)))))))
+          :result_contract
+-         (list :tool_results "text; errors are signaled or returned as Tool error: text by the execution wrapper"
++         (list :tool_results "ogent-agent-call returns versioned status/data/error/next envelopes; legacy functions default to text"
++               :schema "(ogent-agent-schema 'json)"
++               :continuation "(ogent-agent-next RESULT) follows the next page and guards snapshots"
++               :batch "ogent-agent-batch accepts up to 20 declared read-only calls"
++               :async_sdk "ogent-agent-call-async returns a process and invokes one terminal callback"
+                :async_events ["stdout" "stderr" "done" "error"]
+                :doctor_exit_codes (list :ok 0 :warning 1 :error 2))
+          :discovery
+          (list :guide "(ogent-agent-guide)"
++               :describe "(ogent-agent-describe TOOL 'json)"
+                :triage "(ogent-agent-triage 'json)"
+                :doctor "(ogent-doctor-batch nil 'json)"))
+    format))
+ 
++(defun ogent-agent-describe (name &optional format)
++  "Return the exact live tool contract for NAME, optionally in FORMAT.
++Include legacy and named-call arguments, aliases, approval metadata, examples
++and actual asynchronous support.  Never construct or execute a tool."
++  (ogent-agent--output nil format)
++  (let ((spec (ogent-tool-spec-get name)))
++    (unless spec
++      (user-error "%s" (ogent-tool-contract-name-hint
++                        name (mapcar (lambda (item) (plist-get item :name)) ogent-tool-registry))))
++    (ogent-agent--output (list :contract_version "1" :tool (ogent-agent--tool spec)
++                               :result_schema "(ogent-agent-schema 'json)") format)))
++
++(defun ogent-agent-schema (&optional format)
++  "Return the JSON Schema for version 1 tool-call results in FORMAT.
++Permit additive fields and extension-specific objects under data.  Built-in
++file and process data shapes are described in `ogent-agent-guide'."
++  (ogent-agent--output
++   (list :$schema "https://json-schema.org/draft/2020-12/schema"
++         :title "ogent tool result" :type "object"
++         :required ["contract_version" "tool" "status" "data" "error" "next"]
++         :properties
++         (list :contract_version (list :const "1")
++               :tool (list :type "string")
++               :status (list :enum ["ok" "partial" "error" "denied" "approval_required" "proposed" "done"])
++               :data (list :type ["object" "null"])
++               :error (list :oneOf
++                            (vector (list :type "null")
++                                    (list :type "object" :required ["code" "message" "recovery"]
++                                          :properties (list :code (list :type "string")
++                                                            :message (list :type "string")
++                                                            :recovery (list :type "string")))))
++               :next (list :type "array"
++                           :items (list :type "object" :required ["tool" "args" "snapshot" "call"]
++                                        :properties (list :tool (list :type "string")
++                                                          :args (list :type "object")
++                                                          :snapshot (list :type "string")
++                                                          :call (list :type "string")))))
++         :additionalProperties t)
++   format))
++
+ (defun ogent-agent-guide ()
+   "Return a paste-ready handbook for agents using ogent's Emacs Lisp SDK."
+   (concat
+@@ -98,21 +269,42 @@ per-call allow/deny rules still apply at execution time."
+    "This reads the live registry; an empty tools array means no tools are installed.\n"
+    "(ogent-tools-install-defaults) explicitly installs built-in specs if wanted.\n"
+    "Use canonical hyphen names or registered underscore aliases; typos get hints, never execution.\n"
+-   "Arguments follow registry order; named calls reject unknown/duplicate keys before approval.\n"
++   "Use (ogent-agent-describe \"read\" 'json) for exact call_arguments and examples.\n"
++   "Call (ogent-agent-call \"read\" '(:file_path \"README.org\" :limit 40) 'json).\n"
++   "Named calls reject unknown/duplicate keys before approval.\n"
+    "Native boolean false is nil or :json-false; zero and nested objects are preserved.\n"
+    "MCP calls use :json-false for explicit false; optional nil means omit the argument.\n"
+-   "Tool results remain text. JSON discovery and doctor reports use contract_version 1.\n"
++   "Named calls return contract_version 1, tool, status, data, error and next.\n"
++   "Status ok means success, even for empty files or no matches; error includes code/message/recovery.\n"
++   "Legacy ogent-tool-- functions still default to text; optional plist/json selects structured data.\n"
++   "Read data: lines[number,column,text,partial], content, ends_with_newline, total_lines, snapshot.\n"
++   "Glob data: files[path,size,modified], total_files and snapshot; stable path ordering.\n"
++   "Search data: matches[path,line,text,context_before,context_after,truncated], total_matches and snapshot.\n"
++   "Search text can be truncated while retaining every returned match's path and line.\n"
++   "Read offsets/columns start at 1; search/glob offsets start at 0. Follow (ogent-agent-next RESULT).\n"
++   "Continuations freeze absolute targets and refuse changed snapshots. Do not combine different snapshots.\n"
++   "A long read line continues at its exact column, retaining all characters over successive pages.\n"
++   "Search pages cap at 200 matches and context at 20 lines; GNU fallback uses ERE syntax.\n"
++   "(ogent-agent-batch '[(:tool \"files\" :args (:pattern \"**/*.el\")) (:tool \"read\" :args (:file_path \"README.org\"))]) batches reads only.\n"
++   "(ogent-agent-call-async \"shell\" '(:command \"pwd\") #'YOUR-CALLBACK) returns a process with one terminal result.\n"
++   "Cancel that process with ogent-tool-process-cancel; timeout/cancel retains partial output.\n"
++   "(ogent-agent-schema 'json) exports the result envelope JSON Schema.\n"
+    "Read: (ogent-tool--read-file \"/path/file\" 1 200); follow the exact next offset in its footer.\n"
+    "Search: (ogent-tool--glob \"**/*.el\" \"/path/project\") includes every depth.\n"
+    "Grep: (ogent-tool--grep \"-needle\" \"/path/project\"); no matches is success, invalid regex is an error.\n"
+    "Edit: old_string must be nonempty and unique; set replace_all to t only for intentional repeated replacement.\n"
+    "Read-only tools need no confirmation by default. Writes and shell execution require approval.\n"
++   "Programmatic calls never prompt or grant approval: approval_required directs you to the user review flow.\n"
+    "Direct ogent-tool-- functions are low-level APIs; use registered execution wrappers for approval enforcement.\n"
+    "Shell: use a positive timeout in seconds and an existing working_directory.\n"
+    "Shell stdout/stderr may be truncated; the final exit code is preserved.\n"
++   "Structured shell data has stdout, stderr, exit_code, signal, timed_out, cancelled and truncated.\n"
++   "Nonzero exits have status error; inspect retained data. encoding_loss marks UTF-8 replacements.\n"
+    "Local health: (ogent-agent-triage 'json), no provider requests or MCP handshakes.\n"
+    "Batch health: (ogent-doctor-batch nil 'json), exit 0=ok/info, 1=warning, 2=error.\n"
+-   "Check readiness offline: make test; make test-isolation; make offline-test with OGENT_ELPA_DIR.\n"))
++   "Check readiness offline: make test; make test-isolation; make offline-test with OGENT_ELPA_DIR.\n"
++   "Build/test reports: make test format=json; make lint format=json. Diagnostics stay on stderr.\n"
++   "Discover actual build tasks and exits: ./makem.sh --capabilities --json.\n"))
+ 
+ (defun ogent-agent-triage (&optional format)
+   "Return discovery, next actions, and local health, optionally in FORMAT.
+diff --git a/lisp/ogent-debug.el b/lisp/ogent-debug.el
+index c780c9b..dd98164 100644
+--- a/lisp/ogent-debug.el
++++ b/lisp/ogent-debug.el
+@@ -23,6 +23,8 @@
+ (require 'cl-lib)
+ 
+ (declare-function ogent-ui--execute-tool "ogent-ui-toolcalls")
++(declare-function ogent-tool-execution-call "ogent-tool-execution")
++(declare-function ogent-tool-approval-check "ogent-tool-approval")
+ (declare-function gptel-backend-name "ext:gptel" t t)
+ (defvar ogent-tool-allow-list)
+ (defvar ogent-tool--denied-tools)
+@@ -326,7 +328,8 @@ Each entry is a plist with:
+   :id       - unique call ID
+   :name     - tool name symbol
+   :args     - argument plist
+-  :result   - execution result (or nil if failed)
++  :structured - non-nil for structured SDK execution, nil for legacy text
++  :result   - execution result (including retained process failure data)
+   :error    - error message (or nil if succeeded)
+   :duration - execution time in seconds
+   :timestamp - time of invocation")
+@@ -337,8 +340,9 @@ Older entries are discarded when this limit is exceeded.")
+ 
+ (defun ogent-debug-log-tool-call (tool-call result duration)
+   "Log TOOL-CALL with RESULT and DURATION to history.
+-TOOL-CALL should be a plist with :id, :name, :args.
+-RESULT is either the success value or nil if error occurred.
++TOOL-CALL should be a plist with :id, :name, :args, and optional
++:structured and :error properties.
++RESULT is the returned value or nil if execution signaled an error.
+ DURATION is execution time in seconds."
+   (let* ((id (plist-get tool-call :id))
+          (name (plist-get tool-call :name))
+@@ -347,6 +351,7 @@ DURATION is execution time in seconds."
+          (entry (list :id id
+                       :name name
+                       :args args
++                      :structured (plist-get tool-call :structured)
+                       :result result
+                       :error error-val
+                       :duration duration
+@@ -508,11 +513,15 @@ ENTRY should be a plist from `ogent-debug-tool-history'."
+   (let ((name (plist-get entry :name))
+         (args (plist-get entry :args)))
+     (message "Replaying %s..." name)
+-    ;; Replay through the live executor so it shares the same approval
+-    ;; policy and proof-ledger recording as a normal tool run.  Lazy
+-    ;; require avoids pulling the UI layer into ogent-debug at load time.
+     (require 'ogent-ui)
+-    (let ((result (ogent-ui--execute-tool name args)))
++    (let ((result
++           (if (plist-get entry :structured)
++               (progn
++                 (require 'ogent-tool-execution)
++                 (ogent-tool-execution-call name args nil t))
++             (if (eq (ogent-tool-approval-check name args) 'approved)
++                 (ogent-ui--execute-tool name args)
++               "Tool execution denied by user"))))
+       (message "Replay result: %s" result))))
+ 
+ (defun ogent-debug-last-tool ()
+@@ -586,6 +595,7 @@ Creates a shareable record of tool calls for debugging."
+               (list :id (plist-get entry :id)
+                     :name (symbol-name (plist-get entry :name))
+                     :args (plist-get entry :args)
++                    :structured (plist-get entry :structured)
+                     :result (let ((r (plist-get entry :result)))
+                               (if (stringp r)
+                                   (substring r 0 (min 1000 (length r)))
+@@ -600,7 +610,7 @@ Creates a shareable record of tool calls for debugging."
+         (insert (json-encode (list :version 1
+                                    :exported (format-time-string "%Y-%m-%dT%H:%M:%S%z")
+                                    :count (length entries)
+-                                   :calls entries))))
++                                   :calls (vconcat entries)))))
+       (message "Exported %d tool calls to %s" (length entries) file))))
+ 
+ (defun ogent-debug-export-tool-history-text (file)
+@@ -660,6 +670,7 @@ Merges with existing history."
+       (let ((entry (list :id (plist-get call :id)
+                          :name (intern (plist-get call :name))
+                          :args (plist-get call :args)
++                         :structured (eq (plist-get call :structured) t)
+                          :result (plist-get call :result)
+                          :error (plist-get call :error)
+                          :duration (plist-get call :duration)
+diff --git a/lisp/ogent-models.el b/lisp/ogent-models.el
+index b56c481..79f246b 100644
+--- a/lisp/ogent-models.el
++++ b/lisp/ogent-models.el
+@@ -579,6 +579,10 @@ Required keys:
+ Optional keys:
+   :category    - grouping (e.g., \"filesystem\", \"shell\", \"search\")
+   :async       - if non-nil, function takes a callback as last arg
++  :aliases     - vector/list of explicit alternative tool names
++  :result-function - structured data function with native args and result args
++  :result-async-function - callback-last function receiving data/error
++  :result-args  - optional named pagination arguments for structured calls
+   :confirm     - if non-nil, require user approval before execution
+   :effects     - list of effect plists for policy and audit trails
+   :include     - if non-nil, include tool results in response
+@@ -630,12 +634,15 @@ approval path."
+ 
+ (defvar ogent--tool-specs-registered nil
+   "Snapshots of specs used to build registered gptel tools.")
++(defvar ogent--tool-formats-registered nil
++  "Alist of result formats captured by registered gptel tools.")
+ (defvar gptel--known-tools)
+ 
+ (defun ogent-unregister-tool (name)
+   "Remove NAME from ogent and gptel caches."
+   (setq ogent--tools-registered (assq-delete-all name ogent--tools-registered)
+         ogent--tool-specs-registered (assq-delete-all name ogent--tool-specs-registered))
++  (setq ogent--tool-formats-registered (assq-delete-all name ogent--tool-formats-registered))
+   (when (boundp 'gptel--known-tools)
+     (dolist (category gptel--known-tools)
+       (setcdr category (assoc-delete-all (symbol-name name) (cdr category))))))
+@@ -650,13 +657,20 @@ Returns the list of registered tool objects."
+       (let* ((name (plist-get spec :name))
+              (existing (assq name ogent--tools-registered)))
+         (unless (and existing
+-                     (equal spec (cdr (assq name ogent--tool-specs-registered))))
++                     (eq ogent-tools-result-format (cdr (assq name ogent--tool-formats-registered)))
++                     (ogent-tool-execution-snapshot-equal-p
++                      spec (cdr (assq name ogent--tool-specs-registered))))
+           (ogent-unregister-tool name)
+           (let ((tool (apply #'gptel-make-tool
+                              :name (symbol-name name)
+-                             :function (ogent-tool-execution-wrapper spec)
+-                             :description (plist-get spec :description)
+-                             :args (copy-tree (plist-get spec :args))
++                             :function (ogent-tool-execution-wrapper spec ogent-tools-result-format)
++                             :description (concat (plist-get spec :description)
++                                                  (when (eq ogent-tools-result-format 'json)
++                                                    " Returns JSON status/data/error/next. Follow next.tool and next.args to continue; snapshots identify consistent pages."))
++                             :args (ogent-tool-execution-copy-data
++                                    (append (plist-get spec :args)
++                                            (when (eq ogent-tools-result-format 'json)
++                                              (plist-get spec :result-args))))
+                              ;; Always pass :confirm so gptel-native
+                              ;; execution prompts for risky tools; a
+                              ;; missing flag would let gptel auto-run
+@@ -669,10 +683,10 @@ Returns the list of registered tool objects."
+                                 (list :async (plist-get spec :async)))
+                               (when (plist-member spec :include)
+                                 (list :include (plist-get spec :include)))))))
+-            (push (cons name (plist-put (copy-tree spec) :function
+-					(plist-get spec :function)))
++            (push (cons name (ogent-tool-execution-snapshot spec))
+                   ogent--tool-specs-registered)
+-            (push (cons name tool) ogent--tools-registered))))))
++            (push (cons name tool) ogent--tools-registered)
++            (push (cons name ogent-tools-result-format) ogent--tool-formats-registered))))))
+   (unless ogent-tool-registry
+     (dolist (entry (copy-sequence ogent--tools-registered))
+       (ogent-unregister-tool (car entry))))
+diff --git a/lisp/ogent-tool-approval.el b/lisp/ogent-tool-approval.el
+index 377a607..cb911fa 100644
+--- a/lisp/ogent-tool-approval.el
++++ b/lisp/ogent-tool-approval.el
+@@ -56,9 +56,14 @@ Never resolve a typo to a different tool automatically."
+            (alias (intern (replace-regexp-in-string "_" "-" text)))
+            (names (when (boundp 'ogent-tool-registry)
+                     (mapcar (lambda (spec) (plist-get spec :name))
+-                            ogent-tool-registry))))
++                            ogent-tool-registry)))
++           (declared (when (boundp 'ogent-tool-registry)
++                       (cl-remove-if-not
++                        (lambda (spec) (member text (append (plist-get spec :aliases) nil)))
++                        ogent-tool-registry))))
+       (cond ((memq exact names) exact)
+             ((memq alias names) alias)
++            ((= (length declared) 1) (plist-get (car declared) :name))
+             (t exact)))))
+ 
+ (defun ogent-tool--pattern-match-p (pattern tool-name args)
+@@ -170,9 +175,10 @@ If ARGS is non-nil, create a pattern matching those specific args."
+                (equal name (ogent-tool--name-string denied)))
+              ogent-tool--denied-tools)))
+ 
+-(defun ogent-tool-approval-check (tool-name tool-args)
++(defun ogent-tool-approval-check (tool-name tool-args &optional no-prompt)
+   "Return approval decision for TOOL-NAME with TOOL-ARGS.
+-The return value is `approved' or `denied'."
++Return `approved' or `denied', or `required' when NO-PROMPT prevents
++an interactive approval question.  Apply the same policy in either mode."
+   (let ((tool-symbol (ogent-tool--name-symbol tool-name)))
+     (cond
+      ((not tool-symbol) 'denied)
+@@ -186,6 +192,7 @@ The return value is `approved' or `denied'."
+                       (ogent-tool-effects-approval-required-p
+                        (plist-get spec :effects))))))
+       'approved)
++     (no-prompt 'required)
+      (t (let ((response (ogent-tool--prompt-approval tool-name tool-args)))
+           (pcase response
+             ('approve 'approved)
+diff --git a/lisp/ogent-tool-contract.el b/lisp/ogent-tool-contract.el
+index 2f594ee..0d8307f 100644
+--- a/lisp/ogent-tool-contract.el
++++ b/lisp/ogent-tool-contract.el
+@@ -9,6 +9,7 @@
+ (require 'cl-lib)
+ (require 'seq)
+ (require 'subr-x)
++(defvar ogent-tool-registry)
+ 
+ (defgroup ogent-tool-contract nil
+   "Argument contracts for ogent tools."
+@@ -18,7 +19,13 @@
+   "Return a corrective lookup hint for unknown NAME among NAMES."
+   (let* ((input (format "%s" name))
+          (choices (sort (mapcar (lambda (item) (format "%s" item)) names) #'string<))
+-         (closest (car (sort (copy-sequence choices)
++         (aliases (when (boundp 'ogent-tool-registry)
++                    (cl-mapcan (lambda (spec)
++                                 (when (member (format "%s" (plist-get spec :name)) choices)
++                                   (seq-filter (lambda (alias) (stringp alias))
++                                               (append (plist-get spec :aliases) nil))))
++                               ogent-tool-registry)))
++         (closest (car (sort (sort (append aliases (copy-sequence choices)) #'string<)
+                              (lambda (a b)
+                                (< (string-distance input a)
+                                   (string-distance input b)))))))
+diff --git a/lisp/ogent-tool-execution.el b/lisp/ogent-tool-execution.el
+index f56f479..82cfa65 100644
+--- a/lisp/ogent-tool-execution.el
++++ b/lisp/ogent-tool-execution.el
+@@ -6,6 +6,7 @@
+ ;;; Code:
+ 
+ (require 'cl-lib)
++(require 'json)
+ (require 'ogent-tool-approval)
+ (require 'ogent-ledger)
+ (require 'ogent-tool-contract)
+@@ -13,50 +14,315 @@
+ (declare-function ogent-ui--execute-tool "ogent-ui-toolcalls")
+ (declare-function ogent-ui--is-edit-tool-p "ogent-ui-toolcalls")
+ (declare-function ogent-ui--show-diff-for-tool "ogent-ui-toolcalls")
++(declare-function ogent-tools--resolve-path "ogent-tools")
++(defvar ogent-tools-result-format 'text)
++(defvar ogent-tool-registry)
+ 
+-(defun ogent-tool-execution-wrapper (spec)
++(defun ogent-tool-execution-result (name status &optional data code message)
++  "Return a versioned result for NAME with STATUS and DATA.
++Include a typed error with CODE and MESSAGE when supplied."
++  (list :contract_version "1" :tool (format "%s" name) :status status
++        :data (or data :json-null)
++        :error (if code (list :code code :message message
++                              :recovery
++                              (pcase code
++				("unknown_tool" "Call ogent-agent-capabilities to inspect available names and aliases")
++				("invalid_arguments" (format "Call (ogent-agent-describe %S) for the declared arguments" (format "%s" name)))
++				((or "denied" "approval_required") "Use the normal user approval/review flow; do not retry with relaxed policy")
++				("snapshot_changed" "Restart the original read/search call from its first page")
++				((or "command_failed" "timeout" "cancelled") "Inspect retained stdout/stderr and exit_code before deciding whether to retry")
++				(_ "Inspect the error message and tool contract before retrying")))
++                 :json-null)
++        :next []))
++
++(defun ogent-tool-execution-json (data)
++  "Serialize result DATA, returning a typed error for unsupported values.
++Preserve callback delivery even when an extension returns non-JSON objects
++or raw filename bytes that cannot be represented as Unicode."
++  (condition-case nil
++      (concat (json-serialize data :null-object :json-null :false-object :json-false) "\n")
++    (error
++     (concat (json-serialize
++              (ogent-tool-execution-result
++               "serialization" "error" nil "unsupported_output"
++               "Result cannot be represented as JSON; use Unicode filenames and JSON-compatible tool values")
++              :null-object :json-null :false-object :json-false) "\n"))))
++
++(defun ogent-tool-execution-process-error (data)
++  "Return the stable failure code for process DATA, or nil on success."
++  (cond ((eq (plist-get data :timed_out) t) "timeout")
++        ((eq (plist-get data :cancelled) t) "cancelled")
++        ((and (integerp (plist-get data :exit_code))
++              (/= (plist-get data :exit_code) 0)) "command_failed")))
++
++(defun ogent-tool-execution--success (spec args data)
++  "Return a structured terminal result for SPEC, ARGS and DATA."
++  (let* ((name (plist-get spec :name))
++         (structured (plist-get spec :result-function))
++         (code (and structured (ogent-tool-execution-process-error data)))
++         (result (ogent-tool-execution-result
++                  name (if code "error" "ok")
++                  (if structured data (list :value data)) code
++                  (when code "Inspect stdout, stderr and exit_code; correct the command or increase its timeout before retrying"))))
++    (when (and structured (eq (plist-get data :has_more) t))
++      (let ((next-args (copy-sequence args)))
++        (setq next-args (plist-put next-args :offset (plist-get data :next_offset)))
++        (when (memq name '(read-file glob grep))
++          (setq next-args
++                (plist-put next-args (if (eq name 'read-file) :file_path :path)
++                           (or (plist-get data :path)
++                               (ogent-tools--resolve-path (or (plist-get args :path) "."))))))
++        (when (eq name 'read-file)
++          (setq next-args (plist-put next-args :column (plist-get data :next_column))))
++        (let ((print-length nil) (print-level nil))
++          (setq result
++                (plist-put result :next
++                           (vector (list :tool (symbol-name name) :args next-args
++                                         :snapshot (plist-get data :snapshot)
++                                         :call (prin1-to-string
++                                                (list 'ogent-agent-call (symbol-name name)
++                                                      (list 'quote next-args))))))))))
++    result))
++
++(defun ogent-tool-execution--schema (spec)
++  "Return SPEC's named structured argument schema."
++  (plist-put (copy-sequence spec) :args
++             (append (plist-get spec :args) (plist-get spec :result-args))))
++
++(defun ogent-tool-execution-copy-data (value)
++  "Copy mutable strings, lists, vectors and object tables in contract VALUE."
++  (cond ((functionp value) value)
++        ((stringp value) (copy-sequence value))
++        ((hash-table-p value)
++         (let ((copy (copy-hash-table value)))
++           (clrhash copy)
++           (maphash (lambda (key item)
++                      (puthash (if (memq (hash-table-test value) '(eq eql)) key
++                                 (ogent-tool-execution-copy-data key))
++                               (ogent-tool-execution-copy-data item) copy))
++                    value)
++           copy))
++        ((consp value) (cons (ogent-tool-execution-copy-data (car value))
++                             (ogent-tool-execution-copy-data (cdr value))))
++        ((vectorp value) (vconcat (mapcar #'ogent-tool-execution-copy-data value)))
++        (t value)))
++
++(defun ogent-tool-execution-snapshot-equal-p (left right)
++  "Compare contract snapshots LEFT and RIGHT, including object table values."
++  (cond ((eq left right) t)
++        ((and (hash-table-p left) (hash-table-p right))
++         (and (eq (hash-table-test left) (hash-table-test right))
++              (= (hash-table-count left) (hash-table-count right))
++              (let ((missing (make-symbol "missing")) (same t))
++                (maphash (lambda (key value)
++                           (unless (ogent-tool-execution-snapshot-equal-p
++                                    value (gethash key right missing))
++                             (setq same nil)))
++                         left)
++                same)))
++        ((and (consp left) (consp right))
++         (and (ogent-tool-execution-snapshot-equal-p (car left) (car right))
++              (ogent-tool-execution-snapshot-equal-p (cdr left) (cdr right))))
++        ((and (vectorp left) (vectorp right) (= (length left) (length right)))
++         (cl-loop for index below (length left)
++                  always (ogent-tool-execution-snapshot-equal-p (aref left index) (aref right index))))
++        (t (equal left right))))
++
++(defun ogent-tool-execution-snapshot (spec)
++  "Copy registry SPEC metadata while preserving callable closure identity."
++  (cl-loop for (key value) on spec by #'cddr
++           append (list key (if (memq key '(:function :async-function :result-function :result-async-function))
++                                value
++                              (ogent-tool-execution-copy-data value)))))
++
++(defun ogent-tool-execution--failure (name code err)
++  "Return a typed failure for NAME from ERR, defaulting to CODE."
++  (ogent-tool-execution-result
++   name "error" nil
++   (pcase (car-safe err)
++     ('ogent-tool-process-search-timeout "timeout")
++     ('ogent-tool-process-search-cancelled "cancelled")
++     ('ogent-tool-process-start-failed "process_start_failed")
++     ('ogent-tool-process-unavailable "dependency_missing")
++     ('ogent-tool-process-output-error "unsupported_output")
++     ('ogent-tool-results-output-error "unsupported_output")
++     ('ogent-tool-process-search-failed "search_failed")
++     (_ code))
++   (if (consp err) (error-message-string err) (format "%s" err))))
++
++(defun ogent-tool-execution--start (spec args values callback)
++  "Start asynchronous SPEC with ARGS, VALUES and terminal CALLBACK.
++Record exactly one ledger terminal even if the tool completes twice or fails
++after completion.  Adapt native callback-last tools to the result contract."
++  (let* ((name (plist-get spec :name))
++         (call (list :name (symbol-name name) :args args))
++         (effects (plist-get spec :effects))
++         (function (or (plist-get spec :result-async-function) (plist-get spec :function)))
++         (started (float-time)) finished
++         (complete (lambda (data &optional failure)
++                     (unless finished
++                       (setq finished t)
++                       (let ((result (if failure
++                                         (ogent-tool-execution--failure name "execution_failed" failure)
++                                       (ogent-tool-execution--success spec args data))))
++                         (ogent-ledger-record-tool-finish
++                          call data (unless (eq (plist-get result :error) :json-null)
++                                      (plist-get (plist-get result :error) :message))
++                          (- (float-time) started) effects)
++                         (funcall callback result))))))
++    (ogent-ledger-record-tool-start call effects)
++    (condition-case err
++        (apply function (append values (list complete)))
++      (error (funcall complete nil err) nil))))
++
++(defun ogent-tool-execution-call (name args &optional callback prompt)
++  "Execute registered NAME with named ARGS and return a typed result.
++Validate before approval.  Never prompt for approval: return approval_required
++when policy needs a decision.  Preserve the existing edit review and ledger
++owners.  Prefer registered structured result functions when available.
++When CALLBACK is non-nil, call it once with the terminal result and return
++the process for asynchronous tools.  Other tools can complete immediately.
++PROMPT is reserved for the normal interactive gptel execution path."
++  (when (and callback (not (functionp callback)))
++    (user-error "Provide a function callback accepting one terminal result"))
++  (let ((phase "unknown_tool") spec canonical schema deferred delivered)
++    (cl-labels ((deliver (result)
++                  (unless delivered
++                    (setq delivered t)
++                    (funcall callback result))))
++      (let ((result
++             (condition-case err
++		 (progn
++		   (setq spec (ogent-tool-execution-snapshot (ogent-tool-spec-get name)))
++		   (unless spec
++		     (user-error "%s" (ogent-tool-contract-name-hint
++				       name (mapcar (lambda (item) (plist-get item :name))
++						    ogent-tool-registry))))
++		   (setq name (plist-get spec :name)
++			 phase "invalid_arguments"
++			 schema (ogent-tool-execution--schema spec))
++		   (let ((values (ogent-tool-execution-copy-data
++				  (ogent-tool-contract-values schema args))))
++		     (setq canonical
++			   (cl-loop for argument in (plist-get schema :args)
++				    for value in values
++				    unless (and (plist-get argument :optional) (null value))
++				    append (list (intern (concat ":" (plist-get argument :name))) value))))
++		   (when (and (plist-get spec :async) (not callback))
++		     (setq phase "async_required")
++		     (user-error "This tool requires ogent-agent-call-async with a terminal callback"))
++		   (pcase (ogent-tool-approval-check name canonical (not prompt))
++		     ('required
++		      (ogent-tool-execution-result
++		       name "approval_required" nil "approval_required"
++		       "This call needs user approval under the current effects policy; use the normal tool review flow or an existing explicit allow rule"))
++		     ('denied
++		      (ogent-tool-execution-result
++		       name "denied" nil "denied" "Current approval policy denies this tool; ask the user to review the decision"))
++		     (_
++		      (setq phase "unavailable")
++		      (unless (ogent-tool-execution-snapshot-equal-p spec (ogent-tool-spec-get name))
++			(user-error "Registry entry changed before execution; rediscover the tool and retry"))
++		      (require 'ogent-ui-toolcalls)
++		      (setq phase "execution_failed")
++		      (cond
++		       ((ogent-ui--is-edit-tool-p (symbol-name name))
++			(progn
++			  (ogent-ui--show-diff-for-tool (symbol-name name) canonical)
++			  (ogent-tool-execution-result name "proposed" (list :review_required t))))
++		       ((and callback (or (plist-get spec :result-async-function)
++					  (plist-get spec :async)))
++			(setq deferred t)
++			(ogent-tool-execution--start
++			 spec canonical (ogent-tool-contract-values schema canonical) #'deliver))
++		       (t
++			(let ((data (ogent-ui--execute-tool name canonical t)))
++			  (ogent-tool-execution--success spec canonical data)))))))
++               (error
++                (setq deferred nil)
++                (ogent-tool-execution--failure name phase err)))))
++        (if (and callback (not deferred)) (progn (deliver result) nil) result)))))
++
++(defun ogent-tool-execution--json-call (spec values)
++  "Execute snapshot SPEC with gptel VALUES and return versioned JSON."
++  (let* ((name (plist-get spec :name))
++         (async (plist-get spec :async))
++         (callback (and async (pop values))) delivered)
++    (when (and async (not (functionp callback)))
++      (user-error "Async tool %s requires a callback first" name))
++    (cl-labels ((serialize (result) (ogent-tool-execution-json result))
++                (deliver (result)
++                  (unless delivered
++                    (setq delivered t)
++                    (funcall callback (serialize result)))))
++      (condition-case err
++          (let* ((schema (ogent-tool-execution--schema spec))
++                 (values (ogent-tool-contract-validate-values schema values))
++                 (args (cl-loop for arg in (plist-get schema :args)
++                                for value in values
++                                unless (and (plist-get arg :optional) (null value))
++                                append (list (intern (concat ":" (plist-get arg :name))) value))))
++            (if (not (ogent-tool-execution-snapshot-equal-p spec (ogent-tool-spec-get name)))
++                (let ((result (ogent-tool-execution-result
++                               name "error" nil "unavailable" "Tool registry entry changed; rediscover before retrying")))
++                  (if async (deliver result) (serialize result)))
++              (if async
++                  (ogent-tool-execution-call name args #'deliver t)
++                (serialize (ogent-tool-execution-call name args nil t)))))
++        (error
++         (let ((result (ogent-tool-execution--failure name "invalid_arguments" err)))
++           (if async (deliver result) (serialize result))))))))
++
++(defun ogent-tool-execution-wrapper (spec &optional result-format)
+   "Return a gptel function enforcing policy and ledger recording for SPEC.
+ Adapt gptel's callback-first convention to ogent's callback-last async specs.
+-Reject stale tool objects after registry removal or schema replacement."
++Reject stale tool objects after registry removal or schema replacement.
++Capture RESULT-FORMAT, defaulting to `ogent-tools-result-format'."
+   ;; Preserve the function's closure environment when copying metadata.
+   (let ((name (plist-get spec :name))
+-        (snapshot (plist-put (copy-tree spec) :function (plist-get spec :function))))
++        (format (or result-format ogent-tools-result-format))
++        (snapshot (ogent-tool-execution-snapshot spec)))
+     (lambda (&rest values)
+-      (let* ((async (plist-get snapshot :async))
+-             (callback (and async (pop values)))
+-             args
+-             (result
+-              (condition-case err
+-                  (progn
+-                    (when (and async (not (functionp callback)))
+-                      (user-error "Async tool %s requires a callback first; pass the result callback before arguments" name))
+-                    (setq values (ogent-tool-contract-validate-values snapshot values)
+-                          args (cl-loop for arg in (plist-get snapshot :args)
+-                                        for value in values
+-                                        unless (and (plist-get arg :optional) (null value))
+-                                        append (list (intern (concat ":" (plist-get arg :name)))
+-                                                     value)))
+-                    (cond
+-		     ((not (equal snapshot (ogent-tool-spec-get name)))
+-                      "Tool unavailable: its registry entry changed or was removed")
+-		     ((not (eq (ogent-tool-approval-check name args) 'approved))
+-                      "Tool execution denied by user")
+-		     (t
+-                      (require 'ogent-ui-toolcalls)
++      (if (eq format 'json)
++          (ogent-tool-execution--json-call snapshot values)
++	(let* ((async (plist-get snapshot :async))
++               (callback (and async (pop values)))
++               args
++               (result
++		(condition-case err
++                    (progn
++                      (when (and async (not (functionp callback)))
++			(user-error "Async tool %s requires a callback first; pass the result callback before arguments" name))
++                      (setq values (ogent-tool-execution-copy-data
++                                    (ogent-tool-contract-validate-values snapshot values))
++                            args (cl-loop for arg in (plist-get snapshot :args)
++                                          for value in values
++                                          unless (and (plist-get arg :optional) (null value))
++                                          append (list (intern (concat ":" (plist-get arg :name)))
++                                                       value)))
+                       (cond
+-                       ((ogent-ui--is-edit-tool-p (symbol-name name))
+-			(ogent-ui--show-diff-for-tool (symbol-name name) args)
+-			"Edit proposed for user review")
+-                       (async
+-			(ogent-tool-execution--async snapshot args values callback)
+-			:async)
+-                       (t (ogent-ui--execute-tool name args))))))
+-                (error (concat "Tool error: " (error-message-string err))))))
+-        (when (and async (not (functionp callback)))
+-          (user-error "Async tool %s requires a callback first; pass the result callback before arguments" name))
+-        (if async
+-            (unless (eq result :async) (funcall callback result))
+-          result)))))
++		       ((not (ogent-tool-execution-snapshot-equal-p snapshot (ogent-tool-spec-get name)))
++			"Tool unavailable: its registry entry changed or was removed")
++		       ((not (eq (ogent-tool-approval-check name args) 'approved))
++			"Tool execution denied by user")
++		       ((not (ogent-tool-execution-snapshot-equal-p snapshot (ogent-tool-spec-get name)))
++			"Tool unavailable: its registry entry changed during approval")
++		       (t
++			(require 'ogent-ui-toolcalls)
++			(cond
++			 ((ogent-ui--is-edit-tool-p (symbol-name name))
++			  (ogent-ui--show-diff-for-tool (symbol-name name) args)
++			  "Edit proposed for user review")
++			 (async
++			  (ogent-tool-execution--async snapshot args values callback)
++			  :async)
++			 (t (ogent-ui--execute-tool name args))))))
++                  (error (concat "Tool error: " (error-message-string err))))))
++          (when (and async (not (functionp callback)))
++            (user-error "Async tool %s requires a callback first; pass the result callback before arguments" name))
++          (if async
++              (unless (eq result :async) (funcall callback result))
++            result))))))
+ 
+ (defun ogent-tool-execution--async (spec args values callback)
+   "Execute async SPEC with ARGS, positional VALUES and gptel CALLBACK."
+diff --git a/lisp/ogent-tool-results.el b/lisp/ogent-tool-results.el
+new file mode 100644
+index 0000000..4e8cace
+--- /dev/null
++++ b/lisp/ogent-tool-results.el
+@@ -0,0 +1,119 @@
++;;; ogent-tool-results.el --- Structured file tool results -*- lexical-binding: t; -*-
++
++;;; Commentary:
++;; Return bounded pages with explicit positions and snapshot identities.
++;; Keep source data separate from legacy human-readable tool rendering.
++
++;;; Code:
++
++(require 'json)
++(require 'ogent-tools)
++
++(define-error 'ogent-tool-results-output-error "Unsupported file output" 'user-error)
++
++(defun ogent-tool-results--unicode (text)
++  "Return TEXT when JSON can represent it as Unicode, otherwise signal."
++  (condition-case nil (progn (json-serialize text) text)
++    (error (signal 'ogent-tool-results-output-error
++                   '("Use a Unicode filename and a supported text encoding; raw bytes cannot be represented in structured results")))))
++
++(defun ogent-tool-results-format (data format)
++  "Return DATA as a plist or serialize it according to FORMAT."
++  (pcase format
++    ('plist data)
++    ('json (concat (json-serialize data :null-object :json-null
++                                   :false-object :json-false) "\n"))
++    (_ (user-error "Use (quote plist) or (quote json) for structured tool results"))))
++
++(defun ogent-tool-results-read (file-path &optional offset limit column)
++  "Return a bounded structured page from FILE-PATH at OFFSET and COLUMN.
++Count lines from one and columns from one.  LIMIT defaults to 200 lines.
++Preserve a continuation position even when a single line exceeds the output
++budget.  Snapshot the decoded content so callers can detect changed pages."
++  (unless (and (stringp file-path) (not (string-empty-p file-path)))
++    (user-error "Provide a nonempty file_path; use glob to discover files"))
++  (let* ((path (ogent-tools--resolve-path file-path))
++         (offset (or offset 1))
++         (limit (or limit (min 200 ogent-tools-max-file-lines)))
++         (column (or column 1))
++         (budget ogent-tools-max-output-chars))
++    (ogent-tool-results--unicode path)
++    (dolist (position (list offset column))
++      (unless (and (integerp position) (> position 0))
++        (user-error "Use positive integer offset and column positions starting at 1")))
++    (unless (and (integerp limit) (> limit 0) (<= limit ogent-tools-max-file-lines))
++      (user-error "Use a positive limit no larger than %d lines" ogent-tools-max-file-lines))
++    (unless (and (integerp budget) (> budget 0))
++      (user-error "Set ogent-tools-max-output-chars to a positive integer"))
++    (unless (and (file-regular-p path) (file-readable-p path))
++      (user-error "File not readable: %s; use glob to choose a readable regular file" path))
++    (with-temp-buffer
++      (insert-file-contents path)
++      (when (search-forward "\0" nil t)
++        (user-error "Binary file detected: %s; choose a text file" path))
++      (let* ((content (ogent-tool-results--unicode (buffer-string)))
++             (lines (unless (string-empty-p content) (split-string content "\n")))
++             (snapshot (secure-hash 'sha256 content))
++             page (used 0) (line-number offset) (next-column column))
++        (when (string-suffix-p "\n" content) (setq lines (butlast lines)))
++        (unless (or (and (null lines) (= offset 1) (= column 1))
++                    (and (<= offset (length lines))
++                         (<= column (1+ (length (nth (1- offset) lines))))))
++          (user-error "Position exceeds file contents; restart with offset=1 and column=1"))
++        (while (and (<= line-number (length lines))
++                    (< (length page) limit) (< used budget))
++          (let* ((line (nth (1- line-number) lines))
++                 (start (1- next-column))
++                 (available (- budget used))
++                 (text (substring line start (min (length line) (+ start available))))
++                 (partial (< (+ start (length text)) (length line))))
++            (push (list :number line-number :column next-column :text text
++                        :partial (if partial t :json-false)) page)
++            (cl-incf used (length text))
++            (if partial
++                (setq next-column (+ next-column (length text)) used budget)
++              (cl-incf line-number)
++              (setq next-column 1)
++              ;; Account for separators included in the content string.
++              (when (< used budget) (cl-incf used)))))
++        (setq page (nreverse page))
++        (let ((more (<= line-number (length lines))))
++          (list :path path :snapshot snapshot :total_lines (length lines)
++                :offset offset :column column :limit limit
++                :lines (vconcat page)
++                :content (mapconcat (lambda (line) (plist-get line :text)) page "\n")
++                :ends_with_newline (if (string-suffix-p "\n" content) t :json-false)
++                :has_more (if more t :json-false)
++                :next_offset (if more line-number :json-null)
++                :next_column (if more next-column :json-null)))))))
++
++(defun ogent-tool-results-glob (pattern &optional path offset limit)
++  "Return a structured page of files matching PATTERN under PATH.
++Sort by absolute path.  OFFSET starts at zero; LIMIT defaults to 100 and
++must not exceed 200.  Report the total count and a snapshot of file metadata."
++  (let ((offset (or offset 0)) (limit (or limit 100)))
++    (unless (and (integerp offset) (>= offset 0))
++      (user-error "Use a non-negative integer offset, starting at 0"))
++    (unless (and (integerp limit) (> limit 0) (<= limit 200))
++      (user-error "Use an integer limit between 1 and 200"))
++    (let* ((root (ogent-tools--resolve-path (or path ".")))
++           (files (sort (ogent-tools--glob-files pattern root) #'string<))
++           (metadata (mapcar
++                      (lambda (file)
++                        (ogent-tool-results--unicode file)
++                        (let ((attributes (file-attributes file)))
++                          (list :path file :size (file-attribute-size attributes)
++                                :modified (format "%S" (file-attribute-modification-time attributes)))))
++                      files))
++           (total (length files))
++           (end (min total (+ offset limit))))
++      (when (> offset total)
++        (user-error "Offset %d exceeds %d files; restart with offset=0" offset total))
++      (list :path root :pattern pattern :offset offset :limit limit
++            :files (vconcat (seq-subseq metadata offset end))
++            :total_files total :snapshot (secure-hash 'sha256 (prin1-to-string metadata))
++            :has_more (if (< end total) t :json-false)
++            :next_offset (if (< end total) end :json-null)))))
++
++(provide 'ogent-tool-results)
++;;; ogent-tool-results.el ends here
+diff --git a/lisp/ui/ogent-ui-toolcalls.el b/lisp/ui/ogent-ui-toolcalls.el
+index bc1f678..9840dae 100644
+--- a/lisp/ui/ogent-ui-toolcalls.el
++++ b/lisp/ui/ogent-ui-toolcalls.el
+@@ -16,6 +16,7 @@
+ (require 'ogent-edit-format)
+ (require 'ogent-tools)
+ (require 'ogent-tool-contract)
++(declare-function ogent-tool-execution-process-error "ogent-tool-execution")
+ 
+ ;; Specials read/let-bound by the tool subsystem.
+ (defvar ogent-tool-registry)
+@@ -239,30 +240,42 @@ Results are displayed in the buffer."
+   "Build a ledger tool-call plist for NAME with ARGS."
+   (list :name (ogent-tool--name-string name) :args args))
+ 
+-(defun ogent-ui--execute-tool (name args)
+-  "Execute tool NAME with ARGS and return result string.
++(defun ogent-ui--execute-tool (name args &optional structured)
++  "Execute tool NAME with ARGS and return its result.
+ Looks up tool in `ogent-tool-registry' and calls its function.
++When STRUCTURED is non-nil, use its declared result function and extra
++result arguments, and re-signal failures after recording them.
+ Records start/finish to the proof ledger (a no-op unless
+ `ogent-ledger-enabled') and, when `ogent-debug' is loaded, appends to
+ the inspectable tool-call history that powers `ogent-debug-replay-tool'."
+   (if-let* ((tool-symbol (ogent-tool--name-symbol name))
+             (spec (and (fboundp 'ogent-tool-spec-get)
+                        (ogent-tool-spec-get tool-symbol)))
+-            (func (plist-get spec :function)))
++            (func (or (and structured (plist-get spec :result-function))
++                      (plist-get spec :function))))
+       (let* ((tool-call (ogent-ui--tool-ledger-call name args))
+              ;; History entries key on a symbol name and carry an id.
+              (history-call (list :id (format "tool-%d" (abs (random)))
+-                                 :name tool-symbol :args args))
++                                 :name tool-symbol :args args
++                                 :structured (and structured t)))
+              (effects (plist-get spec :effects))
+              (start (current-time)))
+         (ogent-ledger-record-tool-start tool-call effects)
+         (condition-case err
+-            (let* ((arg-values (ogent-ui--extract-tool-args spec args))
++            (let* ((schema (if structured
++                               (plist-put (copy-sequence spec) :args
++                                          (append (plist-get spec :args)
++                                                  (plist-get spec :result-args)))
++                             spec))
++                   (arg-values (ogent-ui--extract-tool-args schema args))
+                    (result (apply func arg-values))
+-                   (duration (float-time (time-subtract (current-time) start))))
+-              (ogent-ledger-record-tool-finish tool-call result nil duration effects)
++                   (duration (float-time (time-subtract (current-time) start)))
++                   (failure (and structured (plist-get spec :result-function)
++                                 (ogent-tool-execution-process-error result))))
++              (ogent-ledger-record-tool-finish tool-call result failure duration effects)
+               (when (fboundp 'ogent-debug-log-tool-call)
+-                (ogent-debug-log-tool-call history-call result duration))
++                (ogent-debug-log-tool-call
++                 (plist-put history-call :error failure) result duration))
+               result)
+           (error
+            (let ((msg (error-message-string err))
+@@ -271,7 +284,8 @@ the inspectable tool-call history that powers `ogent-debug-replay-tool'."
+              (when (fboundp 'ogent-debug-log-tool-call)
+                (ogent-debug-log-tool-call
+                 (plist-put history-call :error msg) nil duration))
+-             (format "Tool error: %s" msg)))))
++             (if structured (signal (car err) (cdr err))
++               (format "Tool error: %s" msg))))))
+     (ogent-tool-contract-name-hint
+      name (mapcar (lambda (spec) (plist-get spec :name)) ogent-tool-registry))))
+ 

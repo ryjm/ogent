@@ -1,0 +1,13 @@
+{
+  "command": [
+    "docker",
+    "exec",
+    "ogent-fixes",
+    "sh",
+    "-c",
+    "emacs --version | head -1; /tmp/ogent-test-rg --version | head -1; grep --version | head -1; xargs --version | head -1"
+  ],
+  "cwd": "/workspace/ogent",
+  "exit_code": 0,
+  "duration_seconds": 0.06653785705566406
+}

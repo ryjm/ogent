@@ -1,0 +1,29 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 5 tests (2026-10-08 23:47:36+0000, selector `"ogent-agent-execution-glob-"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-zV4L0Q/tools-VqwWUP (retained)
+   passed  1/5  ogent-agent-execution-glob-complete-pagination (0.022889 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-zV4L0Q/tools-Nr1O7b (retained)
+   passed  2/5  ogent-agent-execution-glob-json-empty-and-weird-paths (0.000574 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-zV4L0Q/tools-3YRz5u (retained)
+   passed  3/5  ogent-agent-execution-glob-raw-filenames-error-before-filtering (0.027274 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-zV4L0Q/tools-SsWffX (retained)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-zV4L0Q/tools-gVVKqm (retained)
+   passed  4/5  ogent-agent-execution-glob-raw-root-contract (0.008976 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-zV4L0Q/tools-sdzkdB (retained)
+   passed  5/5  ogent-agent-execution-glob-star-stays-in-component (0.000637 sec)
+
+Ran 5 tests, 5 results as expected, 0 unexpected (2026-10-08 23:47:36+0000, 0.060607 sec)
+
