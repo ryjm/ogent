@@ -1,0 +1,1002 @@
+{
+  "baseline": "b7fc099caee560230a3452af187ee54c6d6d53de",
+  "dimensions": [
+    "robust",
+    "reliable",
+    "performant",
+    "intuitive",
+    "user_friendly",
+    "ergonomic",
+    "useful",
+    "compelling",
+    "accretive",
+    "pragmatic"
+  ],
+  "weights": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    2,
+    1,
+    1.5,
+    2
+  ],
+  "score_kind": "Qualitative planning judgment, not measured user demand or performance",
+  "ideas": [
+    {
+      "key": "I01",
+      "title": "Preview and send the same frozen run plan",
+      "priority": 1,
+      "scores": [
+        5,
+        5,
+        3,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        4
+      ],
+      "evidence": "ogent-context-preview rebuilds a rendered subtree payload; ogent-ui-request separately retains wire-prompt and send-args for retry. Context manifests already contain source, reason and hashes. The preview is not a committed snapshot of the final history/system/endpoint/tool selection.",
+      "modules": [
+        "lisp/ui/ogent-ui-preview.el",
+        "lisp/ui/ogent-ui-engine.el",
+        "lisp/ui/ogent-ui-send.el",
+        "lisp/ogent-context.el",
+        "lisp/ogent-gptel.el"
+      ],
+      "why": "Make explicit context trustworthy at the moment it matters. A user can inspect the complete effective request, remove an item, and send exactly what was inspected. This directly advances ogent's founding constraint and reduces surprise when history, presets or project settings change.",
+      "core": "Introduce a versioned immutable plan after existing model/preset/endpoint validation, with prompt, history, system options, workspace, selected model, tool names/effects, inclusion reasons and hashes. Assign a durable UUID for the plan/request Org ID while preserving current process-local request IDs. Reuse the existing context manifest and retry snapshot. Exclude credentials, callable backend objects and transport handles from the serializable representation.",
+      "surface": "Render the plan in an owned Org reader with full searchable sections, per-item inclusion controls for handles/pins/history/attachments where applicable, source navigation, estimated token labels and a visible model/endpoint summary. Sending consumes that plan. An edit invalidates it and offers rebuild or the explicit frozen snapshot; no silent recomputation. Route ordinary prompts, source companions and fan-out through the same preparation boundary without forcing a preview on every send.",
+      "risks": "A second request engine or mutation of context would break retry/fan-out. Selection controls must alter a copied plan, not source text. Preview and send must agree at the semantic transport boundary; authentication headers and dynamic protocol IDs are intentionally excluded from the user payload comparison.",
+      "accept": "Previewed prompt/history/system/model/tools equal the semantic request observed by the owned HTTP fixture; changing a source or preset after preview triggers a clear stale-plan choice. Fan-out members share one context snapshot. A cancelled preview sends nothing and leaves focus/source text intact.",
+      "tests": "ERT: empty, Unicode and multiline inputs; changed source/preset/history; read-only source; inclusion toggles and UUID collisions; immutable retries. E2E: real gptel Chat Completions and Responses fixtures compare serialized semantic payloads with the displayed plan, including source companion and fan-out paths.",
+      "related": [
+        "ogent-3im",
+        "ogent-io4",
+        "ogent-jq5",
+        "ogent-n5s7"
+      ],
+      "deps_core": [],
+      "deps_surface": [],
+      "selected": true,
+      "weighted_score": 4.68,
+      "average_score": 4.7,
+      "rank": 1
+    },
+    {
+      "key": "I02",
+      "title": "Ship a no-login interactive practice workspace",
+      "priority": 1,
+      "scores": [
+        4,
+        5,
+        4,
+        5,
+        5,
+        5,
+        5,
+        5,
+        5,
+        4
+      ],
+      "evidence": "README onboarding guides provider authentication. make demo opens an Org file without loading ogent. Actual no-provider HTTP/CLI and GUI fixtures exist under test/offline and docs/experiments/emacs-workflows, but are developer-specific scripts rather than a supported first-use command.",
+      "modules": [
+        "lisp/ogent-onboard.el",
+        "test/offline/workflows.el.in",
+        "docs/experiments/emacs-workflows/fixture-server.py",
+        "docs/experiments/emacs-workflows/fixture.el.in",
+        "sandbox/demo.org"
+      ],
+      "why": "Let a new user feel the native workflow before configuring a provider: context, streaming, a tool decision, an edit and recovery. It is also a reproducible support and regression workspace, so this small product feature supports several later ideas.",
+      "core": "Extract a reusable, bounded fixture lifecycle that allocates an owned temporary Org workspace and loopback backend/CLI executable. Reject non-fixture HTTP hosts and executables, load real runtime dependencies, and track cleanup. Provide deterministic response/error/tool/slow-stream scenarios with fixed synthetic data; isolate all analytics, ledgers, approval settings and conversation stores.",
+      "surface": "Add an autoloaded ogent practice entry command with a short Org lesson and reachable actions. Load ogent explicitly, explain that replies are simulated, demonstrate frozen-plan preview, attach/type/submit, approve/deny, edit acceptance and cancel/retry. Starting and exiting preserve the user's backend, model, keys, files and window configuration. Missing fixture prerequisites produce precise remediation.",
+      "risks": "Reusing a fake API key without a host guard risks external calls. Avoid globally changing Customize values or silently saving the practice workspace to real stores. A learning command must work from an installed package as well as a checkout, or clearly document the supported development-only fixture requirement.",
+      "accept": "A clean Emacs session completes the guided workflow with no provider credentials and zero non-loopback inference requests. Quit and failure clean up owned processes/timers/temp stores and restore the prior configuration. Installation requirements and simulated behavior are stated before the first action.",
+      "tests": "ERT: environment save/restore, missing prerequisites, port/server startup failure, child timeout, repeated start/stop and foreign-store tripwires. E2E: actual keyboard lesson in vanilla and Evil, with real gptel and local fixture CLI; assert complete final output and no leaked requests/processes.",
+      "related": [
+        "ogent-bpx",
+        "ogent-7omc",
+        "ogent-n5s7"
+      ],
+      "deps_core": [],
+      "deps_surface": [
+        "I01.surface"
+      ],
+      "selected": true,
+      "weighted_score": 4.68,
+      "average_score": 4.7,
+      "rank": 2
+    },
+    {
+      "key": "I03",
+      "title": "Apply a reviewed edit set as one buffer transaction",
+      "priority": 1,
+      "scores": [
+        5,
+        5,
+        3,
+        4,
+        4,
+        5,
+        5,
+        5,
+        5,
+        4
+      ],
+      "evidence": "ogent-edit-diff-accept-staged preflights all proposals, then applies atomic-change-group separately for each source buffer and records resolutions after each group. Earlier buffers can already be accepted if a later buffer throws. Existing stale-match and per-buffer atomicity fixes remain valuable.",
+      "modules": [
+        "lisp/ogent-edit-diff.el",
+        "lisp/ogent-edit-display.el",
+        "lisp/ogent-edit-log.el",
+        "lisp/ogent-edit.el"
+      ],
+      "why": "Make a reviewed change set behave as a single deliberate action across files. The user can understand the whole proposed change and avoid discovering that only half of it landed after a hook or buffer error.",
+      "core": "Add a request-scoped edit transaction over participating live buffers: preflight exact source contents/overlap, prepare and activate all change groups, perform replacements, cancel every group on failure, and publish accepted statuses/analytics/ledger only after successful commit. Keep individual acceptance/rejection and existing smerge/overlay paths. Specify the boundary as buffer edits, without promising atomic disk saves, arbitrary hook side effects or Git operations.",
+      "surface": "Show files, staged proposal count and transaction status in the existing review reader. Offer accept-selected-as-set with an explicit buffer transaction label; refuse mixed request sets or define an explicit grouped policy. Retain full diffs, jump-to-source and read-only staging. If offering undo-set, guard inverse edits against subsequent user changes and explain conflicts instead of overwriting them.",
+      "risks": "Cross-buffer undo is not the same as per-buffer undo. Hooks can have external effects that Emacs change groups do not roll back. A source buffer dying or changing during review must leave every still-owned proposal unresolved and every surviving buffer unchanged on failure.",
+      "accept": "An injected failure in the second buffer leaves all source buffers, staged states and accepted-event counts unchanged. A successful set changes every intended buffer, resolves each proposal once and preserves normal single-edit acceptance. No implicit save/commit occurs.",
+      "tests": "ERT: stale/ambiguous/overlapping matches, duplicate proposals, killed/read-only buffers, narrowing, Unicode and injected before/after-change failures. E2E: a two-file edit through the actual registered write/edit tool path, stage/review/accept or reject, verify all buffers and exactly-once ledger/analytics; exercise undo conflict if shipped.",
+      "related": [
+        "ogent-tdf.1",
+        "ogent-tdf.2",
+        "ogent-tdf.4",
+        "ogent-2ds"
+      ],
+      "deps_core": [],
+      "deps_surface": [],
+      "selected": true,
+      "weighted_score": 4.52,
+      "average_score": 4.5,
+      "rank": 3
+    },
+    {
+      "key": "I04",
+      "title": "Recover drafts and interrupted runs after Emacs restarts",
+      "priority": 1,
+      "scores": [
+        5,
+        5,
+        3,
+        4,
+        5,
+        5,
+        5,
+        5,
+        5,
+        3
+      ],
+      "evidence": "ogent-session-save persists transcript text and metadata. Composer draft/attachments are buffer-local; active requests, retry history, markers and watchdogs are in memory. Existing CLI resume and immutable retry do not establish crash recovery of a native draft or pending tool decision.",
+      "modules": [
+        "lisp/ogent-session.el",
+        "lisp/ogent-armory-compose.el",
+        "lisp/ui/ogent-ui-core.el",
+        "lisp/ui/ogent-ui-engine.el",
+        "lisp/ogent-armory-conversations.el"
+      ],
+      "why": "Protect the work around a request as well as its final answer. On reopening Emacs, a user should recover a draft and see what was interrupted, with enough context to choose a safe next step.",
+      "core": "Provide opt-in, versioned Org checkpoints for draft text, attachment references, stable plan/request IDs, validated serializable snapshot data, partial response and known lifecycle/effect events. Use owned atomic file replacement and explicit retention. Whitelist fields; never persist keys, auth headers, backend function objects, live processes or executable Lisp. Reopen old session formats unchanged.",
+      "surface": "Offer a local recovery reader on demand that restores editable drafts and labels interrupted runs without replaying them. Retry is a new explicit request from the saved snapshot. When a tool may have changed external state before interruption, show the uncertainty and evidence and require an explicit recovery choice. Reuse grounded CLI resume for supported adapters; do not pretend a dead gptel FSM can resume.",
+      "risks": "A crash between a write and its terminal ledger entry leaves an unknown outcome. Automatic replay could duplicate an effect. Restoring missing/moved attachments or incompatible schema requires an actionable partial recovery path. Checkpoints can contain private prompt text and need visible location/retention/delete controls.",
+      "accept": "A fresh Emacs process recovers a Unicode multiline draft and attachment list, displays a partial interrupted answer and performs zero network/tool execution on load. User-selected retry retains the saved semantic context under a new run ID. Corrupt/unknown versions do not execute code or destroy earlier records.",
+      "tests": "ERT: every checkpoint transition, truncation/corruption, missing files, retention, legacy sessions and unknown pending effects. E2E: terminate and restart an owned Emacs fixture at draft, streaming and tool-pending boundaries; assert restored state, zero automatic execution and explicit immutable retry.",
+      "related": [
+        "ogent-qha",
+        "ogent-8e0.6",
+        "ogent-jq5",
+        "ogent-n5s7"
+      ],
+      "deps_core": [
+        "I01.core"
+      ],
+      "deps_surface": [],
+      "selected": true,
+      "weighted_score": 4.44,
+      "average_score": 4.5,
+      "rank": 4
+    },
+    {
+      "key": "I05",
+      "title": "Offer workspace and session scoped approval grants",
+      "priority": 1,
+      "scores": [
+        5,
+        5,
+        3,
+        4,
+        4,
+        4,
+        5,
+        4,
+        5,
+        4
+      ],
+      "evidence": "ogent-tool-allow-list stores global string patterns; the always choice derives a tool-wide or first-command-word pattern and saves it in Customize. The new reader explains that actual scope, but does not add bounded workspace/session grants.",
+      "modules": [
+        "lisp/ogent-tool-approval.el",
+        "lisp/ogent-tool-effects.el",
+        "lisp/ogent-tool-execution.el",
+        "lisp/ui/ogent-ui-approval.el"
+      ],
+      "why": "Reduce repeated prompts while letting the user approve a scope they can understand: this invocation, or a stated invocation/target rule for this workspace and session. Keep the existing explicit persistent option available.",
+      "core": "Add structured grants with canonical workspace, canonical tool identity, explicit argument/target matcher, effects/schema fingerprint, session or expiry boundary and an explainable decision result. Resolve symlinks and outside-workspace targets before matching; decline bounded grants when identity/scope is uncertain. Preserve legacy configured patterns as legacy global grants, without silently broadening, converting or deleting them.",
+      "surface": "Show the exact grant rule, workspace, lifetime and effect before saving it. Add reachable bounded approval choices and an inspect/revoke view. Use the same decision boundary for native gptel, SDK, MCP and recorded replay. Retain single invocation approval, denial, C-g denial and existing allow/deny precedence.",
+      "risks": "A shell command prefix is not a confinement boundary. Expiry, clock rollback, changing tool schema/effects and nested workspaces must invalidate or fail a bounded match. Legacy rules can be broad and must remain visibly identified rather than hidden behind new guarantees.",
+      "accept": "A bounded grant matches only its displayed workspace/invocation rule during its declared lifetime and stops matching after expiry, revocation or effect/schema change. An unrelated project and outside target still require a decision. Existing global configuration retains its documented behavior.",
+      "tests": "ERT: symlinks, path traversal, nested workspaces, case/platform normalization, malformed grants, expiry/clock rollback, canonical aliases, precedence and legacy patterns. E2E: actual gptel confirmed tool calls across two owned workspaces, grant/reuse/revoke/deny with execution and ledger counts; no real commands/providers.",
+      "related": [
+        "ogent-fk6",
+        "ogent-fk6.1",
+        "ogent-77ok.1",
+        "ogent-n5s7"
+      ],
+      "deps_core": [],
+      "deps_surface": [],
+      "selected": true,
+      "weighted_score": 4.36,
+      "average_score": 4.3,
+      "rank": 5
+    },
+    {
+      "key": "I06",
+      "title": "Give all live work one native activity reader",
+      "priority": 2,
+      "scores": [
+        4,
+        4,
+        3,
+        5,
+        5,
+        5,
+        4,
+        5,
+        4,
+        4
+      ],
+      "evidence": "Native requests, fan-out groups, Armory runners and approval lists have separate registries and readers. ogent-ui-active-requests and request-specific pause/abort/retry exist; Armory home is rooted in its durable graph.",
+      "modules": [
+        "lisp/ui/ogent-ui-core.el",
+        "lisp/ui/ogent-ui-engine.el",
+        "lisp/ogent-armory-runner.el",
+        "lisp/ui/ogent-ui-armory-home.el",
+        "lisp/ogent-armory-actions.el"
+      ],
+      "why": "Let users answer what is running, what needs a decision, and where the answer landed without remembering which entry command launched it. This becomes more useful as native, CLI and fan-out workflows coexist.",
+      "core": "Build a read-only projection over existing owners, keyed by durable run ID, with source/type/workspace/state, parent fan-out identity, pending approval and exact available actions. Subscribe to lifecycle changes rather than creating another execution owner; bound recent history and handle stale/dead source buffers.",
+      "surface": "Add a keyboard-first Org/section reader with jump, inspect, pause, cancel and explicit retry actions only when supported by the original owner. Include recovered interrupted work when checkpoints are enabled. Preserve row/viewport during refresh, show complete detail on RET, and keep background output from stealing focus.",
+      "risks": "A control reader that invents lifecycle state can double-cancel or retry the wrong request. Avoid inferring pending approval solely from a timer/status label. Refresh must not synchronously traverse every project or poll hidden buffers.",
+      "accept": "A mixed native/CLI/fan-out fixture is visible in one reader; each action affects only its selected owner, every request terminates once, and row/point survives unrelated completions. Recovered entries remain inert until the user chooses an action.",
+      "tests": "ERT: lifecycle projection, stale IDs, dead markers, unsupported actions, hidden-buffer cleanup, row identity and mixed projects. E2E: simultaneous real-gptel SSE and local CLI work plus pending approval, targeted cancellation, recovery and refresh through vanilla/Evil keys.",
+      "related": [
+        "ogent-pje.3",
+        "ogent-qha",
+        "ogent-n5s7"
+      ],
+      "deps_core": [
+        "I01.core"
+      ],
+      "deps_surface": [
+        "I04.surface"
+      ],
+      "selected": true,
+      "weighted_score": 4.24,
+      "average_score": 4.3,
+      "rank": 6
+    },
+    {
+      "key": "I07",
+      "title": "Find and link directly to a durable run across Org stores",
+      "priority": 2,
+      "scores": [
+        4,
+        4,
+        3,
+        4,
+        4,
+        5,
+        5,
+        4,
+        4,
+        4
+      ],
+      "evidence": "Session history searches ogent-session-directory; Armory search includes its canonical conversation corpus. Normal request IDs are an incrementing process-local counter. Existing search/export do not form a shared durable per-request link contract across these stores.",
+      "modules": [
+        "lisp/ogent-session.el",
+        "lisp/ui/ogent-ui-armory-search.el",
+        "lisp/ui/ogent-ui-core.el",
+        "lisp/ui/ogent-ui-engine.el",
+        "lisp/ogent-companion.el"
+      ],
+      "why": "Make an answer or reviewed decision as easy to revisit and reference as an Org heading, including after buffers close or files move. Extend existing search with stable destinations rather than introducing another chat database.",
+      "core": "Use standard Org IDs for newly persisted request/result headings and a bounded index of user-selected roots spanning sessions, Armory conversations and ordinary notebooks. Read older counter-ID transcripts without pretending their IDs are globally unique. Support lazy invalidation, moved/deleted files and duplicate-ID diagnosis.",
+      "surface": "Provide completing-read navigation with preview, filters for project/model/outcome and copy-org-link at the exact run. Existing Vertico/Consult integration is optional; vanilla completion works. Clearly display the searched roots and let the user add/remove them. Visiting never runs or rewrites a request.",
+      "risks": "Whole-home indexing can expose private content and block Emacs. Org ID assignment must occur on explicit creation/persistence, not during a read-only search. Old transcripts may lack IDs; offer an explicit upgrade on selection.",
+      "accept": "A copied run link reopens the right heading in a new Emacs process and after an indexed file move. Two old sessions containing ogent-request-1 remain distinct. Search reads only configured roots and respects bounded work/refresh.",
+      "tests": "ERT: duplicate/absent IDs, Unicode paths, moved/deleted files, narrowed buffers, read-only legacy files and index invalidation. E2E: generate fixture runs in all three stores, close/reopen, search/preview/copy/follow links with optional completion absent/present.",
+      "related": [
+        "ogent-8e0.3",
+        "ogent-9w7.7",
+        "ogent-7hg"
+      ],
+      "deps_core": [
+        "I01.core"
+      ],
+      "deps_surface": [],
+      "selected": true,
+      "weighted_score": 4.16,
+      "average_score": 4.1,
+      "rank": 7
+    },
+    {
+      "key": "I08",
+      "title": "Make project context profiles explicit and reusable",
+      "priority": 2,
+      "scores": [
+        4,
+        4,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "evidence": "ogent-pinned-context is global, while model selection has existing buffer/session/project scopes. Reusable prompt templates, agent personas and Babel already exist. A named project profile can join explicit pins/exclusions and model-role defaults without replacing these features.",
+      "modules": [
+        "lisp/ogent-context.el",
+        "lisp/ogent-models.el",
+        "lisp/ui/ogent-ui-preview.el",
+        "lisp/ogent-armory-compose.el"
+      ],
+      "why": "Reduce the setup repeated when switching projects while keeping users in control of what gets sent. The important behavior is a visible chosen profile and predictable scope, not automatic whole-project context.",
+      "core": "Define opt-in Org project profiles holding explicit source references, exclusions and model-role defaults, with precedence against existing global pins and explicit buffer selections. Parse as data, validate paths/handles, and never evaluate repository-provided Lisp or import a skill merely because a profile names it.",
+      "surface": "Choose/save/inspect a profile through the native dispatcher and frozen plan. Show which project/profile is active and where every included item came from. Switching projects offers a deliberate profile choice and preserves the old global-pin behavior for users who do not opt in.",
+      "risks": "Silently applying repository configuration would undermine explicit context. Missing/moved handles and inheritance can surprise users; expose precedence and stale references before dispatch. Profile format should compose with current agents/templates, not create a competing agent system.",
+      "accept": "Two owned projects maintain independent explicitly chosen profiles. Manual buffer model choices keep documented precedence; preview identifies included/excluded items and the effective role. No profile or file is activated/evaluated on mere project discovery.",
+      "tests": "ERT: precedence, stale references, global-pin compatibility, Unicode, malformed profiles and untrusted values. E2E: switch two fixture projects, select profiles, compare frozen HTTP payloads and restore previous context without cross-project inclusion.",
+      "related": [
+        "ogent-7sd",
+        "ogent-9w7.1",
+        "ogent-ikh"
+      ],
+      "deps_core": [
+        "I01.core"
+      ],
+      "deps_surface": [
+        "I01.surface"
+      ],
+      "selected": true,
+      "weighted_score": 3.92,
+      "average_score": 3.9,
+      "rank": 9
+    },
+    {
+      "key": "I09",
+      "title": "Measure and preserve responsiveness in large Org workspaces",
+      "priority": 2,
+      "scores": [
+        4,
+        4,
+        5,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        3
+      ],
+      "evidence": "The latest audit measures 50 error records and an interactive SSE draft. That is useful evidence, but does not establish scaling of long transcripts, large Armory corpora, many overlays or repeated context/index refreshes. Status animation and window refresh use timers.",
+      "modules": [
+        "lisp/ui/ogent-ui-status.el",
+        "lisp/ui/ogent-ui-engine.el",
+        "lisp/ogent-zen.el",
+        "lisp/ogent-context.el",
+        "lisp/ogent-armory.el",
+        "docs/experiments/emacs-workflows/performance.el.in"
+      ],
+      "why": "Keep the defining editor experience intact as notebooks grow. Measuring actual input, scan and redisplay costs identifies worthwhile work and avoids speculative global performance tuning.",
+      "core": "Build repeatable owned workloads for increasing transcript size, record count, active requests and window layouts. Capture profiler/benchmark observations, p50/p95, GC, actual keyboard roundtrip, version/native-comp state and teardown resource counts. Distinguish elapsed transport wait from buffer rebuild and redisplay costs; choose optimization targets only after attribution.",
+      "surface": "Repair demonstrated hot paths with bounded invalidation/coalescing and buffer-local lifecycle cleanup while retaining complete final text and states. Verify hidden buffers do not create unnecessary recurring rendering. If no material bottleneck is found, ship the workload/evidence and explicitly record that no optimization was justified.",
+      "risks": "Time thresholds are machine-dependent and brittle as unit assertions. Caches can display stale content or lose final tool/status updates. Global GC/font/theme changes are outside this feature. A benchmark-only result is acceptable when it honestly closes the investigation.",
+      "accept": "Publish before/after repeated observations for a demonstrated bottleneck, or an explicit no-bottleneck result. Input/focus/point stay usable during actual SSE; abort, completion and buffer kill release owned timers/processes/overlays. No changed final response/context contents.",
+      "tests": "ERT: coalescing final flush and cache invalidation invariants only if such changes are made; hidden/killed-buffer cleanup and request completion counts. E2E: actual GUI/terminal input during large-fixture SSE plus repeated refresh/resize, recording raw timings without universal wall-clock assertions.",
+      "related": [
+        "ogent-n5s7",
+        "ogent-aq8"
+      ],
+      "deps_core": [],
+      "deps_surface": [],
+      "selected": true,
+      "weighted_score": 3.92,
+      "average_score": 4.0,
+      "rank": 10
+    },
+    {
+      "key": "I10",
+      "title": "Show measured request usage and explicit run limits",
+      "priority": 2,
+      "scores": [
+        4,
+        4,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "evidence": "ogent-analytics estimates tokens from characters and computes cost from a pricing table; token preview and fan-out multipliers already exist. Estimates do not establish provider-reported usage, multiple tool-round totals or a user-defined run budget.",
+      "modules": [
+        "lisp/ogent-analytics.el",
+        "lisp/ui/ogent-ui-core.el",
+        "lisp/ui/ogent-ui-engine.el",
+        "lisp/ogent-gptel.el"
+      ],
+      "why": "Help users understand why a run took time or cost more and bound repetitive tool work before another round starts. Preserve uncertainty when exact usage or pricing is unavailable.",
+      "core": "Normalize real gptel/provider usage fields where exposed, retain their source/confidence, accumulate per-round and per-fan-out-member counts without double counting cumulative events, and distinguish estimates/cache usage/unknown prices. Add optional limits for tool rounds, elapsed time and explicitly estimated/observed token budgets at known dispatch boundaries.",
+      "surface": "Show a compact run summary with a full Org breakdown and the configured limits in the frozen plan. On a limit boundary preserve partial output and explain which limit was reached; continuing is explicit. A price estimate is never advertised as an enforceable exact dollar cap, and unavailable usage remains unknown.",
+      "risks": "Provider usage schemas and gptel exposure vary; verify supported actual dependencies and mark unsupported fields. Retries and cumulative chunks can double-charge counters. Never interrupt a pending tool mid-effect or substitute a model silently to satisfy a budget.",
+      "accept": "Fixture usage events produce exactly one truthful summary per run/member, with unknowns labeled. A configured round limit prevents the next model/tool round while allowing the current owned boundary to settle. Default behavior stays compatible when limits are disabled.",
+      "tests": "ERT: missing usage, estimates versus observations, cumulative versus per-round events, cached tokens, unknown pricing, retry/fan-out totals and boundary arithmetic. E2E: real gptel fixtures with multiple tools, usage/absent-usage responses and limit stop/explicit continue; verify registry/ledger cleanup.",
+      "related": [
+        "ogent-z0k.3",
+        "ogent-3im",
+        "ogent-azo"
+      ],
+      "deps_core": [
+        "I01.core"
+      ],
+      "deps_surface": [
+        "I01.surface"
+      ],
+      "selected": true,
+      "weighted_score": 3.92,
+      "average_score": 3.9,
+      "rank": 11
+    },
+    {
+      "key": "I11",
+      "title": "Make frontier catalog refreshes dated and reviewable",
+      "priority": 2,
+      "scores": [
+        4,
+        4,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "evidence": "The model registry and pricing fixtures were updated manually against dated official pages. Saved IDs/aliases, endpoint capabilities, role defaults, picker and onboarding must remain synchronized. Latest models are already shipped; this idea concerns the next maintenance cycle.",
+      "modules": [
+        "lisp/ogent-models.el",
+        "lisp/ogent-analytics.el",
+        "lisp/ogent-onboard.el",
+        "test/data/model-pricing.json",
+        "docs/backends-and-presets.md"
+      ],
+      "why": "Turn the next frontier-model update into a small auditable data change instead of rediscovering every dependent surface. Users can tell how fresh the shipped catalog is without logging in or sending a probe.",
+      "core": "Define dated catalog evidence records with official source URLs, retrieved date, model/alias, endpoint/tool capability, context/output limits and pricing basis. Validate completeness and compare candidate data to existing defaults/aliases. Explicitly mark unknown facts; never infer access or price from marketing names.",
+      "surface": "Provide an offline freshness/details view and a maintainer refresh/diff workflow that updates registry, picker/onboarding, docs and fixtures together after reviewed evidence. Fetch only public documentation when requested. Preserve old IDs and user pins; replacing a default is an explicit reviewed change, not an automatic timer action.",
+      "risks": "Official documentation can conflict or change shape. A crawler is not an oracle and scraping must not invent capabilities. Keep the registry as the runtime source of truth and avoid a second mutable model database or credentials in evidence.",
+      "accept": "An owned catalog fixture generates a complete review diff and consistency diagnostics without provider login. Unknown/contradictory facts and removed IDs are flagged; no pinned/default model is silently replaced. Every factual update retains a dated source.",
+      "tests": "ERT: alias collisions, missing/unknown capability fields, inconsistent pricing basis, old IDs, role precedence and offline freshness formatting. E2E: fixture catalog refresh through maintainer commands, inspect diff, run existing actual-dependency endpoint/picker serialization checks.",
+      "related": [
+        "ogent-zwf",
+        "ogent-83c",
+        "ogent-io4",
+        "ogent-jk5.4"
+      ],
+      "deps_core": [],
+      "deps_surface": [],
+      "selected": true,
+      "weighted_score": 3.92,
+      "average_score": 3.9,
+      "rank": 12
+    },
+    {
+      "key": "I12",
+      "title": "Export a previewed, redacted local issue evidence bundle",
+      "priority": 2,
+      "scores": [
+        4,
+        4,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "evidence": "Doctor JSON, build diagnostics, immutable request snapshots and native screenshot manifests exist separately. Conversation export is already implemented. A support reproducer needs version/lifecycle evidence with deliberate control over prompt/file disclosure.",
+      "modules": [
+        "lisp/ogent-doctor.el",
+        "lisp/ui/ogent-ui-engine.el",
+        "lisp/ogent-ledger.el",
+        "lisp/ox-ogent.el",
+        "docs/build-reporting.org"
+      ],
+      "why": "Make a failure report useful on the first exchange, while letting the user see precisely what it reveals. Exporting a reproducible technical bundle is different from exporting a conversation for reading.",
+      "core": "Build a versioned local bundle from non-secret environment versions, run/plan IDs, model/endpoint names, redacted diagnostics, event counts/hashes and explicitly selected fixture data. Use a whitelist; prompt/source bodies, auth material and full home paths are excluded by default. Preserve labeled omissions so redaction does not masquerade as complete reproducibility.",
+      "surface": "Show every included field/file in an Org preview and let the user opt in to specific synthetic or scrubbed payloads before writing a directory/archive. Offer deterministic local reproduction instructions where possible. Export only locally; publishing an issue or sending a message remains a separate user action.",
+      "risks": "Error strings and CLI arguments can contain secrets even when headers are omitted. Redaction is not a mathematical guarantee; expose the final bytes for review and test synthetic canaries. Logs must preserve useful causal order while avoiding unrelated transcripts.",
+      "accept": "A fixture failure produces a locally replayable evidence pack with exact versions/IDs and known redactions; synthetic secret canaries are absent from the output. Preview cancellation writes nothing. Basic conversation export remains unchanged.",
+      "tests": "ERT: nested secret-like diagnostics, home-path scrubbing, Unicode, missing history, unknown schemas and inclusion options. E2E: fixture error/tool/retry, preview the bundle, write/replay it in a fresh isolated session and verify no provider/network contact or real-store mutation.",
+      "related": [
+        "ogent-qkpq.8",
+        "ogent-77ok.11",
+        "ogent-9w7.8"
+      ],
+      "deps_core": [
+        "I01.core"
+      ],
+      "deps_surface": [],
+      "selected": true,
+      "weighted_score": 3.92,
+      "average_score": 3.9,
+      "rank": 13
+    },
+    {
+      "key": "I13",
+      "title": "Run native keyboard journeys automatically in CI",
+      "priority": 2,
+      "scores": [
+        4,
+        5,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "evidence": "The latest workflow audit drove real GTK/Evil keys and captured narrow/dark/ASCII/terminal variants. These scripts are preserved under docs/experiments; CI currently replays batch HTTP workflows and ERT, rather than the actual keyboard journey.",
+      "modules": [
+        "docs/experiments/emacs-workflows/keyboard.el.in",
+        "docs/experiments/emacs-workflows/matrix.py",
+        "docs/experiments/emacs-workflows/capture.py",
+        ".github/workflows/ci.yml",
+        "test/offline/workflows.el.in"
+      ],
+      "why": "Protect the polish that unit tests miss: effective Evil bindings, read-only edges, resizing, selection and focus. Automating the already demonstrated journey gives later UI changes a repeatable acceptance check.",
+      "core": "Promote the owned fixture and Xvfb/terminal runner into supported test tooling with bounded startup, actual dependency versions, keyboard input, semantic state assertions, screenshots and cleanup. Keep production guards against non-loopback/provider execution. Remove machine-specific container/server/path assumptions.",
+      "surface": "Add an appropriately bounded CI job for native GUI journeys and a terminal fallback, exercising current compose/approval/error flows and new frozen-plan/edit/grant actions as they land. Include vanilla and optional Evil/Magit loaded orders, light/dark, narrow/split/larger-text/ASCII variants. Screenshots are evidence; state assertions establish success.",
+      "risks": "Pixel-golden tests are brittle across fonts/Emacs. Window occlusion can yield black captures; raise the correct window and validate PNG dimensions/content. A stale server must not make the test pass against old source. Pin source/dependency fingerprints and keep failures debuggable.",
+      "accept": "A fresh CI worker can reproduce meaningful keyboard assertions without provider credentials, capture the exact tested source and terminate every owned child. Injected attachment/key/focus regression fails the appropriate assertion rather than only changing an image.",
+      "tests": "Unit harness checks: timeout, false-ready server, cleanup, missing display/prerequisite and stale fingerprint. E2E: actual keys across fixture flows and variants with bounded waits, deterministic seeds, full event/diagnostic logs and actual screenshots. Keep ordinary batch ERT/offline jobs required.",
+      "related": [
+        "ogent-bpx",
+        "ogent-n5s7",
+        "ogent-yk1w"
+      ],
+      "deps_core": [
+        "I02.core"
+      ],
+      "deps_surface": [
+        "I01.surface",
+        "I03.surface",
+        "I05.surface"
+      ],
+      "selected": true,
+      "weighted_score": 4.0,
+      "average_score": 4.0,
+      "rank": 8
+    },
+    {
+      "key": "I14",
+      "title": "Prove package installation and exact dependency floors",
+      "priority": 2,
+      "scores": [
+        4,
+        5,
+        3,
+        4,
+        4,
+        4,
+        4,
+        3,
+        4,
+        4
+      ],
+      "evidence": "README declares Emacs 29.1, Org 9.8.7, Transient 0.13.5 and gptel 0.9.9.5 floors. Latest offline proof used Org 9.8.10 and Transient 0.13.8, with minimum/current gptel. A checkout with manual load-path is not an installed-package/autoload proof.",
+      "modules": [
+        "lisp/ogent.el",
+        "README.org",
+        ".github/workflows/ci.yml",
+        "makem.sh",
+        "test/offline/workflows.el.in"
+      ],
+      "why": "Make installation as reliable as the feature demonstrations. Verify the actual declared floors and shipped archive, catching omitted sibling modules/autoloads or accidental optional dependencies before users encounter them.",
+      "core": "Define a reproducible package artifact containing flat lisp/ui siblings under a documented load path and generated autoloads. Install it into fresh isolated Emacs directories with the exact declared Org/Transient/gptel floors and a current supported combination. Fail clearly on incompatible versions; adjust a declared floor only with evidence and explicit documentation.",
+      "surface": "Add clean-install, require/autoload/entry-command and upgrade smoke checks plus copyable vanilla/Doom recipes. Exercise optional Magit/Evil absent/present and loaded orders. A real full Doom smoke may be an opt-in separate job; a recipe snippet alone must not be reported as verified full Doom compatibility.",
+      "risks": "Archive layout and bytecode can hide missing files in a development checkout. Package resolution may silently choose newer versions. Record loaded library paths and versions and check them before tests. Avoid making optional packages required to pass the install path.",
+      "accept": "A built artifact installs and invokes documented autoload entry commands in a fresh Emacs at the declared floors and current combination. Loaded versions/paths and optional cases are saved. Unsupported exact-floor combinations cause an evidence-backed floor decision, never a green report using newer packages.",
+      "tests": "ERT: archive inclusion/autoload discovery and version diagnostics. E2E: clean install/upgrade in Emacs 29.1/30.2, actual exact-floor dependencies, optional packages absent/present, one loopback Org request and provider-free picker/doctor. Log resolved versions and artifact SHA.",
+      "related": [
+        "ogent-bpx",
+        "ogent-e73",
+        "ogent-n5s7"
+      ],
+      "deps_core": [],
+      "deps_surface": [],
+      "selected": true,
+      "weighted_score": 3.92,
+      "average_score": 3.9,
+      "rank": 14
+    },
+    {
+      "key": "I15",
+      "title": "Verify spoken states with Emacspeak and reduced motion",
+      "priority": 2,
+      "scores": [
+        4,
+        4,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        3
+      ],
+      "evidence": "Native audit checked meaningful text, keyboard access, larger fonts, terminal and ASCII. Its report explicitly says screen-reader compatibility is untested. Some state cues are virtual header/margin overlays or animation rather than ordinary buffer text.",
+      "modules": [
+        "lisp/ui/ogent-ui-status.el",
+        "lisp/ui/ogent-ui-approval.el",
+        "lisp/ui/ogent-ui-errors.el",
+        "lisp/ui/ogent-ui-layout.el",
+        "lisp/ogent-zen.el"
+      ],
+      "why": "Extend accessibility evidence to people consuming the interface through speech, where a visible icon or header line may not announce the state. Respect users who prefer stable presentation during long background work.",
+      "core": "Audit actual Emacspeak navigation/announcement behavior on fixture requests, approvals, errors and completion with recorded versions. Expose a small optional semantic announcement hook and local reduced-animation setting as necessary, using state words and concise summaries without reading private tool arguments automatically.",
+      "surface": "Provide readable current-state/detail commands and opt-in announcements for pending decision, failure, cancellation and completion. Suppress redundant animation announcements while keeping actual lifecycle changes audible. Keep Emacspeak optional and all keyboard/text workflows functional without it.",
+      "risks": "Adding words to a buffer does not prove spoken accessibility. Announcement cadence can overwhelm users or disclose sensitive text. Verify actual reader hooks; distinguish text/keyboard semantics from acoustic output if the environment cannot capture speech.",
+      "accept": "Save an actual-reader trace showing important states and reachable detail/decision commands, or explicitly leave reader support unverified. Reduced animation changes only local presentation and releases timers without hiding status. No global font/theme/speech changes.",
+      "tests": "ERT: semantic announcement events exactly once, privacy-safe summaries, optional reader absence, reduced-motion timer cleanup. E2E: installed actual Emacspeak on owned GUI/terminal fixtures, navigate/approve/deny/cancel/recover with recorded speech or reader event evidence and honest output limitations.",
+      "related": [
+        "ogent-n5s7",
+        "ogent-yk1w"
+      ],
+      "deps_core": [],
+      "deps_surface": [],
+      "selected": true,
+      "weighted_score": 3.76,
+      "average_score": 3.8,
+      "rank": 15
+    },
+    {
+      "key": "I16",
+      "title": "Rebuild the model picker",
+      "scores": [
+        4,
+        4,
+        3,
+        4,
+        4,
+        4,
+        3,
+        3,
+        1,
+        4
+      ],
+      "selected": false,
+      "why": "Already delivered by ogent-7sd, ogent-g5x and ogent-zwf. A new picker would duplicate shipped scope, aliases and evidence columns; preserve it and improve dated maintenance through I11.",
+      "weighted_score": 3.32,
+      "average_score": 3.4,
+      "disposition": "cut"
+    },
+    {
+      "key": "I17",
+      "title": "Add multi-model fan-out",
+      "scores": [
+        4,
+        4,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        1,
+        4
+      ],
+      "selected": false,
+      "why": "Already delivered by ogent-pje and its children. Keep the current orchestration and compare/keep actions; I01 and I06 improve shared snapshots and navigation around it.",
+      "weighted_score": 3.56,
+      "average_score": 3.6,
+      "disposition": "cut"
+    },
+    {
+      "key": "I18",
+      "title": "Add ratings and basic cost analytics",
+      "scores": [
+        4,
+        4,
+        3,
+        4,
+        4,
+        4,
+        3,
+        3,
+        1,
+        4
+      ],
+      "selected": false,
+      "why": "Already delivered by ogent-z0k. Repeating rating UI or character-based price calculation adds little; I10 targets a distinct observed-usage and round-limit contract.",
+      "weighted_score": 3.32,
+      "average_score": 3.4,
+      "disposition": "cut"
+    },
+    {
+      "key": "I19",
+      "title": "Add basic conversation search and export",
+      "scores": [
+        4,
+        4,
+        3,
+        4,
+        4,
+        4,
+        3,
+        3,
+        1,
+        4
+      ],
+      "selected": false,
+      "why": "Already delivered in session history, Armory search and ogent-9w7.8/ogent-7hg. I07 adds durable per-run destinations across explicit roots; I12 adds technical reproduction with disclosure control.",
+      "weighted_score": 3.32,
+      "average_score": 3.4,
+      "disposition": "cut"
+    },
+    {
+      "key": "I20",
+      "title": "Require another completion package",
+      "scores": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        2,
+        2,
+        1,
+        3
+      ],
+      "selected": false,
+      "why": "Native completing-read already fits the project and user preferences. A mandatory package adds installation/load-order cost; optional integrations can enhance I07 without a new required dependency.",
+      "weighted_score": 2.52,
+      "average_score": 2.6,
+      "disposition": "cut"
+    },
+    {
+      "key": "I21",
+      "title": "Automatically attach the entire project",
+      "scores": [
+        2,
+        2,
+        2,
+        4,
+        3,
+        4,
+        3,
+        3,
+        1,
+        3
+      ],
+      "selected": false,
+      "why": "Conflicts with explicit context. Recursive collection can inflate latency and disclose unrelated files. I01/I08 instead expose chosen items and their reasons; whole-project inclusion can remain an explicit user choice.",
+      "weighted_score": 2.68,
+      "average_score": 2.7,
+      "disposition": "cut"
+    },
+    {
+      "key": "I22",
+      "title": "Auto-approve any write from a trusted agent",
+      "scores": [
+        1,
+        2,
+        4,
+        3,
+        2,
+        4,
+        3,
+        3,
+        1,
+        3
+      ],
+      "selected": false,
+      "why": "Trust in a model does not define invocation effects. It removes the deliberate decision boundary and is excluded. I05 reduces friction with an explicit bounded grant matched at the existing execution owner.",
+      "weighted_score": 2.6,
+      "average_score": 2.6,
+      "disposition": "cut"
+    },
+    {
+      "key": "I23",
+      "title": "Replace native UI with a cloud dashboard",
+      "scores": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        2,
+        2,
+        3,
+        1,
+        2
+      ],
+      "selected": false,
+      "why": "Off the Emacs/Org vision and adds hosting/accounts plus a second UI/storage system. Native I06 activity and existing Armory views address the useful part.",
+      "weighted_score": 2.36,
+      "average_score": 2.5,
+      "disposition": "cut"
+    },
+    {
+      "key": "I24",
+      "title": "Build a distributed autonomous agent fleet",
+      "scores": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        3,
+        3,
+        2,
+        1
+      ],
+      "selected": false,
+      "why": "Remote orchestration, credentials and detached execution expand the maintenance surface; removed Gas Town history reinforces the mismatch. Improve local control/recovery first.",
+      "weighted_score": 2.08,
+      "average_score": 2.1,
+      "disposition": "cut"
+    },
+    {
+      "key": "I25",
+      "title": "Train an ogent foundation model",
+      "scores": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        3,
+        2,
+        1
+      ],
+      "selected": false,
+      "why": "Not pragmatic for an Emacs package: data, compute and model-serving burden do not improve native composition. Frontier models remain external composable transports.",
+      "weighted_score": 1.92,
+      "average_score": 2.0,
+      "disposition": "cut"
+    },
+    {
+      "key": "I26",
+      "title": "Apply global GC and font-lock speed presets",
+      "scores": [
+        3,
+        1,
+        3,
+        3,
+        2,
+        2,
+        3,
+        2,
+        1,
+        3
+      ],
+      "selected": false,
+      "why": "Unmeasured global tuning can make other Emacs buffers worse. I09 first profiles representative workloads and scopes any justified repair to ogent-owned work.",
+      "weighted_score": 2.36,
+      "average_score": 2.3,
+      "disposition": "cut"
+    },
+    {
+      "key": "I27",
+      "title": "Force a single premium theme and font",
+      "scores": [
+        3,
+        3,
+        3,
+        3,
+        2,
+        2,
+        2,
+        3,
+        1,
+        3
+      ],
+      "selected": false,
+      "why": "Breaks native theme/font inheritance and accessibility preferences. Reuse the semantic face system and verify user-selected light/dark/ASCII/large-text variants instead.",
+      "weighted_score": 2.44,
+      "average_score": 2.5,
+      "disposition": "cut"
+    },
+    {
+      "key": "I28",
+      "title": "Prioritize full TRAMP remote execution",
+      "scores": [
+        3,
+        3,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        2
+      ],
+      "selected": false,
+      "why": "Defer: useful for some users, but remote process/path/auth semantics and blocked-editor behavior need a separate demonstrated use case and fixture strategy. Local workspace clarity has broader evidence now.",
+      "weighted_score": 2.76,
+      "average_score": 2.8,
+      "disposition": "cut"
+    },
+    {
+      "key": "I29",
+      "title": "Turn rated live runs into a model-quality corpus",
+      "scores": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        3
+      ],
+      "selected": false,
+      "why": "Defer: a promising follow-up to existing ratings, but reference-answer quality, private payload reuse and live evaluation costs need a concrete workload. Fixtures can prove wiring, not frontier answer quality.",
+      "weighted_score": 3.36,
+      "average_score": 3.3,
+      "disposition": "deferred"
+    },
+    {
+      "key": "I30",
+      "title": "Add a general parameterized recipe engine",
+      "scores": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        4,
+        3,
+        4,
+        3
+      ],
+      "selected": false,
+      "why": "Defer: Babel, prompt templates, personas and job templates already cover many recipes. Consolidate them around frozen plans/project profiles before defining another generalized workflow language.",
+      "weighted_score": 3.28,
+      "average_score": 3.2,
+      "disposition": "deferred"
+    }
+  ],
+  "stage": "Candidate selection; subsequent technical refinements are recorded in the beads and report"
+}

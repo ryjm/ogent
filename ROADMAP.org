@@ -6,6 +6,10 @@ Current status (2026-10-08): see [[file:docs/reality-check.org][Reality Check an
 for verified fixes, proof limits, and bead references. Implementation presence
 and live provider access are separate evidence.
 
+Next work (2026-10-10): [[file:docs/experiments/idea-wizard/2026-10-10.org][the Idea Wizard roadmap]] ranks 15 proposed improvements
+under =ogent-zqaw=, with detailed implementation and verification beads.
+These remain open; the report records selection and four refinement passes.
+
 * Current delivery evidence
 
 The model picker and retained aliases are available without provider login.
