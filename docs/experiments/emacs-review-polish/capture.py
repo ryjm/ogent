@@ -71,13 +71,7 @@ def main():
     shot("source-patch-split", patch + ' (split-window-right) (set-window-buffer (next-window) ogent-workbench-fixture-todo)', width=112)
     if prefix == "after-":
         shot("check-output-80-dark", patch + ' (ogent-task-check-output) (delete-other-windows) (goto-char (point-min))', dark=True)
-        proposal = '''(with-current-buffer ogent-workbench-fixture-source
-          (cl-mapc (lambda (record edit)
-                     (plist-put record :proposal edit)
-                     (plist-put record :draft (ogent-edit-new-text edit))
-                     (plist-put record :status "proposed"))
-                   (list ogent-workbench-fixture-first ogent-workbench-fixture-last)
-                   ogent-workbench-fixture-edits))'''
+        proposal = '(ogent-review-fixture--propose)'
         shot("proposed-comments-60", proposal + reader, width=60)
         shot("empty-comments-80", '(switch-to-buffer (get-buffer-create "empty-review.org")) (org-mode) (ogent-workbench-comments) (delete-other-windows) (goto-char (point-min))')
         stale = '''(with-current-buffer ogent-workbench-fixture-source

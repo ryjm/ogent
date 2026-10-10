@@ -230,12 +230,15 @@
   (save-window-excursion
     (ogent-workbench-tests--with-source "Original."
       (let* ((record (ogent-workbench--add 1 10 "Be concrete." 'comment))
-             (edit (car (ogent-workbench--proposals
-                         (json-serialize (vector (list :id (plist-get record :id) :text "Concrete.")))
-                         (list :id "reader" :buffer source :records (list record))))))
-        (plist-put record :status "proposed")
-        (plist-put record :proposal edit)
-        (plist-put record :draft "Concrete.")
+             (response (json-serialize (vector (list :id (plist-get record :id) :text "Concrete."))))
+             (ogent-ui--request-history
+              (list (make-ogent-ui-request :status 'done :context '(:workbench-run "reader"))))
+             edit)
+        (puthash "reader" (list :id "reader" :buffer source :records (list record))
+                 ogent-workbench--runs)
+        (cl-letf (((symbol-function 'ogent-ui--response-body-text) (lambda (_) response)))
+          (ogent-workbench--finished '(:workbench-run "reader")))
+        (setq edit (plist-get record :proposal))
         (switch-to-buffer source)
         (ogent-workbench-comments)
         (unwind-protect
@@ -245,7 +248,13 @@
               (let ((overriding-terminal-local-map nil) (overriding-local-map nil))
                 (call-interactively (key-binding (kbd "e"))))
               (should (derived-mode-p 'ogent-edit-diff-mode))
-              (should (equal ogent-edit-diff--edits (list edit))))
+              (should (equal ogent-edit-diff--edits (list edit)))
+              (with-current-buffer source
+                (setq ogent-workbench--records nil)
+                (ogent-workbench--load)
+                (should (equal "Concrete." (plist-get (car ogent-workbench--records) :draft))))
+              (switch-to-buffer source) (ogent-workbench-comments)
+              (should (string-match-p "Saved draft\nConcrete" (buffer-string))))
           (when-let ((reader (get-buffer (format "*ogent-review:%s*" (buffer-name source)))))
             (kill-buffer reader))
           (when-let ((diff (get-buffer ogent-edit-diff-buffer-name))) (kill-buffer diff)))))))

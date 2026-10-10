@@ -18,10 +18,10 @@
                  (list (region-beginning) (region-end)))))
     (cl-assert (equal (buffer-substring-no-properties (car range) (cadr range))
                       (plist-get selected :text)))))
-(with-current-buffer ogent-workbench-fixture-source
-  (plist-put ogent-workbench-fixture-first :status "proposed")
-  (plist-put ogent-workbench-fixture-first :draft (ogent-edit-new-text (car ogent-workbench-fixture-edits)))
-  (plist-put ogent-workbench-fixture-first :proposal (car ogent-workbench-fixture-edits)))
+(ogent-review-fixture--propose)
+(with-temp-buffer
+  (insert-file-contents ogent-workbench-file)
+  (cl-assert (string-match-p "Mark a passage, leave a comment, and review the revision in place" (buffer-string))))
 (ogent-workbench-comments)
 (goto-char (point-min)) (execute-kbd-macro (kbd "n e"))
 (cl-assert (derived-mode-p 'ogent-edit-diff-mode))
@@ -117,5 +117,6 @@
                           "revision and apply update available actions immediately"
                           "proposal key opens live diff and q returns to comments"
                           "task refresh preserves the selected hunk"
-                          "ordinary diff keys navigate to the task hunk"]))))
+                          "ordinary diff keys navigate to the task hunk"
+                          "completed response saves the first replacement draft"]))))
 (message "Passage and TODO keys passed; owned fixtures only")

@@ -300,6 +300,7 @@ In a delegated task patch, attach the comment to the current diff hunk."
                  (with-current-buffer (ogent-edit-source-buffer old)
                    (setq ogent-edit--pending-edits (delq old ogent-edit--pending-edits))))
                (plist-put record :proposal edit)
+               (plist-put record :draft (ogent-edit-new-text edit))
                (plist-put record :status "proposed")
                (ogent-workbench--write record))
              edits (mapcar (lambda (edit)

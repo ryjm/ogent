@@ -1,8 +1,8 @@
 {
-  "source_head": "6afcddb108a47d25a011731d51749ddcb4bc4dce",
-  "source_fingerprint": "101771065bd925851a70f6bb4ee3708dce6a1a0f32a6fb3596b0cd3a52c85963",
-  "completed_fingerprint": "101771065bd925851a70f6bb4ee3708dce6a1a0f32a6fb3596b0cd3a52c85963",
-  "captured_at": "2026-10-10T17:25:19.093066+00:00",
+  "source_head": "53c1cfd4e56e83262c6ac602b577cdc89e86dc30",
+  "source_fingerprint": "a933ec1c3f29e676138ee686df55991eeba5164d424e43faec22b1889f69324a",
+  "completed_fingerprint": "a933ec1c3f29e676138ee686df55991eeba5164d424e43faec22b1889f69324a",
+  "captured_at": "2026-10-10T17:34:10.806824+00:00",
   "provider_requests": false,
   "passages": "owned replacement JSON fixture",
   "task": "actual owned CLI, Git worktree, diff and Python checks (pass, exit 7, canceled wait)",
@@ -40,42 +40,42 @@
       "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 79 columns\"",
       "theme": "modus-operandi",
       "runtime": "(:font\n \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n :evil \"1.15.0\" :icons t :unicode t)",
-      "sha256": "f7e62cc3610f64305051b7314a5ab4bd74d8f8c8b09122c7622d0ed791dab03f"
+      "sha256": "93413e6de4e73cb813a6abc820563d396eff73aa6340be3c62d60c26c8d5437f"
     },
     {
       "file": "docs/assets/emacs-review-polish/after-task-patch-80.png",
       "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 80 columns\"",
       "theme": "modus-operandi",
       "runtime": "(:font\n \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n :evil \"1.15.0\" :icons t :unicode t)",
-      "sha256": "fb67d2dd5058c366547ea3a9633be133aa8ac39b2e87c9ea54ad970398544f3c"
+      "sha256": "e132138f6adda5aada90f67f01698a40293388c1d209c5b12026efba49de9276"
     },
     {
       "file": "docs/assets/emacs-review-polish/after-task-patch-60-dark.png",
       "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 60 columns\"",
       "theme": "modus-vivendi",
       "runtime": "(:font\n \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n :evil \"1.15.0\" :icons t :unicode t)",
-      "sha256": "41e7a0dadab22e8ca35feb595e40b9ba4f943b0e86f2eea54727f6712e13c2ee"
+      "sha256": "0ff1bda42704a79343dbcef70b2c7828ca2849f37f01117fae50da24f810f53c"
     },
     {
       "file": "docs/assets/emacs-review-polish/after-task-result-112.png",
       "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 112 columns\"",
       "theme": "modus-operandi",
       "runtime": "(:font\n \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n :evil \"1.15.0\" :icons t :unicode t)",
-      "sha256": "64651ea75015bbef08aec454aeb184c0545574495df28ab2d9aa359e081063e7"
+      "sha256": "5dfc5cc8b63f5db41ea67af30fc41d0472ad3514c8996766c6db187bea27a110"
     },
     {
       "file": "docs/assets/emacs-review-polish/after-source-patch-split.png",
       "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 55 columns\"",
       "theme": "modus-operandi",
       "runtime": "(:font\n \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n :evil \"1.15.0\" :icons t :unicode t)",
-      "sha256": "6fdbe7082c4bc771d734593b949c574e673e7ed8e1c07f6d4ce9b5564140d19b"
+      "sha256": "69d1a6d5eff0c3bd57319aec9214c3eb76129ce4f77d3caccfb907dee367064e"
     },
     {
       "file": "docs/assets/emacs-review-polish/after-check-output-80-dark.png",
       "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 80 columns\"",
       "theme": "modus-vivendi",
       "runtime": "(:font\n \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n :evil \"1.15.0\" :icons t :unicode t)",
-      "sha256": "6c2fc6d8182b54b99536ef29483b27f421c0c297b2978f0bd5d6f95cad383b69"
+      "sha256": "bc68f52c74d13492bbc0ff6aa11a94e38947309d8d8b1544a68ee80de5322839"
     },
     {
       "file": "docs/assets/emacs-review-polish/after-proposed-comments-60.png",
@@ -103,35 +103,35 @@
       "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 80 columns\"",
       "theme": "modus-operandi",
       "runtime": "(:font\n \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-22-*-*-*-m-0-iso10646-1\"\n :evil \"1.15.0\" :icons t :unicode t)",
-      "sha256": "3a3be259de59c504478a39eb5cd1ce07cb99f0451899c0508503bc2f7f2672c9"
+      "sha256": "1435cbb643a90dbb7716a8c95df381c004fb4a10ee9d41cc7d437d03e483710a"
     },
     {
       "file": "docs/assets/emacs-review-polish/after-failed-check-patch-60.png",
       "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 60 columns\"",
       "theme": "modus-operandi",
       "runtime": "(:font\n \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n :evil \"1.15.0\" :icons t :unicode t)",
-      "sha256": "c331a58747ea933ead8de186a9b6141f8f75e53260f0f586b6ed7023105d82b5"
+      "sha256": "0d36c5260c1394278e8c989bf96c922367035dafa326d38250f97a14d40c81ac"
     },
     {
       "file": "docs/assets/emacs-review-polish/after-failed-check-output-112-dark.png",
       "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 112 columns\"",
       "theme": "modus-vivendi",
       "runtime": "(:font\n \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n :evil \"1.15.0\" :icons t :unicode t)",
-      "sha256": "38c34b36e691c0c9cce71eb9c0cc672297bd0fe999c24b6dbc83e39e7ac911f5"
+      "sha256": "69c650a2bc0e5fce6b0cc771d3d348eab032cf4efb48ce601f3b44c4f9c83e32"
     },
     {
       "file": "docs/assets/emacs-review-polish/after-checking-patch-80.png",
       "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 80 columns\"",
       "theme": "modus-operandi",
       "runtime": "(:font\n \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n :evil \"1.15.0\" :icons t :unicode t)",
-      "sha256": "335df59e12d79a32db1149faa62d323aec298ba311bdb5c3cc9966a905cfe36b"
+      "sha256": "8b4b2a6535105566864474a54bebf3328a50dfdf99919409a7df755a5aea343b"
     },
     {
       "file": "docs/assets/emacs-review-polish/after-cancelled-patch-80-dark.png",
       "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 80 columns\"",
       "theme": "modus-vivendi",
       "runtime": "(:font\n \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n :evil \"1.15.0\" :icons t :unicode t)",
-      "sha256": "961dfe2415cb468e5017364a201a83f65b13886205d3dc636ffbb29b0c9a3a42"
+      "sha256": "4054eb575e27c18c130a92fe728bf246cbbc19feb1d82faeb591c9b822fadb7f"
     }
   ]
 }

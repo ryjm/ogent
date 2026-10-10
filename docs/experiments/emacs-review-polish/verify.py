@@ -54,7 +54,7 @@ def main():
     archive("lint.json", data)
     for name in ["keyboard-proof", "terminal-proof", "plain-proof", "early-evil-proof"]:
         proof = json.loads((OUT.parent / (name + ".json")).read_text())
-        if proof["provider_requests"] or proof["actual_owned_cli_runs"] != 2 or len(proof["checks"]) != 18:
+        if proof["provider_requests"] or proof["actual_owned_cli_runs"] != 2 or len(proof["checks"]) != 19:
             raise RuntimeError(f"{name}: incomplete native key evidence")
     capture = json.loads((OUT.parent / "after-captures.json").read_text())
     source = fingerprint()
@@ -68,7 +68,7 @@ def main():
                "source_fingerprint": source, "fingerprint_paths": "git ls-files lisp test makem.sh Makefile",
                "provider_requests": False, "runs": results,
                "lint": {"status": lint["status"], "tasks": lint["tasks"], "sha256": hashlib.sha256(data).hexdigest()},
-               "native_ui": {"emacs": "30.1", "gui_checks": 18, "terminal_ascii_checks": 18, "plain_terminal_checks": 18, "early_evil_checks": 18, "screenshots": len(capture["screenshots"])}}
+               "native_ui": {"emacs": "30.1", "gui_checks": 19, "terminal_ascii_checks": 19, "plain_terminal_checks": 19, "early_evil_checks": 19, "screenshots": len(capture["screenshots"])}}
     (OUT / "summary.json").write_text(json.dumps(summary, indent=2) + "\n")
     print("Archived six passing test runs, strict lint, and native workflow evidence")
 

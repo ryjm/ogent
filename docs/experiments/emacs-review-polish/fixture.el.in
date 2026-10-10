@@ -57,6 +57,23 @@
 (cl-mapc (lambda (edit record) (puthash (ogent-edit-id edit) record ogent-workbench--edits))
          ogent-workbench-fixture-edits
          (list ogent-workbench-fixture-first ogent-workbench-fixture-last))
+(defun ogent-review-fixture--propose ()
+  "Deliver owned replacement JSON through the actual completion hook."
+  (let* ((id (org-id-new))
+         (records (list ogent-workbench-fixture-first ogent-workbench-fixture-last))
+         (response (json-serialize
+                    (vconcat (cl-mapcar
+                              (lambda (record edit)
+                                (list :id (plist-get record :id) :text (ogent-edit-new-text edit)))
+                              records ogent-workbench-fixture-edits))))
+         (ogent-ui--request-history
+          (list (make-ogent-ui-request :status 'done :context (list :workbench-run id)))))
+    (puthash id (list :id id :buffer ogent-workbench-fixture-source :records records)
+             ogent-workbench--runs)
+    (cl-letf (((symbol-function 'ogent-ui--response-body-text) (lambda (_) response)))
+      (ogent-workbench--finished (list :workbench-run id)))
+    (setq ogent-workbench-fixture-edits
+          (mapcar (lambda (record) (plist-get record :proposal)) records))))
 (setq ogent-workbench-fixture-project (expand-file-name "project" ogent-workbench-fixture-root)
       ogent-workbench-fixture-armory (expand-file-name "armory" ogent-workbench-fixture-project)
       ogent-armory-codex-executable (expand-file-name "owned-agent" ogent-workbench-fixture-root))

@@ -36,7 +36,7 @@ GTK Emacs 30.1 and terminal Emacs ran the complete owned journey through
 actual keymaps: work menu, comment selection, refresh, source selection,
 proposal diff and return, refinement/acceptance, TODO patch, ordinary diff
 hunk navigation, feedback, full check output and return, revision, durable
-result, apply, and preservation of the TODO state. Each trace records 18
+result, apply, and preservation of the TODO state. Each trace records 19
 checks and exactly two real owned CLI runs with a real Python check.
 
 The GUI trace uses Evil 1.15.0. Terminal traces cover ASCII without icons,
@@ -48,7 +48,8 @@ without Magit. A full Doom installation and Emacspeak are not available and
 were not tested. Keyboard/text reachability is not a screen-reader claim.
 
 Final state captures use actual owned passing, exit-7 failing, and cancelled
-waiting checks. Passage replacements are explicitly owned JSON fixtures.
+waiting checks. Passage replacements are owned JSON delivered through the actual completion
+hook; first replacement drafts are persisted and reopened by the reader.
 Provider calls are blocked, and no provider authentication is performed.
 
 * Repository verification

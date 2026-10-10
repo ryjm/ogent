@@ -1,6 +1,6 @@
 {
-  "recorded_at": "2026-10-10T17:25:48.495095+00:00",
-  "source_fingerprint": "101771065bd925851a70f6bb4ee3708dce6a1a0f32a6fb3596b0cd3a52c85963",
+  "recorded_at": "2026-10-10T17:39:03.377350+00:00",
+  "source_fingerprint": "a933ec1c3f29e676138ee686df55991eeba5164d424e43faec22b1889f69324a",
   "fingerprint_paths": "git ls-files lisp test makem.sh Makefile",
   "provider_requests": false,
   "runs": [
@@ -12,7 +12,7 @@
       "skipped": 18,
       "store_integrity": "clean",
       "dependencies": "full suite with test helper",
-      "sha256": "d5f4a7ff6dd2535b79982f19f7878b86f266ae93db3cfa726c19698a8dff7b73"
+      "sha256": "2eda409e96047858e9b318c0a52f35d811ad7a9b47772edeeba8199128db3c13"
     },
     {
       "name": "suite29",
@@ -22,7 +22,7 @@
       "skipped": 19,
       "store_integrity": "clean",
       "dependencies": "full suite with test helper",
-      "sha256": "5880c552e47443fcb93880e76cfaa58efb1fc078b092f0f4f931f937b96d5641"
+      "sha256": "e6f45ee72345dfddf4b3805c923aaba530092de100983862e1bb81effaa56478"
     },
     {
       "name": "current30",
@@ -32,7 +32,7 @@
       "skipped": 2,
       "store_integrity": "not this command",
       "dependencies": "Emacs 30.2, Org 9.8.10, transient 0.13.8, gptel 0.9.9.6 (/tmp/ogent-fixdeps/30.2/elpa/gptel-20261007.432/gptel-request.el)",
-      "sha256": "875a6134a813602310ce7195201178e8dfe9739ceb27e0c4b42bf0cfc5bdf80e"
+      "sha256": "c112d343a1d8b30b9880beadbb2eeecaf0fb0d1d7ee160e95da4fe85a085772a"
     },
     {
       "name": "current29",
@@ -42,7 +42,7 @@
       "skipped": 3,
       "store_integrity": "not this command",
       "dependencies": "Emacs 29.1, Org 9.8.10, transient 0.13.8, gptel 0.9.9.6 (/tmp/ogent-ergonomics-elpa/gptel-20261007.432/gptel-request.el)",
-      "sha256": "82914fc3eb0f7780b6afd85d0ac8ef07a9e17cd4531e6d53cd32b6b57f5ef03e"
+      "sha256": "dfd5ac54b3d9950e6518380b3fb003c725ea3ab77f1046890dd369b1de2cb416"
     },
     {
       "name": "minimum30",
@@ -52,7 +52,7 @@
       "skipped": 2,
       "store_integrity": "not this command",
       "dependencies": "Emacs 30.2, Org 9.8.10, transient 0.13.8, gptel 0.9.9.5 (/tmp/gptel-minimum/gptel-request.el)",
-      "sha256": "766a8692bafc323486034c9e1ba82ef3d07eb16bb9b4e03252c092e60ae49912"
+      "sha256": "ffa597c5e3686df00fe2200a5a908dfe71a2df2132b3d9359b6ee537276d65d8"
     },
     {
       "name": "minimum29",
@@ -62,7 +62,7 @@
       "skipped": 3,
       "store_integrity": "not this command",
       "dependencies": "Emacs 29.1, Org 9.8.10, transient 0.13.8, gptel 0.9.9.5 (/tmp/gptel-minimum/gptel-request.el)",
-      "sha256": "619b3d5a2b5b4e48f46895e7f086ba3b2471ab7dc719ef885a3868cb7d888587"
+      "sha256": "41d07e5ab5d321f9ab3849b60f0164835f13c43015497140375791d2a79df21f"
     }
   ],
   "lint": {
@@ -111,14 +111,14 @@
         "reason": null
       }
     ],
-    "sha256": "44c5c6f706cc45f9963f1d2587ee9e506d8d52415a420c670887ce3b2c76b1be"
+    "sha256": "1e0b92872bcc7c8ff311f96530b5a3aef0e35d243ad5ac289abfae22f7b08cbb"
   },
   "native_ui": {
     "emacs": "30.1",
-    "gui_checks": 18,
-    "terminal_ascii_checks": 18,
-    "plain_terminal_checks": 18,
-    "early_evil_checks": 18,
+    "gui_checks": 19,
+    "terminal_ascii_checks": 19,
+    "plain_terminal_checks": 19,
+    "early_evil_checks": 19,
     "screenshots": 18
   }
 }
