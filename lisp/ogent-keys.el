@@ -134,6 +134,10 @@ Set to nil to disable automatic evil binding setup."
 (autoload 'ogent-armory-agenda-control-plane "ogent-armory-schedule" nil t)
 (autoload 'ogent-export-conversation "ox-ogent" nil t)
 (autoload 'ogent-export-conversation-to-kill-ring "ox-ogent" nil t)
+(autoload 'ogent-work-menu "ogent-ui-workbench" nil t)
+(autoload 'ogent-workbench-comment "ogent-workbench" nil t)
+(autoload 'ogent-workbench-revise "ogent-workbench" nil t)
+(autoload 'ogent-task-delegate "ogent-task" nil t)
 
 (defconst ogent-action-registry
   '(;; Core actions
@@ -148,6 +152,14 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Retry last request")
     (model-picker     :key "@" :command ogent-model-picker
                       :desc "Model picker")
+    (work-menu        :key "C-b" :command ogent-work-menu
+                      :desc "Review passages and delegate TODOs" :visual t)
+    (work-comment     :key "C-l" :command ogent-workbench-comment
+                      :desc "Comment on passage or task hunk" :visual t)
+    (work-revise      :key "C-y" :command ogent-workbench-revise
+                      :desc "Revise marked passages")
+    (task-delegate    :key "C-t" :command ogent-task-delegate
+                      :desc "Delegate Org TODO")
     ;; Fan-out
     (fanout           :key "C-f" :command ogent-fanout
                       :desc "Fan out to models (C-f: fan out)"

@@ -6,9 +6,12 @@ Current status (2026-10-08): see [[file:docs/reality-check.org][Reality Check an
 for verified fixes, proof limits, and bead references. Implementation presence
 and live provider access are separate evidence.
 
-Next work (2026-10-10): [[file:docs/experiments/idea-wizard/2026-10-10.org][the Idea Wizard roadmap]] ranks 15 proposed improvements
-under =ogent-zqaw=, with detailed implementation and verification beads.
-These remain open; the report records selection and five refinement passes.
+Selected work (2026-10-10): [[file:docs/work-review.org][passage feedback and Org TODO delegation]]
+let you revise comments together, protect accepted passages, and review a
+delegated task's isolated patch and actual check results at its source heading.
+See [[file:docs/experiments/emacs-workbench/report.org][the native workflow verification]] for evidence and limits.
+The earlier [[file:docs/experiments/idea-wizard/2026-10-10.org][Idea Wizard shortlist]] is historical proposal work;
+the user declined it. It does not represent shipped capabilities.
 
 * Current delivery evidence
 

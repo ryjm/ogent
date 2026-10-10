@@ -71,3 +71,15 @@ Always review the relevant playbook before starting a feature. Each section link
 - The in-process loop lives in =lisp/ogent-armory-native.el=; the runner dispatches on adapter type =gptel_native= and everything funnels through the shared plan/finalize conversation lifecycle.
 - Tool execution MUST go through =ogent-ui--execute-tool= (ledger) with =ogent-tool-approval-check= in front, and successful rounds through =ogent-analytics-record-completion= - never bypass the audit path.
 - Tests stub =gptel-request= via =cl-letf= (=test/ogent-armory-native-tests.el=). User docs: =docs/armory.org=.
+
+* Passage Feedback and Delegated TODOs
+- =ogent-workbench.el= owns durable Org comments, exact anchors and bounded
+  revision proposals; =ogent-ui-workbench.el= owns the reader and work menu.
+- =ogent-task.el= owns isolated Git snapshots, Org task records, async checks
+  and explicit patch application. =ogent-ui-task.el= owns the diff reader.
+- Use the shared UI request completion hook and Armory finished hook; preserve
+  once-only completion, source markers, approvals and the original checkout.
+- Tests mirror each module and replay real gptel/HTTP and CLI/Git workflows
+  under =test/offline/=. Extend store guards for every persistent store.
+- User docs live in =docs/work-review.org=; native evidence lives under
+  =docs/experiments/emacs-workbench/=.

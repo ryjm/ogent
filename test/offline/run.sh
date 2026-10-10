@@ -51,4 +51,4 @@ fi
 timeout 180 "${EMACS:-emacs}" -Q --batch -L "$fixture_root" -l jka-compr \
   -L lisp -L lisp/ui -L test -L test/ui \
   -l test/offline/boot.el.in -l test/offline/workflows.el.in \
-  --eval "(ert-run-tests-batch-and-exit '(or \"ogent-offline-\" \"ogent-armory-\")))"
+  --eval "(ert-run-tests-batch-and-exit '(or \"ogent-offline-\" \"ogent-armory-\" \"ogent-workbench-\" \"ogent-task-\")))"

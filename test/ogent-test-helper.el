@@ -234,6 +234,8 @@ See `ogent-test-transient-source-rows'."
 (defvar ogent-capture-notes-file)
 (defvar ogent-capture-companion-file)
 (defvar ogent-session-directory)
+(defvar ogent-workbench-file)
+(defvar ogent-task-directory)
 (defvar ogent-anthropic-oauth-tokens-dir)
 (defvar ogent-anthropic-oauth--token-file)
 (defvar ogent-codex-oauth-auth-file)
@@ -266,6 +268,8 @@ to look.")
         'ogent-capture-notes-file "capture-notes.org"
         'ogent-capture-companion-file "capture-companion.org"
         'ogent-session-directory "sessions/"
+        'ogent-workbench-file "workbench-review.org"
+        'ogent-task-directory "tasks/"
         'ogent-anthropic-oauth-tokens-dir "anthropic-oauth/"
         'ogent-anthropic-oauth--token-file "anthropic-oauth/tokens.el"
         'ogent-codex-oauth-auth-file "codex-auth.json"

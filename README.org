@@ -286,6 +286,18 @@ older tooling keep working.
 | =C-c . d= | =ogent-notes-capture=         | Capture last response to Notes heading   |
 | =C-c . D= | =ogent-debug-mode=            | Toggle debug mode                        |
 
+** Review passages and delegate TODOs
+
+Mark passages with =C-c . C-l=, then revise their comments together with
+=C-c . C-y=. Accept or reject the proposed diffs; accepted passages become
+protected text. The work menu at =C-c . C-b= opens comments and keep actions.
+
+On an Org TODO, =C-c . C-t= delegates the task into an isolated Git worktree.
+Keep editing while it runs, then use =C-c . C-b p= to review the patch and
+actual =OGENT_CHECK= results from that heading. Comment on hunks, request
+another revision, or apply the reviewed patch. See the
+[[file:docs/work-review.org][complete work review guide]] for keys, source protection, and stored records.
+
 ** Review Prefix
 | Key       | Command                    | Description                              |
 |-----------+----------------------------+------------------------------------------|

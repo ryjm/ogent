@@ -1,0 +1,99 @@
+#+title: Review the work, then keep it
+
+* Mark passages and revise them together
+
+Select a paragraph or code passage and press =C-c . C-l= to leave a comment.
+Mark more passages, then press =C-c . C-y= to request one revision using all
+open comments in that document. The result opens as proposed diffs; your
+document stays unchanged until you accept a replacement.
+
+For example, mark the opening with “Say what I can actually do,” and the
+ending with “Give one concrete example.” Both comments travel together, so
+the model can make the passages agree with each other.
+
+=C-c . C-b= opens the work menu. Use =k= to keep a selection unchanged or
+=l= to read full comments and their passages. In the reader, =RET= visits a
+passage, =r= revises open comments, and =d= dismisses a comment or releases a
+keep marker. The reader works with ordinary completion and your theme.
+
+In the proposed diffs, =n/p= navigates, =a/r= accepts or rejects, =s= stages,
+and =A= accepts staged proposals. =c= comments on the proposed hunk, and
+=C-c C-r= revises the commented proposals for its source document. That
+feedback includes the proposed draft as well as the original passage.
+Follow-up comments refine the existing comment on that passage. A late response
+is refused if its feedback changed or its passage was accepted during the run.
+Accepting a replacement turns its comment into a keep marker. Rejecting
+reopens the comment. Dismiss a keep marker before revising that passage again.
+
+Comments are saved in =ogent-workbench-file=, a readable Org file. Source
+text and comments remain available when a revision fails or is cancelled.
+Changed or ambiguous passages must be marked again. Replacements are
+checked against exact comment targets; unmarked text is never part of a
+replacement. Save the source document to keep accepted edits across restarts.
+After a restart, feedback whose in-memory proposal was lost reopens for revision;
+its saved draft remains available to the next request.
+
+* Delegate an ordinary Org TODO
+
+Put the task in a saved Org file and press =C-c . C-t= on its TODO heading.
+The heading title and body provide the instruction. An inherited
+=OGENT_WORKSPACE= selects a local Git project; otherwise ogent uses the
+current directory's Git project. Save other edited project files first.
+
+#+begin_example
+* Project
+:PROPERTIES:
+:OGENT_WORKSPACE: /path/to/project
+:OGENT_CHECK: make test
+:END:
+** TODO Greet people by name
+Update greeting(name) to use its argument. Keep the existing API.
+#+end_example
+
+The agent works in a detached worktree containing the committed project
+and tracked disk edits from dispatch time. Untracked files are excluded
+from this initial snapshot. Your original checkout and index stay available
+for your own work. Normal provider and tool approval settings still apply.
+
+With an existing Armory, set =OGENT_ARMORY= and optionally =OGENT_AGENT=
+on the heading or a parent to reuse that agent. With no Armory, ogent creates
+a task-local native agent using the selected model. Running a model requires
+your normal configured provider; browsing and local fixture verification
+require no authentication.
+
+After the agent finishes, =OGENT_CHECK= runs asynchronously in its worktree.
+=ogent-task-check-command= supplies an optional default. The heading shows
+the run state and actual check state; an absent command says “not run.”
+Save the Org file to retain its =OGENT_TASK_FILE= link. Each task also has
+a durable Org record under =ogent-task-directory= containing the source ID,
+conversation, original instruction, proposed patch, checks, and hunk feedback.
+
+* Review, comment, revise, apply
+
+From the heading, open =C-c . C-b p= to inspect its patch. The patch reader
+keeps standard diff navigation and exposes these actions:
+
+| Key       | Action                                         |
+|-----------+------------------------------------------------|
+| C-c C-m   | Comment on the current hunk                     |
+| C-c C-r   | Revise using all open hunk comments             |
+| C-c C-o   | Open the durable task record, result and logs   |
+| C-c C-c   | Apply the complete reviewed patch              |
+| C-c C-k   | Reject the patch and retain its artifacts      |
+| g / gr    | Refresh; Evil preserves its ordinary g prefix  |
+| q         | Return to the source                           |
+
+Each revision continues in the same isolated worktree and includes actual
+check output. Feedback stays in Org, marked submitted after dispatch.
+Completion never changes focus. Apply checks the patch against current disk
+content and refuses to overwrite unsaved affected buffers. It updates visited
+buffers after applying. The Org TODO stays TODO until you decide it is done.
+
+Use =C-c . C-b x= to cancel a running agent or check. Partial output and
+proposed changes remain inspectable. Rejected and completed tasks retain
+their worktrees for review; the package does not automatically delete them.
+This version reopens finished task records across restarts; it does not
+automatically resume a process interrupted by an Emacs shutdown.
+
+The shared action registry exposes the same commands under the configured
+Evil/Doom ogent prefix. No global font, theme, or unrelated keymap is changed.

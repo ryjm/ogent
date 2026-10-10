@@ -1,0 +1,65 @@
+{
+  "source_head": "204274ea8fcd38afca8f26cb0578e45688365ca7",
+  "source_fingerprint": "1ff770459165cf4ad4a21d642ef1b4223efdb87ef03ea6bafcc17297fbf867da",
+  "completed_fingerprint": "1ff770459165cf4ad4a21d642ef1b4223efdb87ef03ea6bafcc17297fbf867da",
+  "captured_at": "2026-10-10T05:28:00.334099+00:00",
+  "provider_requests": false,
+  "passages": "owned replacement JSON fixture",
+  "task": "actual owned CLI, Git worktree, diff and Python check",
+  "screenshots": [
+    {
+      "file": "docs/assets/emacs-workbench/marked-passages.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 79 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "bbc974c2e4a3b55c4b03003c61d7706537345f2cec44ff5f04e1813c78515c2e"
+    },
+    {
+      "file": "docs/assets/emacs-workbench/comments-60.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 60 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "bcfcc26f350931bc8205e6f9fbe3166e5d4fd6e514812d2cb94be3fc267bec9b"
+    },
+    {
+      "file": "docs/assets/emacs-workbench/comments-112-dark.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 112 columns\"",
+      "theme": "modus-vivendi",
+      "sha256": "7a7329698ffc17b6b91c0a7d1719540e1497195eb386fef274a76631eeb0a464"
+    },
+    {
+      "file": "docs/assets/emacs-workbench/revision-60.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 60 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "7323963a6225780ffeacadc00438f19e4e4979226b1b7bd98ea7bba2e4c66bb0"
+    },
+    {
+      "file": "docs/assets/emacs-workbench/todo-return.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 79 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "8c547e257816649f755a868a858aaeeb1bcb03d4bc4491bdb3fb3f5dcd1a1bf1"
+    },
+    {
+      "file": "docs/assets/emacs-workbench/task-patch-80.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 80 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "d864b48ed0db5ef5c32529e3d6237bedf7f7d010ed80b06657a7af3ee6250c9d"
+    },
+    {
+      "file": "docs/assets/emacs-workbench/task-patch-60-dark.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 60 columns\"",
+      "theme": "modus-vivendi",
+      "sha256": "80f2e4ec8c7e17fecef03f08812e87d88d837c142a291c4fd564a8ec74faa9f4"
+    },
+    {
+      "file": "docs/assets/emacs-workbench/task-result-112.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 112 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "d9a72e0f8bc75671753cbc15e048c02f339a56eed40c0fa347c906053b0402a1"
+    },
+    {
+      "file": "docs/assets/emacs-workbench/source-patch-split.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 55 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "04d1ca701e1569b15e075f78ea2ff2af5cfd264227d814f5f95e47fab1e6106c"
+    }
+  ]
+}

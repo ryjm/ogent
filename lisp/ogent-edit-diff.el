@@ -15,6 +15,8 @@
 (require 'cl-lib)
 (require 'ogent-edit-parse)
 (require 'ogent-edit-display)
+(autoload 'ogent-workbench-comment "ogent-workbench" nil t)
+(autoload 'ogent-workbench-revise "ogent-workbench" nil t)
 
 ;; Soft dependency on magit-section
 (eval-and-compile
@@ -116,17 +118,17 @@
   (require 'eieio)
   (eval '(progn
            (defclass ogent-edit-diff-root-section (magit-section) ()
-             "Root section for edit diff buffer.")
+	     "Root section for edit diff buffer.")
 
            (defclass ogent-edit-diff-file-section (magit-section)
-             ((file :initarg :file)
-              (edits :initarg :edits))
-             "Section representing a file with edits.")
+	     ((file :initarg :file)
+	      (edits :initarg :edits))
+	     "Section representing a file with edits.")
 
            (defclass ogent-edit-diff-hunk-section (magit-section)
-             ((edit :initarg :edit)
-              (staged :initarg :staged :initform nil))
-             "Section representing a single edit hunk."))))
+	     ((edit :initarg :edit)
+	      (staged :initarg :staged :initform nil))
+	     "Section representing a single edit hunk."))))
 
 ;;; Buffer-local State
 
@@ -157,6 +159,8 @@
     ;; Apply
     (define-key map (kbd "a") #'ogent-edit-diff-accept-at-point)
     (define-key map (kbd "r") #'ogent-edit-diff-reject-at-point)
+    (define-key map (kbd "c") #'ogent-workbench-comment)
+    (define-key map (kbd "C-c C-r") #'ogent-workbench-revise)
     (define-key map (kbd "A") #'ogent-edit-diff-accept-staged)
     (define-key map (kbd "R") #'ogent-edit-diff-reject-all)
     (define-key map (kbd "RET") #'ogent-edit-diff-goto-source)
@@ -174,10 +178,12 @@
 
 \\{ogent-edit-diff-mode-map}"
   :group 'ogent-edit-diff
-  (setq truncate-lines t)
-  (setq buffer-read-only t)
+  (setq-local truncate-lines nil)
+  (setq-local buffer-read-only t)
   (setq ogent-edit-diff--staged (make-hash-table :test 'equal))
   (setq ogent-edit-diff--source-buffers (make-hash-table :test 'equal))
+  (setq-local header-line-format
+              " Revisions   n/p: passage   a/r: accept/reject   c: comment   C-c C-r: revise")
   ;; Enable magit-section features if available
   (when (bound-and-true-p ogent-edit-diff--magit-available)
     (if (boundp 'magit-section-visibility-indicators)
@@ -241,8 +247,8 @@ EDITS is a list of `ogent-edit' structs."
       ;; Header
       (insert (propertize "Edit Proposals" 'face 'bold) "\n")
     (insert (format "  %d edit(s) in %d file(s)\n\n"
-                    (length ogent-edit-diff--edits)
-                    (length by-file)))
+		    (length ogent-edit-diff--edits)
+		    (length by-file)))
     ;; Staged/unstaged counts
     (ogent-edit-diff--insert-status-line)
     (insert "\n")
@@ -270,12 +276,12 @@ EDITS is a list of `ogent-edit' structs."
                          :file file :edits edits)
       ;; File heading
       (magit-insert-heading
-        (propertize (format "  %s " (if (ogent-edit-diff--file-all-staged file edits)
-                                        "+" "-"))
-                    'face 'ogent-edit-diff-staged)
-        (propertize file 'face 'ogent-edit-diff-file-heading)
-        (propertize (format " (%d hunks)" (length edits))
-                    'face 'shadow))
+	(propertize (format "  %s " (if (ogent-edit-diff--file-all-staged file edits)
+					"+" "-"))
+		    'face 'ogent-edit-diff-staged)
+	(propertize file 'face 'ogent-edit-diff-file-heading)
+	(propertize (format " (%d hunks)" (length edits))
+		    'face 'shadow))
     ;; Edit hunks
     (dolist (edit edits)
       (ogent-edit-diff--insert-hunk-section edit))))
@@ -295,15 +301,15 @@ _FILE is unused but kept for future per-file staging state."
          (new-text (ogent-edit-new-text edit)))
     (magit-insert-section (ogent-edit-diff-hunk-section
                            :edit edit :staged staged)
-        ;; Hunk heading with line info
-        (magit-insert-heading
-          (propertize (if staged "[staged] " "[      ] ")
-                      'face (if staged 'ogent-edit-diff-staged
-                              'ogent-edit-diff-unstaged))
-          (propertize (format "@@ -%d,%d +%d,%d @@"
-                              1 (length (split-string old-text "\n"))
-                              1 (length (split-string new-text "\n")))
-                      'face 'ogent-edit-diff-hunk-heading))
+	;; Hunk heading with line info
+	(magit-insert-heading
+	  (propertize (if staged "[staged] " "[      ] ")
+		      'face (if staged 'ogent-edit-diff-staged
+			      'ogent-edit-diff-unstaged))
+	  (propertize (format "@@ -%d,%d +%d,%d @@"
+			      1 (length (split-string old-text "\n"))
+			      1 (length (split-string new-text "\n")))
+		      'face 'ogent-edit-diff-hunk-heading))
       ;; Diff content
       (ogent-edit-diff--insert-hunk-content old-text new-text))))
 
@@ -333,10 +339,12 @@ _FILE is unused but kept for future per-file staging state."
           (edits (cdr file-group)))
       (insert (propertize file 'face 'ogent-edit-diff-file-heading) "\n")
       (dolist (edit edits)
-        (ogent-edit-diff--insert-hunk-content
-         (ogent-edit-old-text edit)
-         (ogent-edit-new-text edit))
-        (insert "\n")))))
+        (let ((start (point)))
+          (ogent-edit-diff--insert-hunk-content
+           (ogent-edit-old-text edit)
+           (ogent-edit-new-text edit))
+          (insert "\n")
+          (add-text-properties start (point) (list 'ogent-edit edit)))))))
 
 ;;; Navigation
 
@@ -345,14 +353,22 @@ _FILE is unused but kept for future per-file staging state."
   (interactive)
   (if (bound-and-true-p ogent-edit-diff--magit-available)
       (magit-section-forward)
-    (forward-line)))
+    (if (null ogent-edit-diff--edits)
+        (forward-line)
+      (goto-char (next-single-property-change (point) 'ogent-edit nil (point-max)))
+      (unless (get-text-property (point) 'ogent-edit)
+        (goto-char (next-single-property-change (point) 'ogent-edit nil (point-max)))))))
 
 (defun ogent-edit-diff-prev-hunk ()
   "Move to previous hunk section."
   (interactive)
   (if (bound-and-true-p ogent-edit-diff--magit-available)
       (magit-section-backward)
-    (forward-line -1)))
+    (if (null ogent-edit-diff--edits)
+        (forward-line -1)
+      (goto-char (or (previous-single-property-change (point) 'ogent-edit) (point-min)))
+      (unless (get-text-property (point) 'ogent-edit)
+        (goto-char (or (previous-single-property-change (point) 'ogent-edit) (point-min)))))))
 
 (defun ogent-edit-diff-next-file ()
   "Move to next file section."
@@ -376,16 +392,17 @@ _FILE is unused but kept for future per-file staging state."
 
 (defun ogent-edit-diff--current-edit ()
   "Get the edit at point."
-  (when (bound-and-true-p ogent-edit-diff--magit-available)
-    (when-let ((section (magit-current-section)))
-      ;; The hunk section class is defclass'd at runtime only (see above),
-      ;; so EIEIO's compile-time slot validation cannot know its `edit'
-      ;; slot.  Bind the slot name to keep `eieio-oref' from
-      ;; constant-folding into that check.
-      (let ((slot 'edit))
-        (when (and (eieio-object-p section)
-                   (slot-exists-p section slot))
-          (eieio-oref section slot))))))
+  (or (get-text-property (point) 'ogent-edit)
+      (when (bound-and-true-p ogent-edit-diff--magit-available)
+	(when-let ((section (magit-current-section)))
+	  ;; The hunk section class is defclass'd at runtime only (see above),
+	  ;; so EIEIO's compile-time slot validation cannot know its `edit'
+	  ;; slot.  Bind the slot name to keep `eieio-oref' from
+	  ;; constant-folding into that check.
+	  (let ((slot 'edit))
+            (when (and (eieio-object-p section)
+                       (slot-exists-p section slot))
+              (eieio-oref section slot)))))))
 
 (defun ogent-edit-diff-stage ()
   "Stage the edit at point for acceptance."
@@ -521,7 +538,7 @@ Return edits grouped by live buffer, sorted in descending source order.
 Reject overlapping ranges before committing newly anchored positions."
   (let (groups anchors)
     (dolist (edit edits)
-      (when (memq (ogent-edit-status edit) '(accepted rejected resolved))
+      (when (memq (ogent-edit-status edit) '(accepted rejected resolved superseded))
         (user-error "Edit %s is already resolved" (ogent-edit-id edit)))
       (let ((buffer (ogent-edit-source-buffer edit))
             (copy (copy-ogent-edit edit)))

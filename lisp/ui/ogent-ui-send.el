@@ -349,8 +349,10 @@ heading, and CONTEXT-TRANSFORM, when non-nil, post-processes the context."
                                               last-request)))
                           (win (get-buffer-window companion)))
                 (with-selected-window win
-                  (goto-char response-pos))))
-          (message "Ogent request canceled"))))))
+                  (goto-char response-pos)))
+              last-request)
+          (message "Ogent request canceled")
+          nil)))))
 
 (defun ogent-request (&optional prompt models preset templates)
   "Dispatch PROMPT for the current subtree using MODELS via gptel.

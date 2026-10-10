@@ -1,0 +1,105 @@
+;;; fixture.el --- Owned native workflow fixture -*- lexical-binding: t; -*-
+;; Launch in GTK or terminal Emacs; all work runs in retained /tmp fixtures.
+(require 'cl-lib)
+(require 'jka-compr)
+(setq load-suffixes (remove ".elc" load-suffixes))
+(dolist (dir (directory-files "/tmp/ogent-ui-elpa" t "^[^.].*"))
+  (when (file-directory-p dir) (add-to-list 'load-path dir)))
+(dolist (dir '("/work/lisp" "/work/lisp/ui" "/work/test" "/tmp" "/tmp/ogent-ui-evil"))
+  (add-to-list 'load-path dir))
+(require 'gptel)
+(require 'org)
+(require 'transient)
+(require 'ogent-test-helper)
+(require 'ogent)
+(require 'ogent-ui-workbench)
+(require 'ogent-ui-task)
+(when (getenv "OGENT_WORKBENCH_EVIL")
+  (require 'evil) (evil-mode 1))
+(setq ogent-workbench-fixture-root (ogent-test--provision-store-directory 'workbench-ui)
+      ogent-workbench-file (expand-file-name "review.org" ogent-workbench-fixture-root)
+      ogent-task-directory (expand-file-name "tasks" ogent-workbench-fixture-root)
+      ogent-armory-runner-confirm-before-run nil
+      ogent-armory-runner-ensure-beads-redirect nil)
+(advice-add 'gptel-request :before (lambda (&rest _) (error "Provider HTTP disabled in native UI fixture")))
+(setq ogent-workbench-fixture-source (get-buffer-create "draft.org"))
+(with-current-buffer ogent-workbench-fixture-source
+  (org-mode) (ogent-mode 1)
+  (erase-buffer)
+  (insert "* A quieter way to work\n\n"
+          "The system helps you organize and manage every aspect of your creative workflow.\n\n"
+          "Your notes, decisions, and source material stay in ordinary Org files.\n\n"
+          "It also supports many different tasks in a flexible and powerful way.\n")
+  (goto-char (point-min)) (forward-line 2)
+  (setq ogent-workbench-fixture-first
+        (ogent-workbench--add (line-beginning-position) (line-end-position)
+                              "Say what I can actually do. Remove the vague promises." 'comment))
+  (forward-line 2)
+  (ogent-workbench--add (line-beginning-position) (line-end-position)
+                        "Keep this promise and wording." 'keep)
+  (forward-line 2)
+  (setq ogent-workbench-fixture-last
+        (ogent-workbench--add (line-beginning-position) (line-end-position)
+                              "Give one concrete example that follows the opening." 'comment)))
+(setq ogent-workbench-fixture-edits
+      (ogent-workbench--proposals
+       (json-serialize
+        (vector (list :id (plist-get ogent-workbench-fixture-first :id)
+                      :text "Mark a passage, leave a comment, and review the revision in place.")
+                (list :id (plist-get ogent-workbench-fixture-last :id)
+                      :text "Delegate an Org TODO, keep editing, and return to its patch and check results.")))
+       (list :id "ui-fixture" :buffer ogent-workbench-fixture-source
+             :records (list ogent-workbench-fixture-first ogent-workbench-fixture-last))))
+(cl-mapc (lambda (edit record) (puthash (ogent-edit-id edit) record ogent-workbench--edits))
+         ogent-workbench-fixture-edits
+         (list ogent-workbench-fixture-first ogent-workbench-fixture-last))
+(setq ogent-workbench-fixture-project (expand-file-name "project" ogent-workbench-fixture-root)
+      ogent-workbench-fixture-armory (expand-file-name "armory" ogent-workbench-fixture-project)
+      ogent-armory-codex-executable (expand-file-name "owned-agent" ogent-workbench-fixture-root))
+(make-directory ogent-workbench-fixture-project t)
+(ogent-task--git ogent-workbench-fixture-project "init" "-q")
+(ogent-armory-scaffold ogent-workbench-fixture-armory "Owned UI fixture" :create-editor nil)
+(ogent-armory-write-agent ogent-workbench-fixture-armory
+                          (list :slug "coder" :name "Coder" :provider "codex"
+                                :workspace ogent-workbench-fixture-project :active t)
+                          "Only run the owned fixture.")
+(with-temp-file ogent-armory-codex-executable
+  (insert "#!/usr/bin/env python3\nimport pathlib,sys\n"
+          "with pathlib.Path(" (prin1-to-string (expand-file-name "runner-runs.log" ogent-workbench-fixture-root))
+          ").open('a') as runs: runs.write('run\\n')\n"
+          "sys.stdin.read()\npathlib.Path('greeting.py').write_text('def greeting(name):\\n    return f\\\"Hello, {name}!\\\"\\n')\n"
+          "print('Updated the greeting.\\n#+begin_armory\\nSUMMARY: Greet by name\\nARTIFACT: greeting.py\\n#+end_armory')\n"))
+(set-file-modes ogent-armory-codex-executable #o755)
+(with-temp-file (expand-file-name "greeting.py" ogent-workbench-fixture-project)
+  (insert "def greeting(name):\n    return 'Hello!'\n"))
+(with-temp-file (expand-file-name "tasks.org" ogent-workbench-fixture-project)
+  (insert "#+title: Today's work\n\n* TODO Greet people by name\nUpdate greeting(name) to use its argument.\n"))
+(ogent-task--git ogent-workbench-fixture-project "add" "--all")
+(ogent-task--git ogent-workbench-fixture-project "-c" "user.name=Fixture"
+                 "-c" "user.email=fixture@example.invalid" "commit" "-qm" "Fixture")
+(setq ogent-workbench-fixture-todo
+      (find-file-noselect (expand-file-name "tasks.org" ogent-workbench-fixture-project)))
+(with-current-buffer ogent-workbench-fixture-todo
+  (ogent-mode 1) (goto-char (point-min)) (org-next-visible-heading 1)
+  (org-entry-put nil "OGENT_ARMORY" ogent-workbench-fixture-armory)
+  (org-entry-put nil "OGENT_CHECK"
+                 "python3 -B -c 'from greeting import greeting; assert greeting(\"Ada\") == \"Hello, Ada!\"; print(\"Greeting check passed\")'")
+  (setq ogent-workbench-fixture-task
+        (ogent-task-delegate "coder" ogent-workbench-fixture-project)))
+(let ((deadline (+ (float-time) 10)))
+  (while (and (gethash (plist-get ogent-workbench-fixture-task :file) ogent-task--active)
+              (< (float-time) deadline))
+    (accept-process-output nil 0.02)))
+(cl-assert (equal (plist-get ogent-workbench-fixture-task :checks) "passed"))
+(setq inhibit-startup-screen t initial-scratch-message nil)
+(when (display-graphic-p)
+  (menu-bar-mode -1) (tool-bar-mode -1) (scroll-bar-mode -1)
+  (set-frame-font "DejaVu Sans Mono-13" nil t)
+  (set-frame-size (selected-frame) 80 38))
+(load-theme 'modus-operandi t)
+(unless (display-graphic-p) (setq ogent-theme-use-unicode nil))
+(setq server-name (or (getenv "OGENT_WORKBENCH_SERVER") "ogent-workbench"))
+(require 'server) (unless (server-running-p server-name) (server-start))
+(switch-to-buffer ogent-workbench-fixture-source)
+(delete-other-windows)
+(goto-char (point-min))

@@ -1,0 +1,100 @@
+#+title: Passage feedback and Org TODO delegation — native verification
+#+date: 2026-10-10
+
+* Delivered behavior
+
+The user selected two improvements: comment on the work and revise related
+feedback together; delegate an Org TODO and return to its patch and checks.
+[[file:../../work-review.org][The user guide]] documents keys, storage, provider configuration, and recovery.
+
+Passage comments persist as readable Org with exact source text and optional
+proposed drafts. Batch responses must match every comment ID and exact live
+anchor before any replacement is offered. Acceptance uses existing edit
+proposal hooks and protects accepted text. Rejection reopens feedback.
+Restored feedback reopens when its in-memory proposal no longer exists.
+
+TODO runs use the existing Armory runner with an explicit detached workspace.
+The snapshot includes tracked disk edits while preserving the user's index.
+Agent completion and explicit asynchronous checks have separate states.
+The source heading exposes the task's patch and actual check output without
+stealing focus. Hunk feedback persists and travels with a subsequent revision.
+Applying the reviewed patch checks current disk content and affected unsaved
+buffers; completion and application leave the Org TODO state unchanged.
+
+* Evidence
+
+[[file:verification/summary.json][The verification manifest]] records six local test runs and strict lint, their
+counts and log hashes, the source fingerprint, and the native UI checks.
+Compressed complete logs and the machine-readable lint report sit beside it.
+
+| Environment / command | Total | Expected | Skipped | Unexpected |
+|-----------------------+-------+----------+---------+------------|
+| Emacs 30.2 full suite and store integrity | 3280 | 3262 | 18 | 0 |
+| Emacs 29.1 full suite and store integrity | 3280 | 3261 | 19 | 0 |
+| Emacs 30.2, current gptel, offline workflows | 231 | 229 | 2 | 0 |
+| Emacs 29.1, current gptel, offline workflows | 231 | 228 | 3 | 0 |
+| Emacs 30.2, minimum gptel, offline workflows | 231 | 229 | 2 | 0 |
+| Emacs 29.1, minimum gptel, offline workflows | 231 | 228 | 3 | 0 |
+
+Both complete suites report clean real-store snapshots. Current gptel is
+0.9.9.6; the declared minimum is 0.9.9.5. Offline runs load Org 9.8.10 and
+Transient 0.13.8. Optional unavailable integrations account for skips;
+the Emacs 29 fixture additionally skips the missing Ground snapshot case.
+The logs name every skipped test. These counts do not claim live-provider
+quality or exhaustive optional-package compatibility.
+
+The HTTP fixture exercises actual gptel Responses requests, both streamed
+and nonstreamed, for passage feedback. A native TODO with no existing Armory
+also completes through actual loopback gptel and an actual check process.
+Owned CLI runs create actual worktree changes, binary-capable Git patches,
+success/failure/cancellation results, and preserved source/index state.
+Malformed replacement payloads, stale anchors, rejected proposals, unsaved
+affected buffers, failed agents, and cancelled checks have regression coverage.
+All HTTP transport is guarded to loopback. No provider login was used.
+
+* Native UI and keys
+
+[[file:captures.json][Capture provenance]] records nine actual GTK Emacs 30.1 windows, their themes,
+widths, hashes, and unchanged production/test source fingerprint. The passage
+replacement JSON is owned fixture data. Task screenshots show an actual
+owned CLI edit and a Python check, not a fabricated provider response.
+
+| Surface | Native capture |
+|---------+----------------|
+| Comments attached to text | [[file:../../assets/emacs-workbench/marked-passages.png][Marked document]] |
+| Full feedback at 60 columns | [[file:../../assets/emacs-workbench/comments-60.png][Narrow comment reader]] |
+| Feedback in a dark theme | [[file:../../assets/emacs-workbench/comments-112-dark.png][Wide dark reader]] |
+| Bounded replacements without Magit | [[file:../../assets/emacs-workbench/revision-60.png][Native proposal reader]] |
+| Return to the original TODO | [[file:../../assets/emacs-workbench/todo-return.png][Ready heading with actual checks]] |
+| Review the task's patch | [[file:../../assets/emacs-workbench/task-patch-80.png][Diff reader]] |
+| Narrow patch in a dark theme | [[file:../../assets/emacs-workbench/task-patch-60-dark.png][Dark diff reader]] |
+| Plain Org result and artifact links | [[file:../../assets/emacs-workbench/task-result-112.png][Durable result]] |
+| Split source and patch | [[file:../../assets/emacs-workbench/source-patch-split.png][Source beside returned work]] |
+
+[[file:keyboard-proof.json][GUI key proof]] and [[file:terminal-proof.json][terminal ASCII key proof]] each record 13 successful
+assertions using actual keyboard macros. They cover the work transient,
+reader navigation and refresh, visiting the exact source passage, fallback
+diff acceptance, preserving kept text, returning to a task patch, commenting,
+a second actual owned CLI run and passing check, visiting the result, applying
+to the original checkout, preserving TODO state, and local Evil disablement.
+The final selection check preserves Evil's inclusive last character.
+Evil loads after the new readers in this fixture, exercising deferred bindings.
+
+To reproduce on an environment with the documented runtime dependencies,
+load =fixture.el.in= in actual Emacs, then =keyboard.el.in=. The fixture
+refuses provider HTTP and keeps all projects and stores under owned temporary
+directories. =capture.py= expects the =ogent-ui= Docker fixture and its Xvfb
+display; =verify.py= archives executed logs and refuses failing evidence.
+The saved source fingerprint intentionally precedes the commit that contains
+the evidence, avoiding a circular commit-hash claim.
+
+* Practical limits
+
+Normal model runs still require the user's configured provider. The owned
+fixtures prove execution and review behavior, not the usefulness of a model's
+revision. Initial task snapshots exclude untracked files; save project buffers
+before dispatch. Checks run only when explicitly configured. Applying reviews
+the complete task patch. Worktrees are retained for inspection and not deleted
+automatically. Finished records reopen across restarts; interrupted processes
+are not automatically resumed. Save source Org files to retain heading links
+and accepted document changes across restarts.

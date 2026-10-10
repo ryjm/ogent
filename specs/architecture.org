@@ -122,6 +122,24 @@ Approval policy must consider effects, not only tool names. Read-only
 workspace tools can run without prompting by default, while write,
 execute, network, git, issue, and Emacs-state effects require approval.
 
+*** Work attached to source documents
+
+=ogent-workbench= owns readable Org passage comments, exact source anchors,
+protected passages, and bounded replacement validation. Its batch requests
+use the shared UI dispatch lifecycle; edit acceptance uses the existing
+proposal resolution hooks. =ogent-ui-workbench= owns the comment reader
+and work transient. Restored feedback reopens when its live proposal is gone.
+
+=ogent-task= owns Org TODO task records, detached Git snapshots, patch
+artifacts, asynchronous checks, and hunk feedback. The Armory runner accepts
+an explicit workspace and calls =ogent-armory-runner-finished-hook= once
+after canonical completion has been persisted. Tasks use that hook to run
+checks and update their originating heading without selecting its buffer.
+=ogent-ui-task= presents patches and links to results. Applying a patch is
+explicit and checks current disk content and unsaved affected buffers.
+Original indexes and TODO states remain under user control. Worktrees and
+finished records are retained; interrupted processes are not auto-resumed.
+
 * Rule of Engagement
 - Treat this file as required context before building any feature.
 - Emacs Lisp modules must stay under =lisp/=, UI helpers under =lisp/ui/=, docs under =docs/=, specs here.

@@ -184,6 +184,10 @@ a divergent per-worktree copy."
 (defvar ogent-armory-runner--processes nil
   "Active Armory runner processes.")
 
+(defvar ogent-armory-runner-finished-hook nil
+  "Hook called with the completed plan and exit status after persistence.
+Both native and CLI runs use the same completion boundary.")
+
 (defun ogent-armory-runner-running-p (agent-slug)
   "Return non-nil when AGENT-SLUG has a live Armory runner process."
   (cl-some
@@ -475,7 +479,7 @@ when the conversation does not exist or holds no session id."
                &key job-id instruction conversation-id conversation-title
                turn-content trigger last-resume-result runtime-mode mentions
                skills pending-attachment-id attachment-paths provider model
-               effort adapter-id parent-task triggering-agent spawn-depth
+               effort adapter-id workspace parent-task triggering-agent spawn-depth
                scheduled-at scheduled-key)
   "Return a process plan for AGENT-SLUG under DIRECTORY.
 JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
@@ -501,13 +505,14 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                          (ogent-armory-runner--blank-to-nil
                           (plist-get agent :provider))))))
          (provider-symbol (plist-get adapter :provider-symbol))
-         (workspace (ogent-armory-runner--workspace
-                     root
-                     (if (and job (plist-get job :workspace))
-                         (plist-put (copy-sequence agent)
-                                    :workspace
-                                    (plist-get job :workspace))
-                       agent)))
+         (workspace (if workspace
+                        (file-name-as-directory (expand-file-name workspace))
+                      (ogent-armory-runner--workspace
+                       root
+                       (if (and job (plist-get job :workspace))
+                           (plist-put (copy-sequence agent)
+                                      :workspace (plist-get job :workspace))
+                         agent))))
          (model (or (ogent-armory-runner--blank-to-nil model)
                     (ogent-armory-runner--effective agent job :model)
                     (ogent-armory-runner--setting
@@ -852,6 +857,9 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
      root conversation-id "task.updated"
      :ts finished
      :payload (format "status=%s" status))
+    (unless (plist-get plan :finished-notified)
+      (plist-put plan :finished-notified t)
+      (run-hook-with-args 'ogent-armory-runner-finished-hook plan exit-status))
     (ogent-armory-conversation-file root conversation-id)))
 
 (defun ogent-armory-runner--capture-actions (plan output exit-status)

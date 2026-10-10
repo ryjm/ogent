@@ -18,6 +18,21 @@ class Handler(BaseHTTPRequestHandler):
         with (root / 'requests.jsonl').open('a') as stream:
             stream.write(json.dumps({'path': self.path, 'body': body}) + '\n')
         serialized = json.dumps(body)
+        answer = 'Fixture answer.'
+        if 'fixture-workbench' in serialized:
+            def strings(value):
+                if isinstance(value, str):
+                    yield value
+                elif isinstance(value, dict):
+                    for child in value.values():
+                        yield from strings(child)
+                elif isinstance(value, list):
+                    for child in value:
+                        yield from strings(child)
+            prompt = next(text for text in strings(body) if 'Comments:\n' in text)
+            comments, _ = json.JSONDecoder().raw_decode(prompt.split('Comments:\n', 1)[1])
+            answer = json.dumps([{'id': item['id'], 'text': item['text'] + ' Revised.'}
+                                 for item in comments])
         if 'fixture-hang' in serialized:
             time.sleep(.5)
         if self.path == '/mcp':
@@ -37,23 +52,23 @@ class Handler(BaseHTTPRequestHandler):
                 output = ([{'type': 'function_call', 'id': 'fc_fixture', 'call_id': 'call_fixture',
                             'name': 'fixture-read', 'arguments': '{"text":"fixture value"}'}]
                           if use_tool else [{'type': 'message', 'id': 'msg_fixture', 'role': 'assistant',
-                                             'content': [{'type': 'output_text', 'text': 'Fixture answer.'}]}])
+                                             'content': [{'type': 'output_text', 'text': answer}]}])
                 response = {'id': 'resp_fixture', 'object': 'response', 'status': 'completed',
                             'output': output, 'usage': {'input_tokens': 10, 'output_tokens': 3}}
             else:
                 message = ({'role': 'assistant', 'content': None, 'tool_calls': [
                     {'id': 'call_fixture', 'type': 'function', 'function': {
                         'name': 'fixture-read', 'arguments': '{"text":"fixture value"}'}}]}
-                           if use_tool else {'role': 'assistant', 'content': 'Fixture answer.'})
+                           if use_tool else {'role': 'assistant', 'content': answer})
                 response = {'id': 'chat_fixture', 'object': 'chat.completion', 'choices': [
                     {'index': 0, 'message': message, 'finish_reason': 'tool_calls' if use_tool else 'stop'}],
                             'usage': {'prompt_tokens': 10, 'completion_tokens': 3}}
             if body.get('stream') and not use_tool:
                 if responses:
-                    events = [{'type': 'response.output_text.delta', 'delta': 'Fixture answer.'},
+                    events = [{'type': 'response.output_text.delta', 'delta': answer},
                               {'type': 'response.completed', 'response': response}]
                 else:
-                    events = [{'choices': [{'index': 0, 'delta': {'content': 'Fixture answer.'}}]},
+                    events = [{'choices': [{'index': 0, 'delta': {'content': answer}}]},
                               {'choices': [{'index': 0, 'delta': {}, 'finish_reason': 'stop'}]}]
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/event-stream')

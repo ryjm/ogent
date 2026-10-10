@@ -64,6 +64,9 @@ derive_store_paths() {
               (expand-file-name "ogent-companion.org" org-directory)
               ;; ogent-session-directory (ogent-session.el)
               (expand-file-name "ogent-sessions/" user-emacs-directory)
+              ;; Passage review and delegated task stores.
+              (expand-file-name "ogent/review.org" org-directory)
+              (expand-file-name "ogent/tasks/" user-emacs-directory)
               ;; ogent-anthropic-oauth-tokens-dir, which also contains the
               ;; ogent-anthropic-oauth--token-file default target tokens.el
               (expand-file-name "ogent/anthropic-oauth/" user-emacs-directory)

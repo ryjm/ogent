@@ -371,7 +371,7 @@ Returns a plist containing a streaming marker and block-start marker."
     ;; Fold the context src block immediately.
     (ogent-ui--hide-src-block-at block-start)
     ;; Include model name for multi-model fan-out disambiguation.
-    (setq response-heading-pos (point))
+    (setq response-heading-pos (copy-marker (point)))
     (insert (format "%s Response (%s)\n" response-stars model-id))
     (let ((marker (copy-marker (point))))
       ;; Keep the next sibling headline on its own line even when the final

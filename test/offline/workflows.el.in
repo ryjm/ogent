@@ -12,6 +12,64 @@
 (require 'ogent-mcp)
 (require 'ogent-armory-skills)
 (require 'ogent-armory-native)
+(require 'ogent-workbench-tests)
+(require 'ogent-task-tests)
+
+(ert-deftest ogent-offline-todo-native-lifecycle-uses-isolated-workspace ()
+  "A TODO without Armory uses the native model and actual local check process."
+  (ogent-task-tests--with-repo
+    (org-delete-property "OGENT_ARMORY")
+    (let* ((gptel-backend (ogent-offline--backend 'responses))
+           (gptel-model "gpt-6.1-sol") (gptel-use-curl t) (gptel-proxy "")
+           (gptel-tools nil) (ogent-tools-enabled nil)
+           (ogent-task-check-command "printf 'actual native task check\\n'")
+           (record (ogent-task-delegate nil repo)))
+      (ogent-task-tests--wait record)
+      (should (equal "gptel-native" (plist-get record :adapter)))
+      (should (equal "ready" (plist-get record :status)))
+      (should (equal "passed" (plist-get record :checks)))
+      (should (string-match-p "actual native task check"
+                              (ogent-task-tests--contents (ogent-task--file record "checks.log"))))
+      (should (equal "old\n" (ogent-task-tests--contents (expand-file-name "value.txt" repo)))))))
+
+(ert-deftest ogent-offline-workbench-revision-through-real-stream ()
+  "Marked Org passages receive one streamed revision and remain unchanged until review."
+  (dolist (stream '(nil t))
+    (let* ((root (ogent-test--provision-store-directory 'offline-workbench))
+           (ogent-workbench-file (expand-file-name "review.org" root))
+           (gptel-backend (ogent-offline--backend 'responses))
+           (gptel-model "gpt-6.1-sol") (gptel-use-curl t) (gptel-proxy "")
+           (gptel-tools nil) (ogent-tools-enabled nil)
+           (ogent-multi-turn-history nil) (ogent-analytics-enabled nil)
+           (ogent-model-registry (copy-tree ogent-model-registry))
+           (ogent-workbench--runs (make-hash-table :test #'equal))
+           (ogent-workbench--edits (make-hash-table :test #'equal))
+           (ogent-ui--request-table (make-hash-table :test #'equal))
+           (ogent-ui--request-history nil) (ogent-provider-max-retries 0)
+           (ogent-prompt-provider-login-on-access-error nil))
+      (plist-put (ogent-models-ensure "gpt-6.1-sol") :stream? stream)
+      (with-temp-buffer
+        (org-mode)
+        (insert "* Draft\nFirst passage.\nKeep this.\nFinal passage.\n")
+        (ogent-workbench--add 9 23 "Make it clearer." 'comment)
+        (ogent-workbench--add 35 49 "Be specific." 'comment)
+        (goto-char (point-min))
+        (let ((request (ogent-workbench-revise "fixture-workbench")))
+          (ogent-offline--wait (lambda () (ogent-ui-request-closed request)))
+          (should (eq (ogent-ui-request-status request) 'done))
+          (should (= 0 (hash-table-count ogent-workbench--runs)))
+          (ert-info ((format "Actual revision response: %S"
+                             (ogent-ui--response-body-text request)))
+            (should (= 2 (hash-table-count ogent-workbench--edits))))
+          (should (string-prefix-p "* Draft\nFirst passage.\nKeep this.\nFinal passage.\n"
+                                   (buffer-string)))
+          (let ((edits (buffer-local-value 'ogent-edit-diff--edits
+                                          (get-buffer ogent-edit-diff-buffer-name))))
+            (should (= 2 (length edits)))
+            (dolist (edit (reverse edits)) (ogent-edit-diff--apply-edit edit))
+            (should (string-match-p "First passage\\. Revised\\." (buffer-string)))
+            (should (string-match-p "Final passage\\. Revised\\." (buffer-string)))
+            (should (string-match-p "Keep this\\." (buffer-string)))))))))
 
 (defvar ogent-offline--executions 0
   "Number of fixture tool executions.")

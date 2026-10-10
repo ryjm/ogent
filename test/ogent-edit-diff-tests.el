@@ -231,7 +231,7 @@
   (with-temp-buffer
     (ogent-edit-diff-mode)
     (should (eq major-mode 'ogent-edit-diff-mode))
-    (should truncate-lines)
+    (should-not truncate-lines)
     (should buffer-read-only)
     (should (hash-table-p ogent-edit-diff--staged))
     (should (hash-table-p ogent-edit-diff--source-buffers))))
