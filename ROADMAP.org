@@ -8,7 +8,7 @@ and live provider access are separate evidence.
 
 Next work (2026-10-10): [[file:docs/experiments/idea-wizard/2026-10-10.org][the Idea Wizard roadmap]] ranks 15 proposed improvements
 under =ogent-zqaw=, with detailed implementation and verification beads.
-These remain open; the report records selection and four refinement passes.
+These remain open; the report records selection and five refinement passes.
 
 * Current delivery evidence
 

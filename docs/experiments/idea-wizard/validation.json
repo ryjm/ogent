@@ -1,5 +1,5 @@
 {
-  "validated_at": "2026-10-10T02:08:00.745548+00:00",
+  "validated_at": "2026-10-10T02:19:13.870719+00:00",
   "publication_snapshot": true,
   "baseline": "b7fc099caee560230a3452af187ee54c6d6d53de",
   "candidates": 30,
@@ -27,7 +27,7 @@
     "ogent-zqaw.3.1",
     "ogent-zqaw.5.1"
   ],
-  "refinement_passes": 4,
+  "refinement_passes": 5,
   "historical_beads_unchanged": 196,
   "planning_task_closed": true,
   "future_implementation_open": true,

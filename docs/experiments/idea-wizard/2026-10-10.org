@@ -9,14 +9,14 @@ Skill ID: =411ac5f0-9e6d-4252-ab1b-c102cbec6526=. Skill content stays outside
 the repository; these ideas and plans are original outputs for ogent.
 
 The run reviewed AGENTS.md, architecture, current source and all 196 current
-closed beads (zero open). Thirty candidates were evaluated, the best five
+closed beads (zero open). Thirty credible incremental candidates were evaluated, the best five
 selected, then ten complementary ideas added. Overlap checks preserve shipped
 fan-out, ratings, picker, search/export, doctor, CLI resume and offline tests.
 
 The future roadmap is =ogent-zqaw=: 15 feature epics and 45 tasks, plus the
 organizing epic, all open and unassigned at publication. Each feature has a
 data/lifecycle task, an integration task and an independent ERT/offline E2E
-verification task. Four refinement passes reviewed all 61 future records.
+verification task. Five refinement passes reviewed all 61 future records.
 The separate planning task =ogent-ku31= records completion of this run.
 
 This publication is a plan. It does not claim these 15 features are implemented.
@@ -321,25 +321,29 @@ Feature =ogent-zqaw.15= and its three child tasks carry the full context, refine
 
 * Other fifteen candidates
 
+These are feasible incremental extensions, deferred by relative priority or
+until their enabling contracts and representative workloads are established.
+Already shipped features were screened separately before this final pool.
+
 | Candidate | Disposition | Reason |
 |-----------+-------------+--------|
-| Rebuild the model picker | cut (3.32) | Already delivered by ogent-7sd, ogent-g5x and ogent-zwf. A new picker would duplicate shipped scope, aliases and evidence columns; preserve it and improve dated maintenance through I11. |
-| Add multi-model fan-out | cut (3.56) | Already delivered by ogent-pje and its children. Keep the current orchestration and compare/keep actions; I01 and I06 improve shared snapshots and navigation around it. |
-| Add ratings and basic cost analytics | cut (3.32) | Already delivered by ogent-z0k. Repeating rating UI or character-based price calculation adds little; I10 targets a distinct observed-usage and round-limit contract. |
-| Add basic conversation search and export | cut (3.32) | Already delivered in session history, Armory search and ogent-9w7.8/ogent-7hg. I07 adds durable per-run destinations across explicit roots; I12 adds technical reproduction with disclosure control. |
-| Require another completion package | cut (2.52) | Native completing-read already fits the project and user preferences. A mandatory package adds installation/load-order cost; optional integrations can enhance I07 without a new required dependency. |
-| Automatically attach the entire project | cut (2.68) | Conflicts with explicit context. Recursive collection can inflate latency and disclose unrelated files. I01/I08 instead expose chosen items and their reasons; whole-project inclusion can remain an explicit user choice. |
-| Auto-approve any write from a trusted agent | cut (2.60) | Trust in a model does not define invocation effects. It removes the deliberate decision boundary and is excluded. I05 reduces friction with an explicit bounded grant matched at the existing execution owner. |
-| Replace native UI with a cloud dashboard | cut (2.36) | Off the Emacs/Org vision and adds hosting/accounts plus a second UI/storage system. Native I06 activity and existing Armory views address the useful part. |
-| Build a distributed autonomous agent fleet | cut (2.08) | Remote orchestration, credentials and detached execution expand the maintenance surface; removed Gas Town history reinforces the mismatch. Improve local control/recovery first. |
-| Train an ogent foundation model | cut (1.92) | Not pragmatic for an Emacs package: data, compute and model-serving burden do not improve native composition. Frontier models remain external composable transports. |
-| Apply global GC and font-lock speed presets | cut (2.36) | Unmeasured global tuning can make other Emacs buffers worse. I09 first profiles representative workloads and scopes any justified repair to ogent-owned work. |
-| Force a single premium theme and font | cut (2.44) | Breaks native theme/font inheritance and accessibility preferences. Reuse the semantic face system and verify user-selected light/dark/ASCII/large-text variants instead. |
-| Prioritize full TRAMP remote execution | cut (2.76) | Defer: useful for some users, but remote process/path/auth semantics and blocked-editor behavior need a separate demonstrated use case and fixture strategy. Local workspace clarity has broader evidence now. |
-| Turn rated live runs into a model-quality corpus | deferred (3.36) | Defer: a promising follow-up to existing ratings, but reference-answer quality, private payload reuse and live evaluation costs need a concrete workload. Fixtures can prove wiring, not frontier answer quality. |
-| Add a general parameterized recipe engine | deferred (3.28) | Defer: Babel, prompt templates, personas and job templates already cover many recipes. Consolidate them around frozen plans/project profiles before defining another generalized workflow language. |
+| Preview history compaction before adopting a summary | deferred (3.44) | Extend ogent-ui--compact-history and Armory compaction with a before/after reader, retained turn links and explicit summary adoption. Users can inspect what continuity is lost. Keep originals and immutable retry snapshots. Defer until I01 provides a common final-history preview; current compaction already provides a usable baseline and summary quality remains workload-dependent. |
+| Promote rated runs into a local regression corpus | deferred (3.36) | Extend ogent-analytics ratings with an explicit capture action for a scrubbed prompt, chosen result and user-defined structural assertions. Replay protocol/context assertions through fixtures first. Defer until a concrete evaluation workload is agreed: reference-answer quality, private payload reuse and live evaluation costs cannot be inferred from ratings or offline wiring. |
+| Parameterize existing prompt and job recipes | deferred (3.28) | Add named inputs and a resolved-input preview to current Babel, prompt templates and Armory job/persona workflows. Reuse these formats and freeze substituted context before send. Defer until I01/I08 stabilize common plans and profiles; otherwise a recipe layer duplicates existing controls and creates another precedence system. |
+| Preview skill provenance and content changes before inclusion | deferred (3.52) | Use ogent-armory-skills discovery metadata and context manifest hashes to show local/global scope, source path and the exact changed skill text before inclusion. Keep skills as explicit selected input, with no automatic execution. Defer a dedicated reader until frozen-plan source navigation exists; package origin is not a guarantee that its instructions are appropriate. |
+| Keep portable attachment copies with conversation records | deferred (3.36) | Offer explicit copy/link choices using Org attachment facilities for canonical conversations, with attachment hashes and move-aware paths. This helps share or relocate a notebook. Defer until checkpoint/retention semantics are clear: copying large or private files increases storage and backup burden, while I01/I04 already protect the dispatched snapshot and identify missing references. |
+| Restore a project workspace through project.el and tabs | deferred (3.24) | Offer an opt-in project tab that restores selected notebooks, source/companion windows and native readers without starting work. Compose with project.el/tab-bar and keep the user's tab policy. Defer behind I08: context profiles are the more important scope contract, and persistent layout policy varies widely across Emacs configurations. |
+| Review adapter capability changes during CLI upgrades | deferred (3.32) | Extend the existing versioned CLI-help grounding harness (ogent-h3y) with a local stale-capability notice and a reviewed diff when an installed executable changes. Continue to reject unsupported resume/runtime flags. Defer behind installation and catalog proof; it is an incremental upgrade workflow, not a reason to replace the already shipped grounding checks or log in. |
+| Inspect a recorded tool invocation as a non-executing plan | deferred (3.32) | Extend debug replay and agent-describe with a validation-only view of exact arguments, canonical paths, effects and the approval decision for the current workspace. Clearly label it as planning, not a simulated shell result. Defer a separate command while I01/I05 establish the shared snapshot and grant explanation; actual execution still requires its original owner and policy. |
+| Project ordinary run decisions into Org agenda | deferred (3.28) | Extend the existing Armory agenda integration with an opt-in read-only projection of pending notebook decisions and interrupted runs, linking back to stable request IDs. This composes with users' daily agenda rather than replacing it. Defer behind I06/I07; agenda projection must avoid duplicate TODO ownership and stale copies of lifecycle state. |
+| Compare model evidence within matched task cohorts | deferred (3.36) | Stratify existing picker analytics by task role and context/plan hash so rating and latency comparisons have comparable inputs. Show sample size and missing evidence, preserving current simple summaries. Defer until enough representative local outcomes exist; small cohorts and self-selected ratings can mislead, and fixture rows prove arithmetic rather than answer quality. |
+| Allocate context budgets per selected source | deferred (3.44) | Extend ogent-context max-item limits and token preview with explicit source slices/allocations and visible omitted ranges before freezing the plan. Preserve original text and label estimation uncertainty. Defer a separate budget editor until I01 selection controls settle; a large configuration surface is less useful than a trustworthy inspect/include/send loop. |
+| Hand off completed conversations between native and CLI runtimes | deferred (3.36) | Fork a completed conversation into a new run with parent links, explicit history snapshot and grounded adapter capability checks. Let the user change runtime deliberately without claiming a pending tool/FSM can migrate. Defer behind I04/I07: lineage and interruption semantics must be stable, and providers do not share a portable live-session protocol. |
+| Make remote context and local-tool limitations explicit | deferred (3.28) | Add TRAMP-aware preflight to context selection and invocation planning: identify remote sources, bound reads, and explain unsupported local process operations instead of guessing a local path. Verify with owned remote fixtures before claiming support. Defer until an actual remote workflow is prioritized; connection/path/auth semantics add a distinct test and latency surface. |
+| Generate contextual help from effective keymaps | deferred (3.40) | Derive visible hints and availability from effective vanilla/Evil/local maps so rebinding does not leave stale help. Preserve existing action registry/which-key discovery. Much of this is covered by the selected native workflow and keyboard verification acceptance; defer a separate help framework until a concrete mismatch remains, rather than duplicating the shipped registry. |
+| Link response references back to verified source entries | deferred (3.48) | Add optional navigation from model-mentioned file/heading references to matching context-manifest entries and line ranges. Distinguish verified matches from invented/stale citations and never execute text or open external targets implicitly. Defer behind I01/I07 source/ID navigation: reliable extraction across answer styles is useful but less certain than the explicit source list. |
 
-* Four refinement passes
+* Five refinement passes
 
 ** Pass 1
 
@@ -377,6 +381,15 @@ Reviewed 61 future records at 2026-10-10T02:04:17.161891+00:00.
 - Verified all 61 records are self-contained and still unstarted
 - Verified source paths and existing capability preservation
 - Distinguished future acceptance, previous evidence and planning completion
+
+** Pass 5
+
+Reviewed 61 future records at 2026-10-10T02:19:13.766389+00:00.
+
+- Replaced weak rejected candidates with 15 credible incremental alternatives
+- Verified every candidate meets basic rubric thresholds and deferred alternatives rank below the selected 15
+- Reviewed all 61 future records without changing selected scope, acceptance, IDs or dependencies
+- Kept screened shipped features separate from the new-idea candidate pool
 
 * Sequencing and graph
 

@@ -21,8 +21,14 @@ def validate(publication=False):
     assert len(mapping['features']) == 15 and len(mapping['tasks']) == 45
     future_ids = {mapping['root'], *mapping['features'].values(), *mapping['tasks'].values()}
     assert len(future_ids) == 61 and future_ids <= issues.keys()
-    assert [review['pass'] for review in mapping['reviews']] == [1, 2, 3, 4]
+    assert [review['pass'] for review in mapping['reviews']] == [1, 2, 3, 4, 5]
     assert all(review['reviewed_future_records'] == 61 for review in mapping['reviews'])
+    for idea in candidates['ideas']:
+        assert len(idea['scores']) == 10 and 2 <= min(idea['scores']) <= max(idea['scores']) <= 5
+        assert sum(idea['scores']) / 10 >= 3
+        calculated = round(sum(a*b for a, b in zip(idea['scores'], candidates['weights'])) / sum(candidates['weights']), 2)
+        assert calculated == idea['weighted_score']
+    assert max(idea['weighted_score'] for idea in candidates['ideas'] if not idea['selected']) < min(idea['weighted_score'] for idea in selected)
     parents = {}
     adjacency = {}
     for ident in future_ids:
@@ -75,7 +81,7 @@ def validate(publication=False):
     result = dict(validated_at=datetime.now(timezone.utc).isoformat(), publication_snapshot=publication,
                   baseline=mapping['baseline'], candidates=30, selected_ideas=15, future_beads=61,
                   blocking_edges=sum(map(len, adjacency.values())), dependency_cycles=0,
-                  independent_core_tasks=roots, ready_tasks=ready, refinement_passes=4)
+                  independent_core_tasks=roots, ready_tasks=ready, refinement_passes=len(mapping['reviews']))
     if publication:
         assert issues[mapping['planning']]['status'] == 'closed'
         old_export = subprocess.run(['git', 'show', mapping['baseline'] + ':.beads/issues.jsonl'], cwd=project,

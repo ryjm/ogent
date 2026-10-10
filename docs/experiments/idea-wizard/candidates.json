@@ -684,280 +684,28 @@
     },
     {
       "key": "I16",
-      "title": "Rebuild the model picker",
+      "title": "Preview history compaction before adopting a summary",
       "scores": [
         4,
         4,
         3,
-        4,
-        4,
-        4,
         3,
         3,
-        1,
-        4
+        3,
+        4,
+        3,
+        4,
+        3
       ],
       "selected": false,
-      "why": "Already delivered by ogent-7sd, ogent-g5x and ogent-zwf. A new picker would duplicate shipped scope, aliases and evidence columns; preserve it and improve dated maintenance through I11.",
-      "weighted_score": 3.32,
+      "why": "Extend ogent-ui--compact-history and Armory compaction with a before/after reader, retained turn links and explicit summary adoption. Users can inspect what continuity is lost. Keep originals and immutable retry snapshots. Defer until I01 provides a common final-history preview; current compaction already provides a usable baseline and summary quality remains workload-dependent.",
+      "weighted_score": 3.44,
       "average_score": 3.4,
-      "disposition": "cut"
+      "disposition": "deferred"
     },
     {
       "key": "I17",
-      "title": "Add multi-model fan-out",
-      "scores": [
-        4,
-        4,
-        3,
-        4,
-        4,
-        4,
-        4,
-        4,
-        1,
-        4
-      ],
-      "selected": false,
-      "why": "Already delivered by ogent-pje and its children. Keep the current orchestration and compare/keep actions; I01 and I06 improve shared snapshots and navigation around it.",
-      "weighted_score": 3.56,
-      "average_score": 3.6,
-      "disposition": "cut"
-    },
-    {
-      "key": "I18",
-      "title": "Add ratings and basic cost analytics",
-      "scores": [
-        4,
-        4,
-        3,
-        4,
-        4,
-        4,
-        3,
-        3,
-        1,
-        4
-      ],
-      "selected": false,
-      "why": "Already delivered by ogent-z0k. Repeating rating UI or character-based price calculation adds little; I10 targets a distinct observed-usage and round-limit contract.",
-      "weighted_score": 3.32,
-      "average_score": 3.4,
-      "disposition": "cut"
-    },
-    {
-      "key": "I19",
-      "title": "Add basic conversation search and export",
-      "scores": [
-        4,
-        4,
-        3,
-        4,
-        4,
-        4,
-        3,
-        3,
-        1,
-        4
-      ],
-      "selected": false,
-      "why": "Already delivered in session history, Armory search and ogent-9w7.8/ogent-7hg. I07 adds durable per-run destinations across explicit roots; I12 adds technical reproduction with disclosure control.",
-      "weighted_score": 3.32,
-      "average_score": 3.4,
-      "disposition": "cut"
-    },
-    {
-      "key": "I20",
-      "title": "Require another completion package",
-      "scores": [
-        3,
-        3,
-        3,
-        3,
-        3,
-        3,
-        2,
-        2,
-        1,
-        3
-      ],
-      "selected": false,
-      "why": "Native completing-read already fits the project and user preferences. A mandatory package adds installation/load-order cost; optional integrations can enhance I07 without a new required dependency.",
-      "weighted_score": 2.52,
-      "average_score": 2.6,
-      "disposition": "cut"
-    },
-    {
-      "key": "I21",
-      "title": "Automatically attach the entire project",
-      "scores": [
-        2,
-        2,
-        2,
-        4,
-        3,
-        4,
-        3,
-        3,
-        1,
-        3
-      ],
-      "selected": false,
-      "why": "Conflicts with explicit context. Recursive collection can inflate latency and disclose unrelated files. I01/I08 instead expose chosen items and their reasons; whole-project inclusion can remain an explicit user choice.",
-      "weighted_score": 2.68,
-      "average_score": 2.7,
-      "disposition": "cut"
-    },
-    {
-      "key": "I22",
-      "title": "Auto-approve any write from a trusted agent",
-      "scores": [
-        1,
-        2,
-        4,
-        3,
-        2,
-        4,
-        3,
-        3,
-        1,
-        3
-      ],
-      "selected": false,
-      "why": "Trust in a model does not define invocation effects. It removes the deliberate decision boundary and is excluded. I05 reduces friction with an explicit bounded grant matched at the existing execution owner.",
-      "weighted_score": 2.6,
-      "average_score": 2.6,
-      "disposition": "cut"
-    },
-    {
-      "key": "I23",
-      "title": "Replace native UI with a cloud dashboard",
-      "scores": [
-        3,
-        3,
-        3,
-        3,
-        3,
-        2,
-        2,
-        3,
-        1,
-        2
-      ],
-      "selected": false,
-      "why": "Off the Emacs/Org vision and adds hosting/accounts plus a second UI/storage system. Native I06 activity and existing Armory views address the useful part.",
-      "weighted_score": 2.36,
-      "average_score": 2.5,
-      "disposition": "cut"
-    },
-    {
-      "key": "I24",
-      "title": "Build a distributed autonomous agent fleet",
-      "scores": [
-        2,
-        2,
-        2,
-        2,
-        2,
-        2,
-        3,
-        3,
-        2,
-        1
-      ],
-      "selected": false,
-      "why": "Remote orchestration, credentials and detached execution expand the maintenance surface; removed Gas Town history reinforces the mismatch. Improve local control/recovery first.",
-      "weighted_score": 2.08,
-      "average_score": 2.1,
-      "disposition": "cut"
-    },
-    {
-      "key": "I25",
-      "title": "Train an ogent foundation model",
-      "scores": [
-        2,
-        2,
-        2,
-        2,
-        2,
-        2,
-        2,
-        3,
-        2,
-        1
-      ],
-      "selected": false,
-      "why": "Not pragmatic for an Emacs package: data, compute and model-serving burden do not improve native composition. Frontier models remain external composable transports.",
-      "weighted_score": 1.92,
-      "average_score": 2.0,
-      "disposition": "cut"
-    },
-    {
-      "key": "I26",
-      "title": "Apply global GC and font-lock speed presets",
-      "scores": [
-        3,
-        1,
-        3,
-        3,
-        2,
-        2,
-        3,
-        2,
-        1,
-        3
-      ],
-      "selected": false,
-      "why": "Unmeasured global tuning can make other Emacs buffers worse. I09 first profiles representative workloads and scopes any justified repair to ogent-owned work.",
-      "weighted_score": 2.36,
-      "average_score": 2.3,
-      "disposition": "cut"
-    },
-    {
-      "key": "I27",
-      "title": "Force a single premium theme and font",
-      "scores": [
-        3,
-        3,
-        3,
-        3,
-        2,
-        2,
-        2,
-        3,
-        1,
-        3
-      ],
-      "selected": false,
-      "why": "Breaks native theme/font inheritance and accessibility preferences. Reuse the semantic face system and verify user-selected light/dark/ASCII/large-text variants instead.",
-      "weighted_score": 2.44,
-      "average_score": 2.5,
-      "disposition": "cut"
-    },
-    {
-      "key": "I28",
-      "title": "Prioritize full TRAMP remote execution",
-      "scores": [
-        3,
-        3,
-        2,
-        3,
-        3,
-        3,
-        3,
-        3,
-        3,
-        2
-      ],
-      "selected": false,
-      "why": "Defer: useful for some users, but remote process/path/auth semantics and blocked-editor behavior need a separate demonstrated use case and fixture strategy. Local workspace clarity has broader evidence now.",
-      "weighted_score": 2.76,
-      "average_score": 2.8,
-      "disposition": "cut"
-    },
-    {
-      "key": "I29",
-      "title": "Turn rated live runs into a model-quality corpus",
+      "title": "Promote rated runs into a local regression corpus",
       "scores": [
         3,
         3,
@@ -971,14 +719,14 @@
         3
       ],
       "selected": false,
-      "why": "Defer: a promising follow-up to existing ratings, but reference-answer quality, private payload reuse and live evaluation costs need a concrete workload. Fixtures can prove wiring, not frontier answer quality.",
+      "why": "Extend ogent-analytics ratings with an explicit capture action for a scrubbed prompt, chosen result and user-defined structural assertions. Replay protocol/context assertions through fixtures first. Defer until a concrete evaluation workload is agreed: reference-answer quality, private payload reuse and live evaluation costs cannot be inferred from ratings or offline wiring.",
       "weighted_score": 3.36,
       "average_score": 3.3,
       "disposition": "deferred"
     },
     {
-      "key": "I30",
-      "title": "Add a general parameterized recipe engine",
+      "key": "I18",
+      "title": "Parameterize existing prompt and job recipes",
       "scores": [
         3,
         3,
@@ -992,9 +740,261 @@
         3
       ],
       "selected": false,
-      "why": "Defer: Babel, prompt templates, personas and job templates already cover many recipes. Consolidate them around frozen plans/project profiles before defining another generalized workflow language.",
+      "why": "Add named inputs and a resolved-input preview to current Babel, prompt templates and Armory job/persona workflows. Reuse these formats and freeze substituted context before send. Defer until I01/I08 stabilize common plans and profiles; otherwise a recipe layer duplicates existing controls and creates another precedence system.",
       "weighted_score": 3.28,
       "average_score": 3.2,
+      "disposition": "deferred"
+    },
+    {
+      "key": "I19",
+      "title": "Preview skill provenance and content changes before inclusion",
+      "scores": [
+        3,
+        4,
+        3,
+        3,
+        3,
+        3,
+        4,
+        3,
+        4,
+        4
+      ],
+      "selected": false,
+      "why": "Use ogent-armory-skills discovery metadata and context manifest hashes to show local/global scope, source path and the exact changed skill text before inclusion. Keep skills as explicit selected input, with no automatic execution. Defer a dedicated reader until frozen-plan source navigation exists; package origin is not a guarantee that its instructions are appropriate.",
+      "weighted_score": 3.52,
+      "average_score": 3.4,
+      "disposition": "deferred"
+    },
+    {
+      "key": "I20",
+      "title": "Keep portable attachment copies with conversation records",
+      "scores": [
+        3,
+        4,
+        3,
+        3,
+        3,
+        3,
+        4,
+        3,
+        4,
+        3
+      ],
+      "selected": false,
+      "why": "Offer explicit copy/link choices using Org attachment facilities for canonical conversations, with attachment hashes and move-aware paths. This helps share or relocate a notebook. Defer until checkpoint/retention semantics are clear: copying large or private files increases storage and backup burden, while I01/I04 already protect the dispatched snapshot and identify missing references.",
+      "weighted_score": 3.36,
+      "average_score": 3.3,
+      "disposition": "deferred"
+    },
+    {
+      "key": "I21",
+      "title": "Restore a project workspace through project.el and tabs",
+      "scores": [
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        3,
+        3,
+        3,
+        3
+      ],
+      "selected": false,
+      "why": "Offer an opt-in project tab that restores selected notebooks, source/companion windows and native readers without starting work. Compose with project.el/tab-bar and keep the user's tab policy. Defer behind I08: context profiles are the more important scope contract, and persistent layout policy varies widely across Emacs configurations.",
+      "weighted_score": 3.24,
+      "average_score": 3.3,
+      "disposition": "deferred"
+    },
+    {
+      "key": "I22",
+      "title": "Review adapter capability changes during CLI upgrades",
+      "scores": [
+        4,
+        4,
+        3,
+        3,
+        3,
+        3,
+        4,
+        3,
+        3,
+        3
+      ],
+      "selected": false,
+      "why": "Extend the existing versioned CLI-help grounding harness (ogent-h3y) with a local stale-capability notice and a reviewed diff when an installed executable changes. Continue to reject unsupported resume/runtime flags. Defer behind installation and catalog proof; it is an incremental upgrade workflow, not a reason to replace the already shipped grounding checks or log in.",
+      "weighted_score": 3.32,
+      "average_score": 3.3,
+      "disposition": "deferred"
+    },
+    {
+      "key": "I23",
+      "title": "Inspect a recorded tool invocation as a non-executing plan",
+      "scores": [
+        4,
+        4,
+        3,
+        3,
+        3,
+        3,
+        4,
+        3,
+        3,
+        3
+      ],
+      "selected": false,
+      "why": "Extend debug replay and agent-describe with a validation-only view of exact arguments, canonical paths, effects and the approval decision for the current workspace. Clearly label it as planning, not a simulated shell result. Defer a separate command while I01/I05 establish the shared snapshot and grant explanation; actual execution still requires its original owner and policy.",
+      "weighted_score": 3.32,
+      "average_score": 3.3,
+      "disposition": "deferred"
+    },
+    {
+      "key": "I24",
+      "title": "Project ordinary run decisions into Org agenda",
+      "scores": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        4,
+        3,
+        4,
+        3
+      ],
+      "selected": false,
+      "why": "Extend the existing Armory agenda integration with an opt-in read-only projection of pending notebook decisions and interrupted runs, linking back to stable request IDs. This composes with users' daily agenda rather than replacing it. Defer behind I06/I07; agenda projection must avoid duplicate TODO ownership and stale copies of lifecycle state.",
+      "weighted_score": 3.28,
+      "average_score": 3.2,
+      "disposition": "deferred"
+    },
+    {
+      "key": "I25",
+      "title": "Compare model evidence within matched task cohorts",
+      "scores": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        3
+      ],
+      "selected": false,
+      "why": "Stratify existing picker analytics by task role and context/plan hash so rating and latency comparisons have comparable inputs. Show sample size and missing evidence, preserving current simple summaries. Defer until enough representative local outcomes exist; small cohorts and self-selected ratings can mislead, and fixture rows prove arithmetic rather than answer quality.",
+      "weighted_score": 3.36,
+      "average_score": 3.3,
+      "disposition": "deferred"
+    },
+    {
+      "key": "I26",
+      "title": "Allocate context budgets per selected source",
+      "scores": [
+        4,
+        4,
+        3,
+        3,
+        3,
+        3,
+        4,
+        3,
+        4,
+        3
+      ],
+      "selected": false,
+      "why": "Extend ogent-context max-item limits and token preview with explicit source slices/allocations and visible omitted ranges before freezing the plan. Preserve original text and label estimation uncertainty. Defer a separate budget editor until I01 selection controls settle; a large configuration surface is less useful than a trustworthy inspect/include/send loop.",
+      "weighted_score": 3.44,
+      "average_score": 3.4,
+      "disposition": "deferred"
+    },
+    {
+      "key": "I27",
+      "title": "Hand off completed conversations between native and CLI runtimes",
+      "scores": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        3
+      ],
+      "selected": false,
+      "why": "Fork a completed conversation into a new run with parent links, explicit history snapshot and grounded adapter capability checks. Let the user change runtime deliberately without claiming a pending tool/FSM can migrate. Defer behind I04/I07: lineage and interruption semantics must be stable, and providers do not share a portable live-session protocol.",
+      "weighted_score": 3.36,
+      "average_score": 3.3,
+      "disposition": "deferred"
+    },
+    {
+      "key": "I28",
+      "title": "Make remote context and local-tool limitations explicit",
+      "scores": [
+        3,
+        3,
+        3,
+        3,
+        3,
+        3,
+        4,
+        3,
+        4,
+        3
+      ],
+      "selected": false,
+      "why": "Add TRAMP-aware preflight to context selection and invocation planning: identify remote sources, bound reads, and explain unsupported local process operations instead of guessing a local path. Verify with owned remote fixtures before claiming support. Defer until an actual remote workflow is prioritized; connection/path/auth semantics add a distinct test and latency surface.",
+      "weighted_score": 3.28,
+      "average_score": 3.2,
+      "disposition": "deferred"
+    },
+    {
+      "key": "I29",
+      "title": "Generate contextual help from effective keymaps",
+      "scores": [
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        3,
+        3,
+        3,
+        4
+      ],
+      "selected": false,
+      "why": "Derive visible hints and availability from effective vanilla/Evil/local maps so rebinding does not leave stale help. Preserve existing action registry/which-key discovery. Much of this is covered by the selected native workflow and keyboard verification acceptance; defer a separate help framework until a concrete mismatch remains, rather than duplicating the shipped registry.",
+      "weighted_score": 3.4,
+      "average_score": 3.4,
+      "disposition": "deferred"
+    },
+    {
+      "key": "I30",
+      "title": "Link response references back to verified source entries",
+      "scores": [
+        3,
+        3,
+        3,
+        4,
+        4,
+        4,
+        4,
+        4,
+        3,
+        3
+      ],
+      "selected": false,
+      "why": "Add optional navigation from model-mentioned file/heading references to matching context-manifest entries and line ranges. Distinguish verified matches from invented/stale citations and never execute text or open external targets implicitly. Defer behind I01/I07 source/ID navigation: reliable extraction across answer styles is useful but less certain than the explicit source list.",
+      "weighted_score": 3.48,
+      "average_score": 3.5,
       "disposition": "deferred"
     }
   ],
