@@ -49,3 +49,7 @@ Adoption snapshot: Doom 22,737; Magit 7,241; gptel 3,547; Nano 2,946; Doom theme
 - Compact approval columns need an accessible full proposal and explicit invalid status. Approval and dispatch remain separate. Preserve dispatched decisions and reset a sort column when adaptive layout removes it.
 - Distinguish user cancellation from failure. Preserve partial output without opening an error pane. Error readers need full copyable details, stable record/viewport identity and contextual return/retry commands.
 - Exercise actual gptel callbacks. Non-stream replies deliver one complete string without a later sentinel, and old `:tool-pending` metadata can outlive its round. Completion must follow the current tool-use state; release the watchdog and registry after the final answer.
+
+- Review readers need full comments, original passages, saved drafts and a direct route to their live diff or check output. Keep return paths native. Refresh should retain item identity and relative text/window positions when the preamble changes.
+- Available task actions follow lifecycle state. Running checks must say running; cancelled checks must say cancelled. An earlier exit code and an earlier patch must not appear to be the outcome of an active revision.
+- Verify changed reader keymaps in a fresh Emacs process. Reloading a `defvar` does not replace the old map, even when the new command definitions have loaded.

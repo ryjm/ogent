@@ -14,7 +14,11 @@ the model can make the passages agree with each other.
 =C-c . C-b= opens the work menu. Use =k= to keep a selection unchanged or
 =l= to read full comments and their passages. In the reader, =RET= visits a
 passage, =r= revises open comments, and =d= dismisses a comment or releases a
-keep marker. The reader works with ordinary completion and your theme.
+keep marker. Each entry separates the comment, source passage, and saved
+replacement draft. =e= opens that entry's live proposal for acceptance or
+rejection. Counts include stale anchors; their entries explain recovery.
+Refresh keeps your position within the selected feedback and its viewport.
+The reader works with ordinary completion and your theme.
 
 In the proposed diffs, =n/p= navigates, =a/r= accepts or rejects, =s= stages,
 and =A= accepts staged proposals. =c= comments on the proposed hunk, and
@@ -78,13 +82,24 @@ keeps standard diff navigation and exposes these actions:
 | C-c C-m   | Comment on the current hunk                     |
 | C-c C-r   | Revise using all open hunk comments             |
 | C-c C-o   | Open the durable task record, result and logs   |
+| C-c C-v   | Read the full check command, exit and output    |
+| C-c C-x   | Cancel a running agent or verification command  |
+| n/p       | Next/previous hunk, including from the summary  |
 | C-c C-c   | Apply the complete reviewed patch              |
 | C-c C-k   | Reject the patch and retain its artifacts      |
 | g / gr    | Refresh; Evil preserves its ordinary g prefix  |
 | q         | Return to the source                           |
 
 Each revision continues in the same isolated worktree and includes actual
-check output. Feedback stays in Org, marked submitted after dispatch.
+check output. The patch reader shows workspace, agent and recorded model;
+“runner default” means no explicit model was recorded. Available actions
+follow the current state. During revision, the last patch is labelled as
+previous work. Checks distinguish not run, running, passed, failed, and
+cancelled; a prior exit code is not shown as evidence for a new run.
+=C-c C-v= opens the saved output in a wrapped reader; =q= returns to the
+same patch. Refresh retains the selected hunk and text offset. The reader's
+apply, reject, revise, and cancel keys immediately update its displayed state.
+Feedback stays in Org, marked submitted after dispatch.
 Completion never changes focus. Apply checks the patch against current disk
 content and refuses to overwrite unsaved affected buffers. It updates visited
 buffers after applying. The Org TODO stays TODO until you decide it is done.

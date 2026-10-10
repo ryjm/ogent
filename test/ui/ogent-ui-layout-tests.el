@@ -13,6 +13,33 @@
 (require 'ogent-ui-armory)
 (require 'ogent-armory-compose)
 
+(ert-deftest ogent-ui-layout-location-retains-text-offset-and-window-start ()
+  "Changing a reader's preamble keeps the same text under point and viewport."
+  (save-window-excursion
+    (with-temp-buffer
+      (switch-to-buffer (current-buffer))
+      (insert "Old header\n" (propertize "First line\nSecond line\nThird line\n" 'review-item 'first))
+      (goto-char (point-min)) (search-forward "Second")
+      (set-window-start nil (line-beginning-position) t)
+      (ogent-ui-layout-preserve-location 'review-item
+        (erase-buffer)
+        (insert "A new header\nWith another line\n"
+                (propertize "First line\nSecond line\nThird line\n" 'review-item 'first)))
+      (should (looking-back "Second" (line-beginning-position)))
+      (should (equal (buffer-substring (window-start) (+ (window-start) 6)) "Second")))))
+
+(ert-deftest ogent-ui-layout-location-clamps-removed-and-shortened-items ()
+  "Refreshing a removed or shortened item cannot leave point outside the buffer."
+  (with-temp-buffer
+    (insert (propertize "Long old item" 'review-item 'first))
+    (goto-char 10)
+    (ogent-ui-layout-preserve-location 'review-item
+      (erase-buffer) (insert (propertize "New" 'review-item 'first)))
+    (should (= (point) 3))
+    (ogent-ui-layout-preserve-location 'review-item
+      (erase-buffer))
+    (should (= (point) (point-min)))))
+
 (defmacro ogent-ui-layout-tests--with-registry (&rest body)
   "Run BODY with two models and deterministic roles."
   (declare (indent 0) (debug t))

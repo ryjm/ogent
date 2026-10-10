@@ -7,6 +7,7 @@
 ;;; Code:
 
 (require 'subr-x)
+(require 'cl-lib)
 (require 'hl-line)
 (require 'ogent-ui-theme)
 
@@ -44,6 +45,49 @@ stored records; this helper only inserts into presentation buffers."
         (fill-prefix (or indent "  ")))
     (insert fill-prefix text "\n")
     (fill-region start (point))))
+
+(defun ogent-ui-layout--location (property position)
+  "Capture PROPERTY identity and relative offset at POSITION."
+  (let ((value (get-text-property position property)))
+    (list value
+          (when value
+            (- position (or (previous-single-property-change
+                             (1+ position) property nil (point-min))
+                            (point-min))))
+          position)))
+
+(defun ogent-ui-layout--position (property location)
+  "Resolve PROPERTY LOCATION after a reader has been rendered again."
+  (let ((position (point-min)) found)
+    (when (car location)
+      (while (and (< position (point-max)) (not found))
+        (if (equal (get-text-property position property) (car location))
+            (setq found (min (+ position (cadr location))
+                             (1- (next-single-property-change
+                                  position property nil (point-max)))))
+          (setq position (next-single-property-change
+                          position property nil (point-max))))))
+    (or found (min (nth 2 location) (point-max)))))
+
+(defmacro ogent-ui-layout-preserve-location (property &rest body)
+  "Run BODY preserving PROPERTY item, offset and visible viewports.
+PROPERTY must identify a stable item throughout its rendered text."
+  (declare (indent 1) (debug (form body)))
+  (let ((prop (make-symbol "property"))
+        (location (make-symbol "location"))
+        (windows (make-symbol "windows")))
+    `(let* ((,prop ,property)
+            (,location (ogent-ui-layout--location ,prop (point)))
+            (,windows (mapcar (lambda (window)
+                                (list window
+                                      (ogent-ui-layout--location ,prop (window-start window))))
+                              (get-buffer-window-list (current-buffer) nil t))))
+       ,@body
+       (goto-char (ogent-ui-layout--position ,prop ,location))
+       (dolist (entry ,windows)
+         (when (window-live-p (car entry))
+           (set-window-start (car entry)
+                             (ogent-ui-layout--position ,prop (cadr entry)) t))))))
 
 (defun ogent-ui-layout-header (title context hints)
   "Return a width-aware header with TITLE, CONTEXT and HINTS.

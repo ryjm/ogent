@@ -1,0 +1,65 @@
+{
+  "source_head": "6afcddb108a47d25a011731d51749ddcb4bc4dce",
+  "source_fingerprint": "1ff770459165cf4ad4a21d642ef1b4223efdb87ef03ea6bafcc17297fbf867da",
+  "completed_fingerprint": "1ff770459165cf4ad4a21d642ef1b4223efdb87ef03ea6bafcc17297fbf867da",
+  "captured_at": "2026-10-10T16:54:57.442528+00:00",
+  "provider_requests": false,
+  "passages": "owned replacement JSON fixture",
+  "task": "actual owned CLI, Git worktree, diff and Python check",
+  "screenshots": [
+    {
+      "file": "docs/assets/emacs-review-polish/before-marked-passages.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 79 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "20961cb4d1796fd8466b70ea18830f089c1cb70aa50357bba23d287027e78205"
+    },
+    {
+      "file": "docs/assets/emacs-review-polish/before-comments-60.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 60 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "bcfcc26f350931bc8205e6f9fbe3166e5d4fd6e514812d2cb94be3fc267bec9b"
+    },
+    {
+      "file": "docs/assets/emacs-review-polish/before-comments-112-dark.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 112 columns\"",
+      "theme": "modus-vivendi",
+      "sha256": "7a7329698ffc17b6b91c0a7d1719540e1497195eb386fef274a76631eeb0a464"
+    },
+    {
+      "file": "docs/assets/emacs-review-polish/before-revision-60.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 60 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "7323963a6225780ffeacadc00438f19e4e4979226b1b7bd98ea7bba2e4c66bb0"
+    },
+    {
+      "file": "docs/assets/emacs-review-polish/before-todo-return.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 79 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "2383cff63bd404faf58d83b4d38d03dcff0a369ff821dbf785d154190da97dc9"
+    },
+    {
+      "file": "docs/assets/emacs-review-polish/before-task-patch-80.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 80 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "11bb64cf1f37f3a3d12456b0bc45549d45f09dfeee3420fe977119484d15a658"
+    },
+    {
+      "file": "docs/assets/emacs-review-polish/before-task-patch-60-dark.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 60 columns\"",
+      "theme": "modus-vivendi",
+      "sha256": "c8c9e845002d98464545109e86ef8d09b672becf1f646ceb025ac5c6e07f2484"
+    },
+    {
+      "file": "docs/assets/emacs-review-polish/before-task-result-112.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 112 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "4c013136e654f24e0a7dd639bc7ee3ca3b1e87bbc56de4020181de7eb80a1663"
+    },
+    {
+      "file": "docs/assets/emacs-review-polish/before-source-patch-split.png",
+      "state": "\"fundamental-mode |  *server* | Emacs 30.1 | Org 9.8.10 | 55 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "67fb1c85f942457378c750489baff797508504586195f340d758160b87aaeba9"
+    }
+  ]
+}

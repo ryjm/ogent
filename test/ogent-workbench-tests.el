@@ -225,5 +225,67 @@
 	(when-let ((reader (get-buffer (format "*ogent-review:%s*" (buffer-name source)))))
 	  (kill-buffer reader))))))
 
+(ert-deftest ogent-workbench-reader-shows-draft-and-opens-its-live-proposal ()
+  "Saved replacement text remains readable and a live proposal opens with e."
+  (save-window-excursion
+    (ogent-workbench-tests--with-source "Original."
+      (let* ((record (ogent-workbench--add 1 10 "Be concrete." 'comment))
+             (edit (car (ogent-workbench--proposals
+                         (json-serialize (vector (list :id (plist-get record :id) :text "Concrete.")))
+                         (list :id "reader" :buffer source :records (list record))))))
+        (plist-put record :status "proposed")
+        (plist-put record :proposal edit)
+        (plist-put record :draft "Concrete.")
+        (switch-to-buffer source)
+        (ogent-workbench-comments)
+        (unwind-protect
+            (progn
+              (should (string-match-p "Proposed replacement\nConcrete" (buffer-string)))
+              (goto-char (point-min)) (search-forward "Be concrete")
+              (let ((overriding-terminal-local-map nil) (overriding-local-map nil))
+                (call-interactively (key-binding (kbd "e"))))
+              (should (derived-mode-p 'ogent-edit-diff-mode))
+              (should (equal ogent-edit-diff--edits (list edit))))
+          (when-let ((reader (get-buffer (format "*ogent-review:%s*" (buffer-name source)))))
+            (kill-buffer reader))
+          (when-let ((diff (get-buffer ogent-edit-diff-buffer-name))) (kill-buffer diff)))))))
+
+(ert-deftest ogent-workbench-reader-refresh-retains-position-within-feedback ()
+  "Adding another comment keeps the selected note and its exact text offset."
+  (save-window-excursion
+    (ogent-workbench-tests--with-source "First. Second. Third."
+      (ogent-workbench--add 1 7 "One note.\nSecond line of feedback." 'comment)
+      (switch-to-buffer source) (ogent-workbench-comments)
+      (unwind-protect
+          (progn
+            (goto-char (point-min)) (search-forward "Second line")
+            (let ((selected (get-text-property (point) 'ogent-comment)))
+              (with-current-buffer source (ogent-workbench--add 8 15 "Another note." 'comment))
+              (ogent-workbench-comments-refresh)
+              (should (eq selected (get-text-property (point) 'ogent-comment)))
+              (should (looking-back "Second line" (line-beginning-position)))))
+        (kill-buffer (current-buffer))))))
+
+(ert-deftest ogent-workbench-reader-stale-and-empty-states-explain-recovery ()
+  "Empty and stale reviews give a usable next action without changing source text."
+  (save-window-excursion
+    (ogent-workbench-tests--with-source "Original."
+      (switch-to-buffer source) (ogent-workbench-comments)
+      (unwind-protect
+          (progn
+            (should (string-match-p "C-c . C-l" (buffer-string)))
+            (with-current-buffer source
+              (ogent-workbench--add 1 10 "Improve." 'comment)
+              (goto-char 1) (delete-char 1) (insert "X"))
+            (ogent-workbench-comments-refresh)
+            (should (string-match-p "STALE" (buffer-string)))
+            (should (string-match-p "Mark the passage again" (buffer-string)))
+            (goto-char (point-min)) (search-forward "Improve.")
+            (should-error (ogent-workbench-comment-review) :type 'user-error)
+            (should-error (ogent-workbench-comment-visit) :type 'user-error)
+            (ogent-workbench-comment-dismiss)
+            (should (string-match-p "DISMISSED" (buffer-string))))
+        (kill-buffer (current-buffer))))))
+
 (provide 'ogent-workbench-tests)
 ;;; ogent-workbench-tests.el ends here

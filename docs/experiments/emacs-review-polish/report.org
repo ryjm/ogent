@@ -1,0 +1,87 @@
+#+title: Native review UX pass — 2026-10-10
+
+* Scope and evidence
+
+Applied the repository's =emacs-ui-design=, =emacs-ui-audit=,
+=emacs-ui-build=, =emacs-ui-qa= and =emacs-accessibility= skills to the new
+passage-feedback and delegated TODO journeys. Checked packaging and
+lifecycle boundaries using existing owned fixtures. No latency symptom was
+measured; this pass makes no performance claim or global tuning change.
+
+Nine fresh baseline screenshots were taken before implementation.
+Eighteen final screenshots cover light/dark, 60/80/112 columns, a split
+window, and a larger font. Each saved image was inspected. Manifests record
+actual buffer/mode/width, font, theme, versions, source fingerprint and image
+hash. The baseline HEAD is the previous release, not a claim that final
+working-tree changes were already committed.
+
+* Findings and repairs
+
+| Severity | Evidence and consequence | Repair |
+|----------+--------------------------+--------|
+| Medium | Baseline comment reader combines status and note, presents the passage as faded secondary text, and omits its saved replacement. The reviewer must leave the reader to reconstruct the proposal. | Separate comment, passage and draft; show counts and recovery; =e= opens the live proposal. |
+| Medium | Baseline patch reader always advertises apply/revise/reject and omits workspace, recorded model and direct check output. The available next action and its verification context are unclear. | Show context and state-specific actions, accessible full output with =C-c C-v=, and immediate state refresh after actions. |
+| Medium | Code retained absolute point in a patch, or reset to the start of a selected comment. Changed metadata shifts the selected work. Actual keyboard/regression evidence covers this behavior separately from screenshots. | Preserve item identity, relative text offset and visible window starts. File/hunk identity survives preamble changes; a removed item falls back to a bounded position. |
+| Medium | Actual ordinary diff navigation failed while point was in the task summary. A new reviewer cannot reach the patch using the advertised native workflow. | Make n/p and C-c C-n/C-p navigate hunks from the summary, retain point at navigation boundaries, and verify actual keys. |
+| Medium | Actual running-check capture showed “checking” beside “Checks: not run.” Cancellation retained that check label. | Persist running/cancelled checks at their process boundary, label the previous patch during revision, and hide old exit codes when there is no current completed check result. Check-launch failure records its cause and releases its temporary buffer. |
+
+Words carry all states independently of inherited semantic colors. Full
+text stays copyable and searchable. Presentation remains local to the
+readers; durable records remain Org. Pending/applied task patches refuse
+new hunk comments until there is a completed unapplied result.
+
+* Native interaction and runtime coverage
+
+GTK Emacs 30.1 and terminal Emacs ran the complete owned journey through
+actual keymaps: work menu, comment selection, refresh, source selection,
+proposal diff and return, refinement/acceptance, TODO patch, ordinary diff
+hunk navigation, feedback, full check output and return, revision, durable
+result, apply, and preservation of the TODO state. Each trace records 18
+checks and exactly two real owned CLI runs with a real Python check.
+
+The GUI trace uses Evil 1.15.0. Terminal traces cover ASCII without icons,
+plain Emacs with Evil absent, and Evil loaded before and after ogent's UI.
+The fixture loads actual Org 9.8.10, Transient 0.13.8 and gptel. Optional
+Magit sections are present in native fixtures; the ordinary fallback edit
+reader is also exercised. Full/actual-dependency suites exercise operation
+without Magit. A full Doom installation and Emacspeak are not available and
+were not tested. Keyboard/text reachability is not a screen-reader claim.
+
+Final state captures use actual owned passing, exit-7 failing, and cancelled
+waiting checks. Passage replacements are explicitly owned JSON fixtures.
+Provider calls are blocked, and no provider authentication is performed.
+
+* Repository verification
+
+- Full store-isolation suites: 3,289 tests on both Emacs 29.1 and 30.2;
+  no unexpected results and no real-store drift. Expected optional skips
+  are recorded in the archived logs.
+- Actual-dependency offline matrix: 238 tests per run, Emacs 29.1/30.2
+  crossed with current gptel 0.9.9.6 and declared minimum gptel 0.9.9.5.
+- Strict lint: checkdoc, byte compilation, declarations, indentation,
+  packaging and regex checks. =verification/summary.json= records final
+  results and exact artifact hashes.
+- Screenshots: =before-captures.json= and =after-captures.json=.
+- Keyboard traces: =keyboard-proof.json=, =terminal-proof.json=,
+  =plain-proof.json=, =early-evil-proof.json=.
+
+The new review/verification/load-order lessons were folded back into the
+build and QA skills and the researched Emacs pattern reference.
+
+* Reproduce
+
+=fixture.el.in= requires actual dependencies under =/tmp/ogent-ui-elpa=,
+optional Evil under =/tmp/ogent-ui-evil=, and the repository at =/work=.
+Launch GTK Emacs under Xvfb =:99= with server =ogent-review-polish=; run
+=capture.py --before= for the baseline or =capture.py= for final states.
+Use =OGENT_WORKBENCH_EVIL= for late Evil loading, or
+=OGENT_WORKBENCH_EVIL_EARLY= for early loading. Omit both for plain Emacs.
+Load =keyboard.el.in= and set =OGENT_WORKBENCH_PROOF= to the appropriate
+trace path. Fresh processes are required after changing a defvar keymap.
+
+The executed repository commands were =make test-isolation= on both
+supported releases, =make offline-test= with the four dependency pairs,
+and =make lint sandbox=/tmp/ogent-fixdeps format=json=. =verify.py= archives
+passing logs and refuses missing checks, failing results, or mismatched
+final capture fingerprints. CI is checked for the exact pushed master SHA;
+its final URL is supplied with the published change.

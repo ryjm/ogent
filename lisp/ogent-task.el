@@ -318,9 +318,11 @@ properties when present.  With no Armory, use the selected native model."
             (ogent-task--complete record))
            (t
             (plist-put record :status "checking")
+            (plist-put record :checks "running")
             (ogent-task--write record)
             (let ((default-directory (file-name-as-directory (plist-get record :worktree)))
                   (buffer (generate-new-buffer " *ogent-task-check*")))
+              (plist-put record :check-buffer buffer)
               (plist-put
                record :check-process
                (make-process
@@ -343,6 +345,12 @@ properties when present.  With no Armory, use the selected native model."
                     (ogent-task--complete record)))))))))
       (error
        (plist-put record :status "failed")
+       (when-let ((buffer (plist-get record :check-buffer)))
+         (when (buffer-live-p buffer) (kill-buffer buffer)))
+       (when (equal (plist-get record :checks) "running")
+         (plist-put record :checks "not run")
+         (with-temp-file (ogent-task--file record "checks.log")
+           (insert "Checks could not start: " (error-message-string err) "\n")))
        (ogent-task--write record)
        (remhash file ogent-task--active)
        (message "ogent: task completion failed: %s" (error-message-string err))))))
@@ -351,6 +359,9 @@ properties when present.  With no Armory, use the selected native model."
   "Attach NOTE to the current delegated patch hunk."
   (interactive)
   (unless ogent-task-patch--file (user-error "Open the task patch first"))
+  (let ((status (plist-get (ogent-task--read ogent-task-patch--file) :status)))
+    (when (member status '("running" "checking" "applied"))
+      (user-error "Task is %s; comments require a completed unapplied patch" status)))
   (let* ((file ogent-task-patch--file)
          (hunk (save-excursion
                  (diff-beginning-of-hunk)
@@ -464,7 +475,9 @@ properties when present.  With no Armory, use the selected native model."
       (user-error "Task is not running; reject its patch to leave it unapplied"))
     (plist-put record :status "cancelled")
     (if-let ((process (plist-get record :check-process)))
-        (when (process-live-p process) (delete-process process))
+        (progn
+          (plist-put record :checks "cancelled")
+          (when (process-live-p process) (delete-process process)))
       (ogent-armory-runner-stop-conversation (plist-get record :root)
                                              (plist-get record :conversation)))
     (ogent-task--write record)))
