@@ -1,0 +1,125 @@
+{
+  "recorded_at": "2026-10-10T23:33:55.879490+00:00",
+  "source_fingerprint": "1236b4aefb95b677b319504d0fa8b8344cdb707762fdfcc9ebea21ba5e642d3a",
+  "fingerprint_paths": "git ls-files lisp test makem.sh Makefile",
+  "provider_requests": false,
+  "runs": [
+    {
+      "name": "suite30",
+      "total": 3300,
+      "expected": 3282,
+      "unexpected": 0,
+      "skipped": 18,
+      "store_integrity": "clean",
+      "dependencies": "full suite with test helper",
+      "sha256": "055ddb6777530fd5abb3fca9edea804744554fe494fecc284ab301d3b15b43ca"
+    },
+    {
+      "name": "suite29",
+      "total": 3300,
+      "expected": 3281,
+      "unexpected": 0,
+      "skipped": 19,
+      "store_integrity": "clean",
+      "dependencies": "full suite with test helper",
+      "sha256": "d1513d095656e861ece22de0a10ecec0805480f38e058b12d72d4ee4f6774ea2"
+    },
+    {
+      "name": "current30",
+      "total": 239,
+      "expected": 237,
+      "unexpected": 0,
+      "skipped": 2,
+      "store_integrity": "not this command",
+      "dependencies": "Emacs 30.2, Org 9.8.10, transient 0.13.8, gptel 0.9.9.6 (/tmp/ogent-fixdeps/30.2/elpa/gptel-20261007.432/gptel-request.el)",
+      "sha256": "04b35a40b364eaa429c82c5ecb251ed5686c90a66a7953c8de9a8e87eb36e7b6"
+    },
+    {
+      "name": "current29",
+      "total": 239,
+      "expected": 236,
+      "unexpected": 0,
+      "skipped": 3,
+      "store_integrity": "not this command",
+      "dependencies": "Emacs 29.1, Org 9.8.10, transient 0.13.8, gptel 0.9.9.6 (/tmp/ogent-ergonomics-elpa/gptel-20261007.432/gptel-request.el)",
+      "sha256": "9aa63d9ec636d34e6e671f94feddd27faf0e99a64895e107e34a8d867999d7d1"
+    },
+    {
+      "name": "minimum30",
+      "total": 239,
+      "expected": 237,
+      "unexpected": 0,
+      "skipped": 2,
+      "store_integrity": "not this command",
+      "dependencies": "Emacs 30.2, Org 9.8.10, transient 0.13.8, gptel 0.9.9.5 (/tmp/gptel-minimum/gptel-request.el)",
+      "sha256": "8ccde92a853ca55cb5ee61cf1ff3db0974eeea5fda2a6e15f7766810d3da4b4f"
+    },
+    {
+      "name": "minimum29",
+      "total": 239,
+      "expected": 236,
+      "unexpected": 0,
+      "skipped": 3,
+      "store_integrity": "not this command",
+      "dependencies": "Emacs 29.1, Org 9.8.10, transient 0.13.8, gptel 0.9.9.5 (/tmp/gptel-minimum/gptel-request.el)",
+      "sha256": "15fa59c4c2c527e50c0c9bb75bd0ace1544a9e29419836b54be2f1eaa72bdf99"
+    }
+  ],
+  "lint": {
+    "status": "success",
+    "tasks": [
+      {
+        "name": "lint-checkdoc",
+        "status": "success",
+        "exit_code": 0,
+        "reason": null
+      },
+      {
+        "name": "lint-compile",
+        "status": "success",
+        "exit_code": 0,
+        "reason": null
+      },
+      {
+        "name": "lint-declare",
+        "status": "success",
+        "exit_code": 0,
+        "reason": null
+      },
+      {
+        "name": "lint-indent",
+        "status": "success",
+        "exit_code": 0,
+        "reason": null
+      },
+      {
+        "name": "lint-package",
+        "status": "success",
+        "exit_code": 0,
+        "reason": null
+      },
+      {
+        "name": "lint-regexps",
+        "status": "success",
+        "exit_code": 0,
+        "reason": null
+      },
+      {
+        "name": "lint",
+        "status": "success",
+        "exit_code": 0,
+        "reason": null
+      }
+    ],
+    "sha256": "87ff3914257ba6ad3917313160063330fad89babc95b785a4262515d5ecd6675"
+  },
+  "native_ui": {
+    "emacs": "30.1",
+    "gui_checks": 13,
+    "terminal_ascii_checks": 13,
+    "plain_terminal_checks": 13,
+    "early_evil_checks": 13,
+    "actual_gui_mouse_activation": true,
+    "screenshots": 11
+  }
+}

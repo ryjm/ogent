@@ -1,0 +1,86 @@
+{
+  "phase": "after",
+  "source_head": "939c5c7118b661853e4f2dfac5851a9906fdfbf5",
+  "source_state": "working tree; fingerprint identifies exact source bytes",
+  "source_fingerprint": "1236b4aefb95b677b319504d0fa8b8344cdb707762fdfcc9ebea21ba5e642d3a",
+  "provider_requests": false,
+  "screenshots": [
+    {
+      "file": "docs/assets/emacs-context-polish/after-manager-60.png",
+      "state": "(:buffer \"*ogent-context-manager*\" :mode ogent-ui-context-mode\n\t :columns 60 :font\n\t \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n\t :emacs \"30.1\" :org \"9.8.10\" :transient \"0.13.8\" :evil\n\t \"1.15.0\")",
+      "theme": "modus-operandi",
+      "captured_at": "2026-10-10T23:30:31.505858+00:00",
+      "sha256": "8fbd1475316a3396c75527df79ec5610817f59a62c2c4a253e293cc4d2f5da95"
+    },
+    {
+      "file": "docs/assets/emacs-context-polish/after-manager-80.png",
+      "state": "(:buffer \"*ogent-context-manager*\" :mode ogent-ui-context-mode\n\t :columns 80 :font\n\t \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n\t :emacs \"30.1\" :org \"9.8.10\" :transient \"0.13.8\" :evil\n\t \"1.15.0\")",
+      "theme": "modus-operandi",
+      "captured_at": "2026-10-10T23:30:33.270840+00:00",
+      "sha256": "8e5cc581cfff61121dd2ed4c79b238383ee0f0be3debf67e6dfb3b6bdbfc9b8f"
+    },
+    {
+      "file": "docs/assets/emacs-context-polish/after-manager-112-dark.png",
+      "state": "(:buffer \"*ogent-context-manager*\" :mode ogent-ui-context-mode\n\t :columns 112 :font\n\t \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n\t :emacs \"30.1\" :org \"9.8.10\" :transient \"0.13.8\" :evil\n\t \"1.15.0\")",
+      "theme": "modus-vivendi",
+      "captured_at": "2026-10-10T23:30:35.048761+00:00",
+      "sha256": "9a12045588d95ec6b008aac739d71ebc792f3be89ab22c2b5ece3db2b6eea1e3"
+    },
+    {
+      "file": "docs/assets/emacs-context-polish/after-formatted-80.png",
+      "state": "(:buffer \"*context snapshot Org*\" :mode org-mode :columns 80 :font\n\t \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n\t :emacs \"30.1\" :org \"9.8.10\" :transient \"0.13.8\" :evil\n\t \"1.15.0\")",
+      "theme": "modus-operandi",
+      "captured_at": "2026-10-10T23:30:36.798523+00:00",
+      "sha256": "48ee203fb83377dfb9c027651f8a6a4c7364de9fd6a7e6ce20d30d270c326a5b"
+    },
+    {
+      "file": "docs/assets/emacs-context-polish/after-manager-60-dark.png",
+      "state": "(:buffer \"*ogent-context-manager*\" :mode ogent-ui-context-mode\n\t :columns 60 :font\n\t \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n\t :emacs \"30.1\" :org \"9.8.10\" :transient \"0.13.8\" :evil\n\t \"1.15.0\")",
+      "theme": "modus-vivendi",
+      "captured_at": "2026-10-10T23:30:38.513908+00:00",
+      "sha256": "bc44a50688fae3a79c868c3a2b5d5b4d63da21a85f61049956a87fb4867536b3"
+    },
+    {
+      "file": "docs/assets/emacs-context-polish/after-manager-large-80.png",
+      "state": "(:buffer \"*ogent-context-manager*\" :mode ogent-ui-context-mode\n\t :columns 80 :font\n\t \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-22-*-*-*-m-0-iso10646-1\"\n\t :emacs \"30.1\" :org \"9.8.10\" :transient \"0.13.8\" :evil\n\t \"1.15.0\")",
+      "theme": "modus-operandi",
+      "captured_at": "2026-10-10T23:30:40.304894+00:00",
+      "sha256": "5d06e3c2a04c9a484d72e5d27fa55cc88cb4037106951a8924de52a99d212c70"
+    },
+    {
+      "file": "docs/assets/emacs-context-polish/after-manager-split-112.png",
+      "state": "(:buffer \"*ogent-context-manager*\" :mode ogent-ui-context-mode\n\t :columns 55 :font\n\t \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n\t :emacs \"30.1\" :org \"9.8.10\" :transient \"0.13.8\" :evil\n\t \"1.15.0\")",
+      "theme": "modus-operandi",
+      "captured_at": "2026-10-10T23:30:42.084588+00:00",
+      "sha256": "aea5b5502140473359ef23ca3fdcab22e2d09abb2be167f4b1873951044fa30c"
+    },
+    {
+      "file": "docs/assets/emacs-context-polish/after-details-60.png",
+      "state": "(:buffer \"*ogent context item*\" :mode ogent-ui-context-detail-mode\n\t :columns 60 :font\n\t \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n\t :emacs \"30.1\" :org \"9.8.10\" :transient \"0.13.8\" :evil\n\t \"1.15.0\")",
+      "theme": "modus-operandi",
+      "captured_at": "2026-10-10T23:30:43.876444+00:00",
+      "sha256": "f1ee6b245f023543c0565ac8fa2bc7aff1838105dcd258c11df870a4d451b22b"
+    },
+    {
+      "file": "docs/assets/emacs-context-polish/after-missing-80-dark.png",
+      "state": "(:buffer \"*ogent context item*\" :mode ogent-ui-context-detail-mode\n\t :columns 80 :font\n\t \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n\t :emacs \"30.1\" :org \"9.8.10\" :transient \"0.13.8\" :evil\n\t \"1.15.0\")",
+      "theme": "modus-vivendi",
+      "captured_at": "2026-10-10T23:30:45.647583+00:00",
+      "sha256": "9d64b213271b795cb9ef59062ebaf270253e013733e62183224aa08b9d108926"
+    },
+    {
+      "file": "docs/assets/emacs-context-polish/after-empty-80.png",
+      "state": "(:buffer \"*ogent-context-manager*\" :mode ogent-ui-context-mode\n\t :columns 80 :font\n\t \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n\t :emacs \"30.1\" :org \"9.8.10\" :transient \"0.13.8\" :evil\n\t \"1.15.0\")",
+      "theme": "modus-operandi",
+      "captured_at": "2026-10-10T23:30:47.272682+00:00",
+      "sha256": "ddf07e2c6bb52b08a6dcbd44cebbb6f63e9753e6ccdc37f09b0694a9ae9fef2e"
+    },
+    {
+      "file": "docs/assets/emacs-context-polish/after-picker-60.png",
+      "state": "(:buffer \"review.org\" :mode org-mode :columns 59 :font\n\t \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n\t :emacs \"30.1\" :org \"9.8.10\" :transient \"0.13.8\" :evil\n\t \"1.15.0\")",
+      "theme": "modus-operandi",
+      "captured_at": "2026-10-10T23:30:49.076977+00:00",
+      "sha256": "d9fd2bd5982f8cde20ed215f85442f69958100718c3474d1725756a40d167dad"
+    }
+  ]
+}

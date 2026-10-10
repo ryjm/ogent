@@ -535,6 +535,13 @@ Roles never break mid-token; see `ogent-ui-models--wrap-chunks'."
    (mapcar #'ogent-ui-models--format-role (ogent-models-known-roles))
    width))
 
+(defun ogent-ui-models--description-lines (description width)
+  "Wrap DESCRIPTION into readable lines within WIDTH display columns."
+  (with-temp-buffer
+    (insert description)
+    (let ((fill-column width)) (fill-region (point-min) (point-max)))
+    (split-string (buffer-string) "\n")))
+
 (defun ogent-ui-models--evidence-lines (stats width)
   "Return the header's evidence for STATS as lines at most WIDTH wide.
 STATS is the alist of `ogent-ui-models--evidence-stats'.  Each
@@ -582,7 +589,9 @@ recorded completions for registered models."
                    'face 'ogent-theme-badge)
        (propertize (format "  via %s" source) 'face 'ogent-theme-muted)
        "\n "
-       (propertize desc 'face 'ogent-theme-muted)
+       (propertize (mapconcat #'identity
+                              (ogent-ui-models--description-lines desc width) "\n ")
+                   'face 'ogent-theme-muted)
        "\n "
        (mapconcat #'identity (ogent-ui-models--roles-lines width) "\n ")
        "\n"

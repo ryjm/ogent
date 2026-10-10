@@ -1,0 +1,84 @@
+;;; fixture.el.in --- Owned native context audit -*- lexical-binding: t; -*-
+(require 'cl-lib)
+(require 'jka-compr)
+(setq load-suffixes (remove ".elc" load-suffixes))
+(dolist (dir (directory-files "/tmp/ogent-ui-elpa" t "^[^.].*"))
+  (when (file-directory-p dir) (add-to-list 'load-path dir)))
+(dolist (dir '("/work/lisp" "/work/lisp/ui" "/work/test" "/tmp" "/tmp/ogent-ui-evil"))
+  (add-to-list 'load-path dir))
+(require 'org)
+(require 'gptel)
+(require 'transient)
+(when (getenv "OGENT_CONTEXT_EVIL_EARLY") (require 'evil) (evil-mode 1))
+(require 'ogent-test-helper)
+(require 'ogent)
+(require 'ogent-ui-context)
+(when (getenv "OGENT_CONTEXT_EVIL") (require 'evil) (evil-mode 1))
+(setq ogent-context-lab-provider-attempts 0)
+(defun ogent-context-lab-provider-guard (&rest _)
+  "Record and reject a provider attempt."
+  (cl-incf ogent-context-lab-provider-attempts)
+  (error "Providers disabled in context fixture"))
+(advice-add 'gptel-request :before #'ogent-context-lab-provider-guard)
+(advice-add 'ogent-armory-runner-start :before #'ogent-context-lab-provider-guard)
+(setq ogent-context-lab-root (ogent-test--provision-store-directory 'context-ui)
+      ogent-context-excluded-handles nil
+      ogent-pinned-context nil)
+(defun ogent-context-lab-file (name text)
+  "Write owned NAME with TEXT and return its buffer."
+  (let ((file (expand-file-name name ogent-context-lab-root)))
+    (with-temp-file file (insert text))
+    (find-file-noselect file)))
+(setq ogent-context-lab-org
+      (ogent-context-lab-file
+       "review.org"
+       (concat "#+title: Review context\n\n* Product direction\nNotes and decisions stay in ordinary Org files.\n"
+               "** Accessibility and deliberate interaction\nEvery state has readable words and a keyboard action.\n"
+               "*** Review the context before sending a request\n"
+               "Use @native-context-selection-preservation and @native-context-selection-recovery.\n"
+               "Resolve @missing-context-evidence before sending.\n\n"
+               "* Native context selection preservation\n:PROPERTIES:\n:OGENT_ID: native-context-selection-preservation\n:END:\n"
+               "Keep the selected item and its relative text position while metadata changes.\n"
+               "The full source identifier must remain searchable, copyable, and distinguishable in a narrow window.\n\n"
+               "* Native context selection recovery\n:PROPERTIES:\n:OGENT_ID: native-context-selection-recovery\n:END:\n"
+               "When a source buffer closes, the review should still expose the captured text.\n\n"
+               "* Additional source-only note\n:PROPERTIES:\n:OGENT_ID: added-context-note\n:END:\n"
+               "Resolve this handle in the originating Org buffer, even while the reader is current.\n")))
+(setq ogent-context-lab-code
+      (ogent-context-lab-file "inspect.py"
+                              "# Review context before sending\n\ndef inspect_context(items):\n    return [item for item in items if item.is_readable_and_reachable()]\n"))
+(with-current-buffer ogent-context-lab-org
+  (org-mode) (ogent-mode 1)
+  (goto-char (point-min))
+  (search-forward "*** Review") (beginning-of-line)
+  (setq ogent-context-lab-origin (point-marker)))
+(defun ogent-context-lab-open ()
+  "Build actual combined context and open its native manager."
+  (switch-to-buffer ogent-context-lab-org)
+  (goto-char ogent-context-lab-origin)
+  (setq ogent-context-lab-context
+        (ogent-context-build-with-source ogent-context-lab-code))
+  (ogent-context-manage ogent-context-lab-context ogent-context-lab-org))
+(defun ogent-context-lab-format ()
+  "Show the actual snapshot's Org formatter."
+  (let ((buffer (get-buffer-create "*context snapshot Org*")))
+    (switch-to-buffer buffer)
+    (let ((inhibit-read-only t)) (erase-buffer)
+      (insert (ogent-ui-context-format ogent-context-lab-context)))
+    (org-mode) (goto-char (point-min))))
+(defun ogent-context-lab-select-handle (handle)
+  "Select the actual inventory record identified by HANDLE."
+  (goto-char (ogent-ui-layout--position
+              'ogent-context-identity (list (list 'dependency handle) 0 (point-min)))))
+(setq inhibit-startup-screen t initial-scratch-message nil)
+(when (getenv "OGENT_CONTEXT_ASCII")
+  (setq ogent-theme-use-icons nil ogent-theme-use-unicode nil ogent-ops-use-unicode nil))
+(when (display-graphic-p)
+  (menu-bar-mode -1) (tool-bar-mode -1) (scroll-bar-mode -1)
+  (set-frame-font "DejaVu Sans Mono-13" nil t)
+  (set-frame-size (selected-frame) 80 38))
+(load-theme 'modus-operandi t)
+(setq server-name (or (getenv "OGENT_CONTEXT_SERVER") "ogent-context-polish"))
+(require 'server) (server-start)
+(ogent-context-lab-open) (delete-other-windows)
+(message "Context fixture ready; no providers")

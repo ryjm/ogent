@@ -1,0 +1,44 @@
+{
+  "phase": "before",
+  "source_head": "939c5c7118b661853e4f2dfac5851a9906fdfbf5",
+  "source_state": "working tree; fingerprint identifies exact source bytes",
+  "source_fingerprint": "a933ec1c3f29e676138ee686df55991eeba5164d424e43faec22b1889f69324a",
+  "provider_requests": false,
+  "screenshots": [
+    {
+      "file": "docs/assets/emacs-context-polish/before-manager-60.png",
+      "state": "(:buffer \"*ogent-context-manager*\" :mode ogent-ui-context-mode\n\t :columns 60 :font\n\t \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n\t :emacs \"30.1\" :org \"9.8.10\" :transient \"0.13.8\" :evil\n\t \"1.15.0\")",
+      "theme": "modus-operandi",
+      "captured_at": "2026-10-10T23:06:58.384339+00:00",
+      "sha256": "a2ebe0d915f91efee48523939e9417523a14cd73ca300f0b0ff3af160b09f09c"
+    },
+    {
+      "file": "docs/assets/emacs-context-polish/before-manager-80.png",
+      "state": "(:buffer \"*ogent-context-manager*\" :mode ogent-ui-context-mode\n\t :columns 80 :font\n\t \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n\t :emacs \"30.1\" :org \"9.8.10\" :transient \"0.13.8\" :evil\n\t \"1.15.0\")",
+      "theme": "modus-operandi",
+      "captured_at": "2026-10-10T23:07:00.176855+00:00",
+      "sha256": "9fa0291cee200a9d320421d1f5753f6d382a79a532350b669c2b16c448adcb8c"
+    },
+    {
+      "file": "docs/assets/emacs-context-polish/before-manager-112-dark.png",
+      "state": "(:buffer \"*ogent-context-manager*\" :mode ogent-ui-context-mode\n\t :columns 112 :font\n\t \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n\t :emacs \"30.1\" :org \"9.8.10\" :transient \"0.13.8\" :evil\n\t \"1.15.0\")",
+      "theme": "modus-vivendi",
+      "captured_at": "2026-10-10T23:07:01.970588+00:00",
+      "sha256": "99a56db788eaa9be7a4f30c860bb30f99ee940cd1de9cae3ca15d7b1f4bcfb2a"
+    },
+    {
+      "file": "docs/assets/emacs-context-polish/before-formatted-80.png",
+      "state": "(:buffer \"*context snapshot Org*\" :mode org-mode :columns 80 :font\n\t \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n\t :emacs \"30.1\" :org \"9.8.10\" :transient \"0.13.8\" :evil\n\t \"1.15.0\")",
+      "theme": "modus-operandi",
+      "captured_at": "2026-10-10T23:07:03.719384+00:00",
+      "sha256": "1d0856b67f26c6b47df8bb8e22c9442c402f090d20ac0a9d9c791289c300dbc2"
+    },
+    {
+      "file": "docs/assets/emacs-context-polish/before-picker-60.png",
+      "state": "(:buffer \"review.org\" :mode org-mode :columns 59 :font\n\t \"-PfEd-DejaVu Sans Mono-regular-normal-normal-*-18-*-*-*-m-0-iso10646-1\"\n\t :emacs \"30.1\" :org \"9.8.10\" :transient \"0.13.8\" :evil\n\t \"1.15.0\")",
+      "theme": "modus-operandi",
+      "captured_at": "2026-10-10T23:07:05.480988+00:00",
+      "sha256": "7f57f890818d8ead11a1596b4443316a3d0196906dafc0bab9cae93b2d822a9d"
+    }
+  ]
+}

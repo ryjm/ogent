@@ -271,6 +271,17 @@ Before sending, preview what will be sent to the model:
 
 This shows the hydrated payload that will be sent, including resolved handles, source context, and pinned items.
 
+`M-x ogent-context-manage` opens a separate review snapshot. Use `n`/`p`
+to navigate, `RET` or a row button to read full captured text, `o` to visit
+the live source, and `q` to return. `g` (`gr` with Evil) redraws the snapshot
+while retaining the selected text. Full names stay readable in narrow windows.
+Details remain available when a source buffer closes.
+
+`a` inspects a handle resolved in the originating Org buffer; it does not
+insert that handle into your prompt. `d` removes source or ancestor rows
+from this review only. Removing a dependency handle excludes it from later
+requests in the session. The reader states these effects before removal.
+
 ## Keybindings Cheat Sheet
 
 ogent uses `C-c .` as the prefix for vanilla Emacs and `SPC o` for Doom/Evil.

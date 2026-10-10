@@ -8,15 +8,18 @@
 ;;; Code:
 
 (require 'org)
+(require 'button)
 (require 'ogent-context)
 (require 'ogent-ui-theme)
+(require 'ogent-ui-layout)
+(require 'ogent-ui-section)
+(require 'ogent-keys)
 
 ;;; Context Budget Configuration
 
 (defcustom ogent-ui-context-budget-default 100000
-  "Default context budget in characters.
-This is used when no model-specific limit is known.
-Most models support ~100k tokens which is roughly 400k chars."
+  "Set the character budget for the formatted review snapshot.
+This estimate is separate from the dispatcher's model-specific token budget."
   :type 'integer
   :group 'ogent-mode)
 
@@ -41,6 +44,9 @@ Most models support ~100k tokens which is roughly 400k chars."
 (defvar-local ogent-ui-context--source-buffer nil
   "Source buffer from which context was built.")
 
+(defvar-local ogent-ui-context--summary nil
+  "Element and missing-handle summary for this snapshot.")
+
 (defvar ogent-ui-context-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "n") #'ogent-ui-context-next-element)
@@ -48,6 +54,8 @@ Most models support ~100k tokens which is roughly 400k chars."
     (define-key map (kbd "d") #'ogent-ui-context-delete-element)
     (define-key map (kbd "a") #'ogent-ui-context-add-element)
     (define-key map (kbd "RET") #'ogent-ui-context-preview-element)
+    (define-key map (kbd "o") #'ogent-ui-context-visit-element)
+    (define-key map (kbd "g") #'ogent-ui-context-refresh)
     (define-key map (kbd "q") #'quit-window)
     map)
   "Keymap for `ogent-ui-context-mode'.")
@@ -57,8 +65,29 @@ Most models support ~100k tokens which is roughly 400k chars."
 
 Key bindings:
 \\{ogent-ui-context-mode-map}"
-  (setq truncate-lines t)
-  (setq buffer-read-only t))
+  (ogent-ui-layout-configure)
+  (setq-local header-line-format
+              '(:eval (ogent-section-header-line
+                       "Context" ogent-ui-context--summary
+                       '("RET" . "details") '("q" . "return")
+                       '("o" . "source") '("g" . "redraw")))))
+
+(defvar-local ogent-ui-context--detail-element nil
+  "Captured element displayed by the detail reader.")
+
+(defvar ogent-ui-context-detail-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "o") #'ogent-ui-context-visit-element)
+    (define-key map (kbd "q") #'quit-window)
+    map)
+  "Keymap for the full context element reader.")
+
+(define-derived-mode ogent-ui-context-detail-mode special-mode "ContextItem"
+  "Read the complete captured text of one context element."
+  (ogent-ui-layout-configure)
+  (setq-local header-line-format
+              '(:eval (ogent-section-header-line
+                       "Context item" nil '("q" . "return")))))
 
 (defun ogent-ui-context--estimate-tokens (text)
   "Estimate the number of tokens in TEXT.
@@ -82,8 +111,8 @@ Returns a string like: [[file:path.org::LINE][TITLE]] (id: ID)"
            (id (ogent-context-node-id node))
            (buffer (ogent-context-node-buffer node))
            (begin (ogent-context-node-begin node))
-           (file (when buffer (buffer-file-name buffer)))
-           (line (when (and buffer begin)
+           (file (when (buffer-live-p buffer) (buffer-file-name buffer)))
+           (line (when (and (buffer-live-p buffer) begin)
                    (with-current-buffer buffer
                      (line-number-at-pos begin)))))
       (if (and file line)
@@ -99,10 +128,16 @@ Returns a plist with :heading and :content."
          (region-start (ogent-source-context-region-start source-ctx))
          (region-end (ogent-source-context-region-end source-ctx))
          (char-count (ogent-ui-context--char-count content))
+         (buffer (ogent-source-context-buffer source-ctx))
          (region-info (if (and region-start region-end)
-                          (format "Selected region (lines %d-%d)"
-                                  (line-number-at-pos region-start)
-                                  (line-number-at-pos region-end))
+                          (if (buffer-live-p buffer)
+                              (with-current-buffer buffer
+                                (save-restriction
+                                  (widen)
+                                  (format "Selected region (lines %d-%d)"
+                                          (line-number-at-pos (min region-start (point-max)))
+                                          (line-number-at-pos (min region-end (point-max))))))
+                            "Selected region (source unavailable)")
                         "Full buffer"))
          (heading (format "* Source Context [%d chars]" char-count))
          (body (format "File: %s\nMode: %s\n%s\n#+begin_src %s\n%s\n#+end_src"
@@ -180,21 +215,21 @@ Returns a plist with :heading and :content."
   "Format a visual budget bar showing USED of BUDGET chars.
 Returns a string with progress bar and percentage."
   (let* ((percent (if (> budget 0)
-                      (min 100 (* 100.0 (/ (float used) budget)))
+                      (* 100.0 (/ (float used) budget))
                     0))
          (face (ogent-theme-progress-face percent))
          (bar (ogent-theme-progress-bar percent 20 face))
-         (tokens-used (ogent-ui-context--estimate-tokens (number-to-string used))))
+         (tokens-used (ceiling (/ (float used) 4.0))))
     (concat
      bar
      " "
      (propertize (format "%.0f%%" percent) 'face face)
-     "  "
-     (propertize (format "%dk" (/ used 1000)) 'face face)
+     "\n"
+     (propertize (format "%d" used) 'face face)
      (propertize "/" 'face 'ogent-theme-muted)
-     (propertize (format "%dk chars" (/ budget 1000)) 'face 'ogent-theme-muted)
+     (propertize (format "%d chars" budget) 'face 'ogent-theme-muted)
      "  "
-     (propertize (format "(~%dk tokens)" (/ tokens-used 1000)) 'face 'ogent-theme-muted))))
+     (propertize (format "(~%d tokens, estimate)" tokens-used) 'face 'ogent-theme-muted))))
 
 (defun ogent-ui-context--format-section-bar (chars total-budget section-name)
   "Format a mini progress bar for a section with CHARS.
@@ -269,276 +304,278 @@ CONTEXT is a plist with keys:
     ;; Add sections with icons
     (when source-section
       (push (format "%s %s\n%s\n"
-                    (ogent-theme-icon 'file)
                     (plist-get source-section :heading)
+                    (ogent-theme-icon 'file)
                     (plist-get source-section :content))
             parts))
     
     (push (format "%s %s\n%s\n"
-                  (ogent-theme-icon 'context)
                   (plist-get root-section :heading)
+                  (ogent-theme-icon 'context)
                   (plist-get root-section :content))
           parts)
     
     (push (format "%s %s\n%s\n"
-                  (ogent-theme-icon 'link)
                   (plist-get ancestors-section :heading)
+                  (ogent-theme-icon 'link)
                   (plist-get ancestors-section :content))
           parts)
     
     (push (format "%s %s\n%s\n"
-                  (ogent-theme-icon 'search)
                   (plist-get deps-section :heading)
+                  (ogent-theme-icon 'search)
                   (plist-get deps-section :content))
           parts)
     
     ;; Return concatenated result
     (string-join (nreverse parts) "")))
 
+(defun ogent-ui-context--node-element (type node)
+  "Return a captured element for NODE of TYPE."
+  (let ((buffer (ogent-context-node-buffer node))
+        (title (or (ogent-context-node-title node) "(no title)"))
+        (content (or (ogent-context-node-content node) "")))
+    (list :type type :data node :name title :content content
+          :key (list type (or (ogent-context-node-id node)
+                              (list buffer (ogent-context-node-begin node) title)))
+          :chars (+ (length title) (length content)) :node-id (ogent-context-node-id node)
+          :buffer buffer :begin (ogent-context-node-begin node)
+          :file (when (buffer-live-p buffer) (buffer-file-name buffer)))))
+
+(defun ogent-ui-context--elements ()
+  "Return the ordered captured elements of this review snapshot."
+  (let* ((context ogent-ui-context--context)
+         (source (plist-get context :source-context))
+         (root (plist-get context :root)))
+    (append
+     (when source
+       (let ((file (ogent-source-context-file source))
+             (content (or (ogent-source-context-content source) "")))
+         (list (list :type 'source :data source
+                     :name (if file (file-name-nondirectory file) "(unsaved source)")
+                     :key (list 'source (ogent-source-context-buffer source) file)
+                     :content content :chars (length content) :file file
+                     :buffer (ogent-source-context-buffer source)
+                     :begin (ogent-source-context-region-start source)))))
+     (when root (list (ogent-ui-context--node-element 'root root)))
+     (mapcar (lambda (node) (ogent-ui-context--node-element 'ancestor node))
+             (plist-get context :ancestors))
+     (mapcar (lambda (dependency)
+               (let* ((node (plist-get dependency :node))
+                      (handle (plist-get dependency :handle))
+                      (element (if node (ogent-ui-context--node-element 'dependency node)
+                                 (list :type 'dependency :content "" :chars 0))))
+                 (setq element (plist-put element :data dependency))
+                 (setq element (plist-put element :key (list 'dependency handle)))
+                 (setq element (plist-put element :name (concat "@" handle)))
+                 (setq element (plist-put element :missing-p (or (plist-get dependency :missing-p) (null node))))
+                 element))
+             (plist-get context :dependencies)))))
+
 (defun ogent-ui-context--element-at-point ()
-  "Return the context element at point.
-Returns a plist with :type, :data, and :index keys, or nil if not on an element."
-  (save-excursion
-    (beginning-of-line)
-    (when (looking-at "^\\s-*\\([0-9]+\\)\\. \\[\\(.*?\\)\\]")
-      (let ((index (string-to-number (match-string 1)))
-            (type-str (string-trim (match-string 2))))
-        (list :type (intern type-str)
-              :index (1- index))))))  ; Convert to 0-based
+  "Return the captured element at point, including continuation lines."
+  (or (get-text-property (point) 'ogent-context-element)
+      (save-excursion
+        (beginning-of-line)
+        (when (looking-at "^\\s-*\\([0-9]+\\)\\. \\[\\(.*?\\)\\]")
+          (let ((index (1- (string-to-number (match-string 1))))
+                (type (intern (string-trim (match-string 2)))))
+            (or (nth index (ogent-ui-context--elements))
+                (list :type type :index index)))))))
+
+(defun ogent-ui-context--snippet (content)
+  "Return the first readable line of CONTENT, omitting property drawers."
+  (let (drawer)
+    (or (catch 'line
+          (dolist (line (split-string content "\n"))
+            (cond ((string-match-p "\\`[ \t]*:PROPERTIES:[ \t]*\\'" line) (setq drawer t))
+                  ((and drawer (string-match-p "\\`[ \t]*:END:[ \t]*\\'" line)) (setq drawer nil))
+                  ((or drawer (string-empty-p (string-trim line))) nil)
+                  (t (throw 'line (string-trim line))))))
+        "(empty text)")))
 
 (defun ogent-ui-context--format-element (index type name size preview)
-  "Format a single context element for display.
-INDEX is 1-based, TYPE is symbol, NAME is display name, SIZE is char count,
-PREVIEW is a snippet of content."
-  (format "%3d. [%-12s] %-30s  %6d chars  %s\n"
-          index
-          type
-          (truncate-string-to-width name 30 nil nil "…")
-          size
-          (truncate-string-to-width (or preview "") 50 nil nil "…")))
+  "Format element INDEX with TYPE, full NAME, SIZE and a short PREVIEW."
+  (concat (propertize (format "%3d. [%s] " index type) 'face 'ogent-theme-muted)
+          (propertize name 'face 'ogent-theme-primary) "\n"
+          (propertize (format "     %d chars  " size) 'face 'ogent-theme-muted)
+          (truncate-string-to-width (or preview "") 96 nil nil
+                                    (if ogent-theme-use-unicode "…" "~"))
+          "\n\n"))
+
+(defun ogent-ui-context--button-preview (button)
+  "Read the captured element associated with BUTTON."
+  (goto-char (button-start button))
+  (ogent-ui-context-preview-element))
 
 (defun ogent-ui-context--render-buffer ()
-  "Render the context management buffer from `ogent-ui-context--context'."
-  (let ((inhibit-read-only t)
-        (ctx ogent-ui-context--context)
-        (index 1))
-    (erase-buffer)
-    ;; Header with icon
-    (insert (ogent-theme-icon 'context 'ogent-theme-primary)
-            " "
-            (propertize "Context Manager" 'face 'ogent-theme-section-heading)
-            "\n"
-            (ogent-theme-separator)
-            "\n\n")
-    
-    ;; Source context
-    (when-let ((source (plist-get ctx :source-context)))
-      (let* ((file (or (ogent-source-context-file source) "(unsaved)"))
-             (content (ogent-source-context-content source))
-             (size (length content))
-             (preview (car (split-string content "\n"))))
-        (insert (ogent-ui-context--format-element
-                 index 'source (file-name-nondirectory file) size preview))
-        (cl-incf index)))
-    
-    ;; Root node
-    (when-let ((root (plist-get ctx :root)))
-      (let* ((title (ogent-context-node-title root))
-             (content (ogent-context-node-content root))
-             (size (+ (length (or title "")) (length (or content ""))))
-             (preview (car (split-string (or content "") "\n"))))
-        (insert (ogent-ui-context--format-element
-                 index 'root (or title "(no title)") size preview))
-        (cl-incf index)))
-    
-    ;; Ancestors
-    (dolist (ancestor (plist-get ctx :ancestors))
-      (let* ((title (ogent-context-node-title ancestor))
-             (content (ogent-context-node-content ancestor))
-             (size (+ (length (or title "")) (length (or content ""))))
-             (preview (car (split-string (or content "") "\n"))))
-        (insert (ogent-ui-context--format-element
-                 index 'ancestor (or title "(no title)") size preview))
-        (cl-incf index)))
-    
-    ;; Dependencies
-    (dolist (dep (plist-get ctx :dependencies))
-      (let* ((handle (plist-get dep :handle))
-             (missing-p (plist-get dep :missing-p))
-             (node (plist-get dep :node))
-             (title (if missing-p
-                        (format "@%s (missing)" handle)
-                      (format "@%s" handle)))
-             (size (if node
-                       (length (or (ogent-context-node-content node) ""))
-                     0))
-             (preview (when node
-                        (car (split-string (or (ogent-context-node-content node) "") "\n")))))
-        (insert (ogent-ui-context--format-element
-                 index 'dependency title size (or preview "(missing)")))
-        (cl-incf index)))
-    
-    (insert "\n")
-    ;; Help line with themed keybindings
-    (insert (ogent-theme-keys '("n" . "next")
-                              '("p" . "prev")
-                              '("d" . "delete")
-                              '("a" . "add")
-                              '("RET" . "preview")
-                              '("q" . "quit"))
-            "\n")
-    (goto-char (point-min))
-    ;; Move to first element
-    (when (re-search-forward "^\\s-*1\\." nil t)
-      (beginning-of-line))))
+  "Redraw the review snapshot, preserving item identity and visible position."
+  (let* ((inhibit-read-only t)
+         (elements (ogent-ui-context--elements))
+         (missing (cl-count-if (lambda (element) (plist-get element :missing-p)) elements))
+         (first-render (= (buffer-size) 0))
+         (index 0))
+    (setq ogent-ui-context--summary (format "%d elements, %d missing" (length elements) missing))
+    (ogent-ui-layout-preserve-location 'ogent-context-identity
+      (erase-buffer)
+      (insert (propertize "Context review\n" 'face 'ogent-theme-section-heading)
+              "From: " (if (buffer-live-p ogent-ui-context--source-buffer)
+                           (or (buffer-file-name ogent-ui-context--source-buffer)
+                               (buffer-name ogent-ui-context--source-buffer))
+                         "source unavailable") "\n"
+              (propertize ogent-ui-context--summary
+                          'face (if (> missing 0) 'ogent-theme-warning 'ogent-theme-muted))
+              "\n"
+              "Snapshot only: removing source or ancestors here does not change a request.\n"
+              "Excluded handles apply to later requests in this session.\n"
+              "n/p elements   RET full text   o source   a inspect handle   d remove\n\n")
+      (unless elements
+        (insert "No context elements captured. Return with q and choose an Org heading or a source buffer.\n"))
+      (dolist (element elements)
+        (let ((start (point)))
+          (setq element (plist-put element :index index))
+          (insert (ogent-ui-context--format-element
+                   (1+ index) (plist-get element :type) (plist-get element :name)
+                   (plist-get element :chars)
+                   (if (plist-get element :missing-p) "Missing: no captured text; resolve or remove this handle."
+                     (ogent-ui-context--snippet (plist-get element :content)))))
+          (let ((name-start (+ start (length (format "%3d. [%s] " (1+ index) (plist-get element :type))))))
+            (make-text-button name-start (+ name-start (length (plist-get element :name)))
+                              'follow-link t 'action #'ogent-ui-context--button-preview
+                              'help-echo "Read full captured text"))
+          (when (plist-get element :missing-p)
+            (add-face-text-property start (point) 'ogent-theme-warning t))
+          (add-text-properties start (point)
+                               (list 'ogent-context-element element
+                                     'ogent-context-identity (plist-get element :key)))
+          (cl-incf index))))
+    (when first-render
+      (goto-char (point-min))
+      (when (re-search-forward "^\\s-*1\\." nil t) (beginning-of-line)))
+    (set-buffer-modified-p nil)))
+
+;;;###autoload
+(defun ogent-ui-context-refresh ()
+  "Redraw the captured snapshot without rebuilding or dispatching a request."
+  (interactive)
+  (ogent-ui-context--render-buffer))
+
+(defun ogent-ui-context--step (direction)
+  "Move to an adjacent element in DIRECTION, keeping point at boundaries."
+  (let ((origin (point))
+        (element (get-text-property (point) 'ogent-context-element)))
+    (when element
+      (goto-char (text-property-any (point-min) (point-max) 'ogent-context-element element)))
+    (beginning-of-line)
+    (let ((found (if (> direction 0)
+                     (progn
+                       (when (looking-at "^\\s-*[0-9]+\\.") (forward-line 1))
+                       (re-search-forward "^\\s-*[0-9]+\\." nil t))
+                   (re-search-backward "^\\s-*[0-9]+\\." nil t))))
+      (if found (beginning-of-line)
+        (goto-char origin)
+        (message "%s of context elements" (if (> direction 0) "End" "Beginning"))))))
 
 (defun ogent-ui-context-next-element ()
-  "Move to the next context element."
+  "Move to the next captured context element."
   (interactive)
-  (let ((current-line (line-number-at-pos)))
-    (forward-line 1)
-    (while (and (not (eobp))
-                (not (looking-at "^\\s-*[0-9]+\\.")))
-      (forward-line 1))
-    (when (and (eobp) (not (looking-at "^\\s-*[0-9]+\\.")))
-      (goto-char (point-min))
-      (goto-char (line-beginning-position current-line))
-      (message "End of elements"))))
+  (ogent-ui-context--step 1))
 
 (defun ogent-ui-context-previous-element ()
-  "Move to the previous context element."
+  "Move to the previous captured context element."
   (interactive)
-  (let ((found nil))
-    (forward-line -1)
-    (while (and (not (bobp))
-                (not (looking-at "^\\s-*[0-9]+\\.")))
-      (forward-line -1))
-    (when (looking-at "^\\s-*[0-9]+\\.")
-      (setq found t))
-    (unless found
-      (message "Beginning of elements"))))
+  (ogent-ui-context--step -1))
 
 (defun ogent-ui-context-delete-element ()
-  "Delete the context element at point."
+  "Remove an element from the snapshot, or exclude a handle for this session."
   (interactive)
-  (when-let ((element (ogent-ui-context--element-at-point)))
-    (let ((type (plist-get element :type))
-          (index (plist-get element :index)))
-      (cond
-       ((eq type 'source)
-        (when (yes-or-no-p "Remove source context? ")
-          (setq ogent-ui-context--context
-                (plist-put ogent-ui-context--context :source-context nil))
-          (ogent-ui-context--render-buffer)))
-       
-       ((eq type 'root)
-        (message "Cannot delete root node"))
-       
-       ((eq type 'ancestor)
-        (when (yes-or-no-p "Remove ancestor? ")
-          (let* ((ancestors (plist-get ogent-ui-context--context :ancestors))
-                 ;; Calculate actual ancestor index by subtracting previous elements
-                 (ancestor-index (- index
-                                    (if (plist-get ogent-ui-context--context :source-context) 1 0)
-                                    (if (plist-get ogent-ui-context--context :root) 1 0)))
-                 (new-ancestors (append (cl-subseq ancestors 0 ancestor-index)
-                                        (cl-subseq ancestors (1+ ancestor-index)))))
-            (setq ogent-ui-context--context
-                  (plist-put ogent-ui-context--context :ancestors new-ancestors))
-            (ogent-ui-context--render-buffer))))
-       
-       ((eq type 'dependency)
-        (let* ((deps (plist-get ogent-ui-context--context :dependencies))
-               (dep-index (- index
-                             (if (plist-get ogent-ui-context--context :source-context) 1 0)
-                             (if (plist-get ogent-ui-context--context :root) 1 0)
-                             (length (plist-get ogent-ui-context--context :ancestors)))))
-          (when (and (>= dep-index 0) (< dep-index (length deps)))
-            (let* ((dep (nth dep-index deps))
-                   (handle (plist-get dep :handle)))
-              (when (yes-or-no-p (format "Remove dependency @%s? " handle))
-                (ogent-context-exclude-handle handle)
-                (let ((new-deps (append (cl-subseq deps 0 dep-index)
-                                        (cl-subseq deps (1+ dep-index)))))
-                  (setq ogent-ui-context--context
-                        (plist-put ogent-ui-context--context :dependencies new-deps))
-                  (ogent-ui-context--render-buffer)))))))))))
+  (let* ((element (or (ogent-ui-context--element-at-point) (user-error "Choose a context element")))
+         (type (plist-get element :type))
+         (data (plist-get element :data)))
+    (pcase type
+      ('root (user-error "The root defines this scope; choose another heading at the source"))
+      ('source
+       (when (yes-or-no-p "Remove source from this review snapshot only? ")
+         (setq ogent-ui-context--context (plist-put ogent-ui-context--context :source-context nil))
+         (ogent-ui-context--render-buffer)))
+      ('ancestor
+       (when (yes-or-no-p "Remove ancestor from this review snapshot only? ")
+         (setq ogent-ui-context--context
+               (plist-put ogent-ui-context--context :ancestors
+                          (delq data (copy-sequence (plist-get ogent-ui-context--context :ancestors)))))
+         (ogent-ui-context--render-buffer)))
+      ('dependency
+       (let ((handle (plist-get data :handle)))
+         (when (yes-or-no-p (format "Exclude @%s from later requests in this session? " handle))
+           (ogent-context-exclude-handle handle)
+           (setq ogent-ui-context--context
+                 (plist-put ogent-ui-context--context :dependencies
+                            (cl-remove-if (lambda (dependency) (equal handle (plist-get dependency :handle)))
+                                          (plist-get ogent-ui-context--context :dependencies))))
+           (ogent-ui-context--render-buffer)))))))
 
 (defun ogent-ui-context-add-element ()
-  "Add a new element to context."
+  "Inspect a handle in this snapshot, resolving it at its originating buffer."
   (interactive)
-  (let ((handle (read-string "Enter handle (without @): ")))
-    (when (and handle (not (string-empty-p handle)))
-      (if-let ((node (ogent-resolve-handle handle)))
-          (let* ((deps (plist-get ogent-ui-context--context :dependencies))
-                 (new-dep (list :handle handle
-                                :missing-p nil
-                                :node node)))
-            (setq deps (append deps (list new-dep)))
+  (let* ((root (plist-get ogent-ui-context--context :root))
+         (source (or (and root (ogent-context-node-buffer root)) ogent-ui-context--source-buffer))
+         (handle (string-remove-prefix "@" (string-trim (read-string "Inspect handle: ")))))
+    (unless (string-empty-p handle)
+      (unless (buffer-live-p source) (user-error "Source unavailable; reopen context from its source"))
+      (let* ((deps (plist-get ogent-ui-context--context :dependencies))
+             (existing (cl-find handle deps :key (lambda (dependency) (plist-get dependency :handle)) :test #'equal))
+             (node (unless existing (with-current-buffer source (ogent-resolve-handle handle)))))
+        (when (or existing node (yes-or-no-p (format "@%s is missing.  Inspect it anyway? " handle)))
+          (unless existing
             (setq ogent-ui-context--context
-                  (plist-put ogent-ui-context--context :dependencies deps))
-            (ogent-context-include-handle handle)
-            (ogent-ui-context--render-buffer)
-            (message "Added @%s to context" handle))
-        (when (yes-or-no-p (format "Handle @%s not found.  Add as missing? " handle))
-          (let* ((deps (plist-get ogent-ui-context--context :dependencies))
-                 (new-dep (list :handle handle
-                                :missing-p t
-                                :node nil)))
-            (setq deps (append deps (list new-dep)))
-            (setq ogent-ui-context--context
-                  (plist-put ogent-ui-context--context :dependencies deps))
-            (ogent-ui-context--render-buffer)
-            (message "Added @%s as missing dependency" handle)))))))
+                  (plist-put ogent-ui-context--context :dependencies
+                             (append deps (list (list :handle handle :missing-p (null node) :node node)))))
+            (ogent-context-include-handle handle))
+          (ogent-ui-context--render-buffer)
+          (goto-char (ogent-ui-layout--position
+                      'ogent-context-identity (list (list 'dependency handle) 0 (point-min))))
+          (message "Inspecting @%s; add the handle to your source to send it" handle))))))
+
+;;;###autoload
+(defun ogent-ui-context-visit-element ()
+  "Visit the source of the selected context element when it is available."
+  (interactive)
+  (let* ((element (if (derived-mode-p 'ogent-ui-context-detail-mode)
+                      ogent-ui-context--detail-element
+                    (ogent-ui-context--element-at-point)))
+         (buffer (plist-get element :buffer))
+         (position (plist-get element :begin)))
+    (unless (buffer-live-p buffer)
+      (user-error "Source unavailable; RET in the context review shows captured text"))
+    (pop-to-buffer buffer)
+    (when position (goto-char (min position (point-max))))
+    (when (derived-mode-p 'org-mode) (org-fold-show-context))))
 
 (defun ogent-ui-context-preview-element ()
-  "Preview the context element at point in another window."
+  "Read full captured text for the context element at point."
   (interactive)
-  (when-let ((element (ogent-ui-context--element-at-point)))
-    (let ((type (plist-get element :type))
-          (index (plist-get element :index)))
-      (cond
-       ((eq type 'source)
-        (when-let ((source (plist-get ogent-ui-context--context :source-context)))
-          (let ((buf (ogent-source-context-buffer source)))
-            (when (buffer-live-p buf)
-              (pop-to-buffer buf t)))))
-       
-       ((eq type 'root)
-        (when-let ((root (plist-get ogent-ui-context--context :root)))
-          (let ((buf (ogent-context-node-buffer root))
-                (pos (ogent-context-node-begin root)))
-            (when (and (buffer-live-p buf) pos)
-              (pop-to-buffer buf t)
-              (goto-char pos)
-              (org-fold-show-context)))))
-       
-       ((eq type 'ancestor)
-        (when-let ((ancestor (nth index (plist-get ogent-ui-context--context :ancestors))))
-          (let ((buf (ogent-context-node-buffer ancestor))
-                (pos (ogent-context-node-begin ancestor)))
-            (when (and (buffer-live-p buf) pos)
-              (pop-to-buffer buf t)
-              (goto-char pos)
-              (org-fold-show-context)))))
-       
-       ((eq type 'dependency)
-        (let ((deps (plist-get ogent-ui-context--context :dependencies))
-              (dep-index (- index
-                            (if (plist-get ogent-ui-context--context :source-context) 1 0)
-                            (if (plist-get ogent-ui-context--context :root) 1 0)
-                            (length (plist-get ogent-ui-context--context :ancestors)))))
-          (when (and (>= dep-index 0) (< dep-index (length deps)))
-            (let* ((dep (nth dep-index deps))
-                   (node (plist-get dep :node)))
-              (if node
-                  (let ((buf (ogent-context-node-buffer node))
-                        (pos (ogent-context-node-begin node)))
-                    (when (and (buffer-live-p buf) pos)
-                      (pop-to-buffer buf t)
-                      (goto-char pos)
-                      (org-fold-show-context)))
-                (message "Dependency not resolved"))))))))))
+  (let* ((element (or (ogent-ui-context--element-at-point) (user-error "Choose a context element")))
+         (source (plist-get element :buffer))
+         (buffer (get-buffer-create "*ogent context item*")))
+    (with-current-buffer buffer
+      (ogent-ui-context-detail-mode)
+      (setq ogent-ui-context--detail-element element)
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (propertize (plist-get element :name) 'face 'ogent-theme-section-heading) "\n"
+                (format "Type: %s   %d captured chars\n" (plist-get element :type) (plist-get element :chars)))
+        (when-let ((file (plist-get element :file))) (insert "Source: " file "\n"))
+        (when-let ((id (plist-get element :node-id))) (insert "Node ID: " id "\n"))
+        (cond ((plist-get element :missing-p)
+               (insert (propertize "Missing handle: no text was captured.\n" 'face 'ogent-theme-warning)
+                       "Return with q to remove it, or resolve it in your source before sending.\n"))
+              ((buffer-live-p source) (insert "o visits the live source; q returns to the review.\n"))
+              (t (insert "Source unavailable. The captured text remains readable.\n")))
+        (insert "\n" (propertize "Captured text\n" 'face 'ogent-theme-muted)
+                (plist-get element :content) "\n")
+        (goto-char (point-min)) (set-buffer-modified-p nil)))
+    (pop-to-buffer buffer)))
+
 
 ;;;###autoload
 (defun ogent-context-manage (&optional context source-buffer)
@@ -556,7 +593,7 @@ SOURCE-BUFFER is the originating buffer."
          (buf (get-buffer-create ogent-ui-context-buffer-name)))
     (with-current-buffer buf
       (ogent-ui-context-mode)
-      (setq ogent-ui-context--context ctx)
+      (setq ogent-ui-context--context (copy-tree ctx))
       (setq ogent-ui-context--source-buffer src-buf)
       (ogent-ui-context--render-buffer))
     (pop-to-buffer buf)))
@@ -568,7 +605,10 @@ SOURCE-BUFFER is the originating buffer."
   (when (fboundp 'ogent-evil-display-mode-setup)
     (ogent-evil-display-mode-setup
      'ogent-ui-context-mode ogent-ui-context-mode-map
-     'ogent-ui-context-mode-hook)))
+     'ogent-ui-context-mode-hook #'ogent-ui-context-refresh)
+    (ogent-evil-display-mode-setup
+     'ogent-ui-context-detail-mode ogent-ui-context-detail-mode-map
+     'ogent-ui-context-detail-mode-hook)))
 
 (provide 'ogent-ui-context)
 ;;; ogent-ui-context.el ends here

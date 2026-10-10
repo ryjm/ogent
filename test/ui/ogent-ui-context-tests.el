@@ -194,12 +194,12 @@
     (should (string-match-p "100 chars" result))
     (should (string-match-p "This is a preview" result))))
 
-(ert-deftest ogent-ui-context--format-element-truncates-long-names ()
-  "Element formatting should truncate long names with ellipsis."
+(ert-deftest ogent-ui-context--format-element-keeps-full-names ()
+  "Similar long handles remain distinguishable and searchable."
   (let* ((long-name (make-string 50 ?a))
          (result (ogent-ui-context--format-element
                   1 'dependency long-name 100 "preview")))
-    (should (string-match-p "…" result))))
+    (should (string-match-p long-name result))))
 
 (ert-deftest ogent-ui-context--render-buffer-with-source ()
   "Render should display source context element."
@@ -269,7 +269,8 @@
       (should (search-forward "2. [dependency" nil t))
       (should (search-forward "@dep1" nil t))
       (should (search-forward "3. [dependency" nil t))
-      (should (search-forward "@dep2 (missing)" nil t)))))
+      (should (search-forward "@dep2" nil t))
+      (should (search-forward "Missing:" nil t)))))
 
 (ert-deftest ogent-ui-context--element-at-point-recognizes-elements ()
   "Element at point should parse element lines correctly."
@@ -376,7 +377,7 @@
       (goto-char (point-min))
       (search-forward "1. [root")
       (beginning-of-line)
-      (ogent-ui-context-delete-element)
+      (should-error (ogent-ui-context-delete-element) :type 'user-error)
       ;; Root should still be present
       (should (plist-get ogent-ui-context--context :root)))))
 
@@ -429,6 +430,167 @@
         (should (search-forward "test.js" nil t)))
       (kill-buffer buf))
     (set-visited-file-name nil)))
+
+(ert-deftest ogent-ui-context-budget-estimates-text-and-exposes-overflow ()
+  "Character counts produce a useful token estimate and honest overflow."
+  (should (string-match-p "~300 tokens, estimate"
+                          (ogent-ui-context--format-budget-bar 1200 100000)))
+  (should (string-match-p "105%" (ogent-ui-context--format-budget-bar 105000 100000))))
+
+(ert-deftest ogent-ui-context-format-keeps-native-org-headings ()
+  "Formatted snapshots support Org navigation and folding with icons enabled."
+  (with-temp-buffer
+    (org-mode)
+    (insert (ogent-ui-context-format
+             (list :root (make-ogent-context-node :title "Scope" :content "Readable text")
+                   :ancestors nil :dependencies nil)))
+    (goto-char (point-min))
+    (search-forward "* Root")
+    (should (org-at-heading-p))
+    (org-cycle)
+    (should (org-fold-folded-p (line-end-position)))))
+
+(ert-deftest ogent-ui-context-region-lines-use-the-source-buffer ()
+  "Selected-region provenance comes from source lines, not the reader's lines."
+  (let ((source (generate-new-buffer " *context source lines*")))
+    (unwind-protect
+        (progn
+          (with-current-buffer source (insert "one\ntwo\nthree\nfour\n"))
+          (with-temp-buffer
+            (let* ((context (make-ogent-source-context :buffer source :file "source.py" :mode "python-mode"
+                                                       :region-start 9 :region-end 15 :content "three\n"))
+                   (section (ogent-ui-context--format-source-section context)))
+              (should (string-match-p "Selected region (lines 3-4)" (plist-get section :content))))))
+      (kill-buffer source))))
+
+(ert-deftest ogent-ui-context-ancestor-source-uses-the-selected-record ()
+  "Source navigation reaches the correct ancestor in a combined context."
+  (let ((overriding-terminal-local-map nil) (overriding-local-map nil))
+    (save-window-excursion
+      (let ((source (generate-new-buffer " *context ancestors*"))
+            (reader (generate-new-buffer " *context ancestor reader*")))
+	(unwind-protect
+            (progn
+              (with-current-buffer source (org-mode) (insert "* Parent\n** Child\n*** Scope\n"))
+              (switch-to-buffer reader) (ogent-ui-context-mode)
+              (setq ogent-ui-context--context
+                    (list :source-context (make-ogent-source-context :content "code")
+                          :root (make-ogent-context-node :title "Scope")
+                          :ancestors (list (make-ogent-context-node :title "Parent" :buffer source :begin 1)
+                                           (make-ogent-context-node :title "Child" :buffer source :begin 10))))
+              (ogent-ui-context--render-buffer)
+              (ogent-ui-context-next-element) (ogent-ui-context-next-element)
+              (call-interactively (key-binding (kbd "o")))
+              (should (eq (current-buffer) source))
+              (should (= (point) 1)))
+          (kill-buffer source) (kill-buffer reader))))))
+
+(ert-deftest ogent-ui-context-details-retain-captured-text-and-native-return ()
+  "A closed source still has full captured text, and q returns to the selected item."
+  (let ((overriding-terminal-local-map nil) (overriding-local-map nil))
+    (save-window-excursion
+      (let ((source (generate-new-buffer " *context closed source*"))
+            (reader (generate-new-buffer " *context detail origin*"))
+            (text "Complete captured text\nSecond line remains copyable."))
+	(unwind-protect
+            (progn
+              (switch-to-buffer reader) (ogent-ui-context-mode)
+              (setq ogent-ui-context--context
+                    (list :root (make-ogent-context-node :title "Closed source" :buffer source :content text)))
+              (ogent-ui-context--render-buffer)
+              (kill-buffer source)
+              (forward-line 1)
+              (let ((position (point)))
+		(call-interactively (key-binding (kbd "RET")))
+		(should (derived-mode-p 'ogent-ui-context-detail-mode))
+		(should buffer-read-only)
+		(should (string-match-p (regexp-quote text) (buffer-string)))
+		(should (string-match-p "Source unavailable" (buffer-string)))
+		(should-error (ogent-ui-context-visit-element) :type 'user-error)
+		(call-interactively (key-binding (kbd "q")))
+		(should (eq (current-buffer) reader))
+		(should (= (point) position))))
+          (when (buffer-live-p source) (kill-buffer source))
+          (kill-buffer reader)
+          (when-let ((detail (get-buffer "*ogent context item*"))) (kill-buffer detail)))))))
+
+(ert-deftest ogent-ui-context-redraw-preserves-item-offset-after-renumbering ()
+  "Removing an earlier element leaves point on the same captured text."
+  (with-temp-buffer
+    (ogent-ui-context-mode)
+    (setq ogent-ui-context--context
+          (list :root (make-ogent-context-node :title "Root")
+                :dependencies (list (list :handle "keep" :node (make-ogent-context-node :content "Keep this exact word")))))
+    (ogent-ui-context--render-buffer)
+    (goto-char (point-min)) (search-forward "exact")
+    (setq ogent-ui-context--context (plist-put ogent-ui-context--context :root nil))
+    (ogent-ui-context-refresh)
+    (should (looking-back "exact" (line-beginning-position)))
+    (should (equal "@keep" (plist-get (ogent-ui-context--element-at-point) :name)))
+    (should-not (buffer-modified-p))))
+
+(ert-deftest ogent-ui-context-inspect-resolves-at-origin-and-deduplicates ()
+  "Handle inspection resolves real source headings and never duplicates a row."
+  (let ((source (generate-new-buffer " *context handle origin*"))
+        (ogent-context-excluded-handles '("additional")))
+    (unwind-protect
+        (progn
+          (with-current-buffer source
+            (org-mode) (insert "* Additional\n:PROPERTIES:\n:OGENT_ID: additional\n:END:\nFull additional text\n"))
+          (with-temp-buffer
+            (ogent-ui-context-mode)
+            (setq ogent-ui-context--source-buffer source ogent-ui-context--context (list :dependencies nil))
+            (cl-letf (((symbol-function 'read-string) (lambda (&rest _) "@additional")))
+              (ogent-ui-context-add-element)
+              (ogent-ui-context-add-element))
+            (should (= 1 (length (plist-get ogent-ui-context--context :dependencies))))
+            (should (equal "@additional" (plist-get (ogent-ui-context--element-at-point) :name)))
+            (should (string-match-p "Full additional text" (plist-get (ogent-ui-context--element-at-point) :content)))
+            (should-not (member "additional" ogent-context-excluded-handles))))
+      (kill-buffer source))))
+
+(ert-deftest ogent-ui-context-removal-does-not-mutate-the-callers-snapshot ()
+  "Removing an ancestor from the reader preserves its caller's immutable context."
+  (save-window-excursion
+    (with-temp-buffer
+      (let* ((source (current-buffer))
+             (ancestor (make-ogent-context-node :title "Parent" :content "Parent text"))
+             (context (list :root (make-ogent-context-node :title "Root") :ancestors (list ancestor))))
+        (unwind-protect
+            (progn
+              (ogent-context-manage context source)
+              (ogent-ui-context-next-element)
+              (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_) t))) (ogent-ui-context-delete-element))
+              (should-not (plist-get ogent-ui-context--context :ancestors))
+              (should (equal (list ancestor) (plist-get context :ancestors))))
+          (when-let ((reader (get-buffer ogent-ui-context-buffer-name))) (kill-buffer reader)))))))
+
+(ert-deftest ogent-ui-context-navigation-keeps-position-at-boundaries ()
+  "Navigation at either edge keeps the current item and exact position."
+  (with-temp-buffer
+    (ogent-ui-context-mode)
+    (setq ogent-ui-context--context (list :root (make-ogent-context-node :title "Only item" :content "Readable text")))
+    (ogent-ui-context--render-buffer)
+    (forward-line 1)
+    (let ((position (point)))
+      (ogent-ui-context-previous-element) (should (= (point) position))
+      (ogent-ui-context-next-element) (should (= (point) position)))))
+
+(ert-deftest ogent-ui-context-detail-buttons-open-the-same-selected-text ()
+  "Activating a native row button opens that row's full captured text."
+  (save-window-excursion
+    (with-temp-buffer
+      (switch-to-buffer (current-buffer))
+      (ogent-ui-context-mode)
+      (setq ogent-ui-context--context
+            (list :root (make-ogent-context-node :title "Inspect me" :content "Full button text")))
+      (ogent-ui-context--render-buffer)
+      (let ((button (next-button (point-min))))
+        (should button)
+        (button-activate button)
+        (should (derived-mode-p 'ogent-ui-context-detail-mode))
+        (should (string-match-p "Full button text" (buffer-string))))
+      (when-let ((detail (get-buffer "*ogent context item*"))) (kill-buffer detail)))))
 
 (provide 'ogent-ui-context-tests)
 ;;; ogent-ui-context-tests.el ends here

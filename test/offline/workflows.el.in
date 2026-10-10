@@ -14,6 +14,7 @@
 (require 'ogent-armory-native)
 (require 'ogent-workbench-tests)
 (require 'ogent-task-tests)
+(require 'ogent-ui-context)
 
 (ert-deftest ogent-offline-todo-native-lifecycle-uses-isolated-workspace ()
   "A TODO without Armory uses the native model and actual local check process."
@@ -673,6 +674,38 @@
             (should (equal (plist-get (plist-get (gptel-fsm-info fsm) :data) :reasoning_effort)
                             "high"))))
       (setplist 'gpt-6-luna old))))
+
+(ert-deftest ogent-offline-context-review-keeps-source-and-excludes-the-selected-handle ()
+  "Native context inspection preserves source and excludes only the chosen handle."
+  (save-window-excursion
+    (with-temp-buffer
+      (org-mode)
+      (insert "* Review\nInspect @detail.\n* Detail\n:PROPERTIES:\n:OGENT_ID: detail\n:END:\nComplete context text.\n")
+      (goto-char (point-min))
+      (let* ((source (current-buffer))
+             (original (buffer-string))
+             (ogent-context-excluded-handles nil)
+             (context (ogent-context-build-filtered)))
+        (unwind-protect
+            (progn
+              (switch-to-buffer source)
+              (ogent-context-manage context source)
+              (call-interactively (key-binding (kbd "n")))
+              (let ((selected (point)))
+                (call-interactively (key-binding (kbd "RET")))
+                (should (derived-mode-p 'ogent-ui-context-detail-mode))
+                (should (string-match-p "Complete context text" (buffer-string)))
+                (call-interactively (key-binding (kbd "q")))
+                (should (= (point) selected)))
+              (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_) t)))
+                (call-interactively (key-binding (kbd "d"))))
+              (should (equal '("detail") (ogent-context-get-exclusions)))
+              (should (= 1 (length (plist-get context :dependencies))))
+              (with-current-buffer source
+                (should (equal original (buffer-string)))
+                (should-not (plist-get (ogent-context-build-filtered) :dependencies))))
+          (when-let ((reader (get-buffer ogent-ui-context-buffer-name))) (kill-buffer reader))
+          (when-let ((detail (get-buffer "*ogent context item*"))) (kill-buffer detail)))))))
 
 (provide 'ogent-offline-workflows)
 ;;; workflows.el ends here

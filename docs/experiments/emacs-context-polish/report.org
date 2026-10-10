@@ -1,0 +1,87 @@
+#+title: Native context UX pass — 2026-10-10
+
+* Scope and baseline
+
+Applied our =emacs-ui-design=, =emacs-ui-audit=, =emacs-ui-build=,
+=emacs-ui-qa=, accessibility and packaging workflows. This pass focuses on
+context inspection and narrow model-picker descriptions. The previous
+pass covered passage feedback and delegated TODO review.
+
+Five fresh baseline screenshots were captured and inspected before any
+production changes. =before-captures.json= records the source HEAD,
+fingerprint, runtime versions, width, theme, font and image hashes.
+No browser mockups or provider authentication were used.
+
+* Findings and repairs
+
+| Severity | Evidence and user consequence | Repair |
+|----------+-------------------------------+--------|
+| Medium | =before-manager-60.png= and =before-manager-80.png=: names sharing a long prefix are truncated and preview text clips. The user cannot distinguish the included handles. | Full names in wrapped records, readable prose snippets, a missing-item summary, and native detail buttons. |
+| Medium | Baseline actual =n n RET= on the combined source/root/ancestor fixture stays in the manager. Code inspection confirms a global row index is incorrectly reused as an ancestor-list index. | Carry the selected record through every continuation line; =RET= reads complete captured text and =o= visits the correct source. |
+| Medium | Live-source-only previews cannot expose captured text for generated nodes or closed buffers. | A read-only detail reader shows full text, file path and node ID when recorded; missing and closed-source states explain recovery. =q= returns to the selected item. |
+| Medium | Reader changes mutate the caller's plist, while the controls do not explain snapshot-only removal versus session-wide handle exclusions. | Copy incoming context, name each scope in the reader and confirmation, resolve handles at the origin, and prevent duplicate inspection rows. Existing exclusion policy stays in its domain owner. |
+| Medium | =before-formatted-80.png=: a nonempty context reports approximately zero tokens; icons precede Org stars. Actual =org-at-heading-p= returns nil on the root section. | Estimate tokens from the character count, show complete counts and overflow, and put decoration after valid Org heading syntax. Selected-region line numbers come from the actual source buffer. |
+| Low | =before-picker-60.png=: the selected model description clips at the right edge. | Wrap the complete description in the existing transient without changing provider selection or transport. |
+
+Context removal retains its existing semantics: removing source or ancestor
+rows affects this review snapshot only. Removing a handle excludes it from
+subsequent requests in the session. Inspecting an added handle does not
+insert it into the source or automatically send it. The reader names these
+effects explicitly; source files and request transport remain unchanged.
+
+* Verification
+
+Actual GUI and terminal traces exercise 13 checks through native keymaps:
+ancestor details and source navigation, =q= return, boundary navigation,
+text/viewport preservation during redraw, full node provenance, exclusion
+in the next real context build, source and snapshot preservation, originating
+buffer handle resolution, deduplication, missing and closed-source recovery,
+Org folding and provider-free model-picker entry/exit.
+
+An actual X mouse-2 event on the native =inspect.py= button opens its full
+captured text; =q= returns to the manager. =mouse-proof.json= records that
+separate GUI check. The keyboard traces remain 13 checks each.
+
+Terminal coverage includes ASCII, plain Emacs and Evil loaded before and
+after the UI. GTK and terminal Emacs are 30.1; actual Org 9.8.10,
+Transient 0.13.8 and gptel are loaded. Evil is 1.15.0 when enabled. Full
+Doom and Emacspeak installations are unavailable and untested; keyboard
+reachability is not a screen-reader compatibility claim.
+
+Final screenshots cover 60/80/112 columns, light/dark, a split window, a
+larger font, full details, missing and empty states, and the model picker.
+Each final saved image is inspected. =after-captures.json= records exact
+source bytes and hashes. The source HEAD names the checkout; it does not
+claim uncommitted working-tree edits were already present in that commit.
+
+Repository verification runs 3,300 tests on both supported Emacs releases
+and 239 tests for each release/current-or-minimum-gptel dependency pair,
+with store-isolation checks and strict lint. The archived
+logs and =verification/summary.json= record executed results and expected
+optional skips. A new actual-dependency test checks the full context
+review/exclusion journey. All evidence uses owned local fixtures.
+
+No measured latency bottleneck was established, so this pass makes no
+performance claim or global tuning change. The lessons were folded back
+into the build/QA skills and researched Emacs patterns.
+
+* Reproduce
+
+The fixture assumes the repository at =/work=, runtime packages under
+=/tmp/ogent-ui-elpa=, and optional Evil at =/tmp/ogent-ui-evil=.
+Launch GTK Emacs under Xvfb =:99= with =fixture.el.in= and frame name
+=ogent-context-polish=. Run =capture.py before= on the baseline and
+=capture.py after= on final source. Keep baseline images unchanged.
+
+Use =OGENT_CONTEXT_EVIL= for late Evil, =OGENT_CONTEXT_EVIL_EARLY= for early
+Evil, or neither for plain Emacs. =OGENT_CONTEXT_ASCII= enables ASCII.
+Set =OGENT_CONTEXT_PROOF= to the output file before launching Emacs, then
+load =keyboard.el.in=. The trace closes an owned source buffer, so restart
+the fixture before final captures. Fresh processes also verify new keymaps.
+
+Executed checks are =make test-isolation= on Emacs 29.1/30.2,
+=make offline-test= across both releases and both gptel versions, and
+=make lint sandbox=/tmp/ogent-fixdeps format=json=. =verify.py= archives
+passing results and refuses missing traces or mismatched capture hashes.
+CI must pass for the exact pushed master SHA; its URL accompanies the
+published change.

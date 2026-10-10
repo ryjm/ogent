@@ -53,3 +53,6 @@ Adoption snapshot: Doom 22,737; Magit 7,241; gptel 3,547; Nano 2,946; Doom theme
 - Review readers need full comments, original passages, saved drafts and a direct route to their live diff or check output. Keep return paths native. Refresh should retain item identity and relative text/window positions when the preamble changes.
 - Available task actions follow lifecycle state. Running checks must say running; cancelled checks must say cancelled. An earlier exit code and an earlier patch must not appear to be the outcome of an active revision.
 - Verify changed reader keymaps in a fresh Emacs process. Reloading a `defvar` does not replace the old map, even when the new command definitions have loaded.
+
+- Context inventories should carry record identity through wrapped continuation lines and expose full captured text independently of a live buffer. Similar long handles must stay distinguishable. Native text buttons give link styling actual mouse/RET behavior.
+- Review snapshots and future request policy are different scopes; name the effect of each control. Resolve new handles at the originating Org buffer and preserve immutable caller context. Keep Org stars in column zero so decoration does not disable folding. Character-based budget estimates should display real counts and percentages above 100%.

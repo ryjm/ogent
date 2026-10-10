@@ -1,0 +1,90 @@
+;;; keyboard.el.in --- Actual native context keys -*- lexical-binding: t; -*-
+(select-window (frame-selected-window))
+(setq ogent-context-excluded-handles nil)
+(ogent-context-lab-open)
+(goto-char (point-min)) (execute-kbd-macro (kbd "n"))
+(setq ogent-context-lab-original (with-current-buffer ogent-context-lab-org (buffer-string)))
+(setq ogent-context-lab-reader (current-buffer))
+(execute-kbd-macro (kbd "n n RET"))
+(cl-assert (derived-mode-p 'ogent-ui-context-detail-mode))
+(cl-assert (string-match-p "Product direction" (buffer-string)))
+(cl-assert (string-match-p "Notes and decisions stay" (buffer-string)))
+(execute-kbd-macro (kbd "q"))
+(cl-assert (eq (current-buffer) ogent-context-lab-reader))
+(execute-kbd-macro (kbd "o"))
+(cl-assert (eq (current-buffer) ogent-context-lab-org))
+(cl-assert (equal "Product direction" (org-get-heading t t t t)))
+(ogent-context-lab-open)
+(goto-char (point-min)) (execute-kbd-macro (kbd "n p"))
+(cl-assert (equal "inspect.py" (plist-get (ogent-ui-context--element-at-point) :name)))
+(ogent-context-lab-select-handle "native-context-selection-preservation")
+(forward-line 1) (search-forward "selected")
+(let ((key (if (and (fboundp 'evil-local-mode) evil-local-mode) "gr" "g"))
+      (offset (point)))
+  (set-window-start nil (line-beginning-position) t)
+  (let ((start (window-start)))
+    (execute-kbd-macro (kbd key))
+    (cl-assert (= offset (point)))
+    (cl-assert (= start (window-start)))))
+(cl-assert (equal "@native-context-selection-preservation" (plist-get (ogent-ui-context--element-at-point) :name)))
+(execute-kbd-macro (kbd "RET"))
+(cl-assert (string-match-p "distinguishable in a narrow window" (buffer-string)))
+(cl-assert (string-match-p "Node ID: native-context-selection-preservation" (buffer-string)))
+(execute-kbd-macro (kbd "q"))
+(execute-kbd-macro (vconcat (kbd "d") (string-to-vector "yes") (kbd "RET")))
+(cl-assert (member "native-context-selection-preservation" (ogent-context-get-exclusions)))
+(cl-assert (= 3 (length (plist-get ogent-context-lab-context :dependencies))))
+(with-current-buffer ogent-context-lab-org
+  (cl-assert (equal ogent-context-lab-original (buffer-string)))
+  (goto-char ogent-context-lab-origin)
+  (cl-assert (not (cl-find "native-context-selection-preservation"
+                          (plist-get (ogent-context-build-filtered) :dependencies)
+                          :key (lambda (dep) (plist-get dep :handle)) :test #'equal))))
+(execute-kbd-macro (vconcat (kbd "a") (string-to-vector "@added-context-note") (kbd "RET")))
+(cl-assert (equal "@added-context-note" (plist-get (ogent-ui-context--element-at-point) :name)))
+(cl-assert (string-match-p "Resolve this handle in the originating Org buffer" (plist-get (ogent-ui-context--element-at-point) :content)))
+(let ((count (length (ogent-ui-context--elements))))
+  (execute-kbd-macro (vconcat (kbd "a") (string-to-vector "added-context-note") (kbd "RET")))
+  (cl-assert (= count (length (ogent-ui-context--elements)))))
+(ogent-context-lab-select-handle "missing-context-evidence")
+(execute-kbd-macro (kbd "RET"))
+(cl-assert (string-match-p "Missing handle: no text was captured" (buffer-string)))
+(execute-kbd-macro (kbd "q"))
+(goto-char (point-min)) (search-forward "inspect.py")
+(kill-buffer ogent-context-lab-code)
+(execute-kbd-macro (kbd "RET"))
+(cl-assert (string-match-p "Source unavailable" (buffer-string)))
+(cl-assert (string-match-p "def inspect_context(items):" (buffer-string)))
+(execute-kbd-macro (kbd "q"))
+(ogent-context-lab-format)
+(search-forward "* Root")
+(cl-assert (org-at-heading-p))
+(org-cycle)
+(cl-assert (org-fold-folded-p (line-end-position)))
+(switch-to-buffer ogent-context-lab-org)
+(delete-other-windows)
+(ogent-model-picker)
+(cl-assert transient--prefix)
+(execute-kbd-macro (kbd "q"))
+(cl-assert (= 0 ogent-context-lab-provider-attempts))
+(with-temp-file (getenv "OGENT_CONTEXT_PROOF")
+  (insert (json-serialize
+           (list :provider_requests :false :provider_attempts ogent-context-lab-provider-attempts
+                 :emacs emacs-version :org (org-version) :transient transient-version
+                 :evil (if (featurep 'evil) evil-version "absent")
+                 :source_libraries (vector (symbol-file 'ogent-ui-context-preview-element)
+                                           (symbol-file 'ogent-ui-models--status-description))
+                 :checks ["actual ancestor RET details and q return"
+                          "ancestor source navigation uses selected record"
+                          "navigation keeps the first item at its boundary"
+                          "redraw retains item text position and viewport"
+                          "full detail text and node ID remain readable"
+                          "exclusion changes the next real context build"
+                          "reader edits preserve caller snapshot and source text"
+                          "handle inspection resolves in originating Org buffer"
+                          "repeated handle inspection never duplicates a row"
+                          "missing handle reader explains recovery"
+                          "closed source keeps full captured text"
+                          "formatted Org supports native folding"
+                          "model picker opens and quits without providers"]))))
+(message "13 native context checks passed; no providers")

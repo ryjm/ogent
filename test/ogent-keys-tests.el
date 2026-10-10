@@ -826,6 +826,10 @@ so the `ogent-keys-reserved-chords-stay-free' guard retired with it."
      . "Intentional M-x-only Armory root picker (prompts for DIRECTORY); NOT superseded - `ogent-armory-apps-open' opens the item at point, a different operation (9cm triage)")
     (ogent-context-manage
      . "Documented M-x context manager (docs/how-it-works.org)")
+    (ogent-ui-context-refresh
+     . "Local g/gr redraw in ogent-ui-context-mode-map, reached through ogent-context-manage")
+    (ogent-ui-context-visit-element
+     . "Local o source action in context manager/detail keymaps, documented in docs/getting-started.md")
     (ogent-status-mode
      . "Minor-mode toggle; enabled programmatically by status surfaces")
     (ogent-show-errors

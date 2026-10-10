@@ -302,6 +302,21 @@ source, so only it may be removed."
           (should (string-match-p "via default" status))
           (should (string-match-p "deep" status)))))))
 
+(ert-deftest ogent-ui-models-status-keeps-full-description-in-narrow-windows ()
+  "A narrow picker keeps the complete model description readable."
+  (ogent-ui-models-tests--with-registry
+    (with-temp-buffer
+      (let* ((description "A frontier model with readable context and complete tool support for careful native editing")
+             (gptel-model nil)
+             (transient--original-buffer (current-buffer)))
+        (plist-put (car ogent-model-registry) :description description)
+        (cl-letf (((symbol-function 'ogent-ui-models--display-width) (lambda () 60)))
+          (let ((status (ogent-ui-models--status-description)))
+            (should (string-match-p (regexp-quote description)
+                                    (replace-regexp-in-string "[[:space:]]+" " " status)))
+            (dolist (line (split-string status "\n"))
+              (should (<= (string-width line) 60)))))))))
+
 (ert-deftest ogent-ui-models-current-catalog-is-available-offline ()
   "Picker completions and browser expose current models without provider calls."
   (let ((ids '("gpt-6-astra" "gpt-6.1-sol" "gpt-6-luna"
